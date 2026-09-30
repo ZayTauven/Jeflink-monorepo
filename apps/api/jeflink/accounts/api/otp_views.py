@@ -15,8 +15,7 @@ from rest_framework.views import APIView
 
 from jeflink.accounts.client_challenge import client_challenge_required
 from jeflink.accounts.otp import CODE_LENGTH, VerifyResult, request_otp, resend_otp, verify_otp
-from jeflink.accounts.phone import phone_display
-from jeflink.accounts.selectors import active_roles
+from jeflink.accounts.selectors import account_profile
 from jeflink.common.client_ip import is_trusted_bff_request
 from jeflink.common.errors import DomainError
 
@@ -132,31 +131,14 @@ class OtpResendView(APIView):
 
 
 def _verify_body(result: VerifyResult) -> dict:
-    user = result.user
-    roles = sorted(active_roles(user))
-    if result.restricted:
-        # Numéro peut-être recyclé : rien de l'ancien titulaire (nom, rôles, langue) (I2).
-        profile = {"display_name": "", "profile_status": "guest", "preferred_language": "fr"}
-        restriction_kind = "pro" if {"owner", "technician"} & set(roles) else "client"
-        roles = []
-    else:
-        profile = {
-            "display_name": user.display_name,
-            "profile_status": user.profile_status,
-            "preferred_language": user.preferred_language,
-        }
-        restriction_kind = None
+    # Numéro peut-être recyclé : rien de l'ancien titulaire (nom, rôles, langue) (I2).
+    profile = account_profile(result.user, restricted=result.restricted)
     return {
         "status": "authenticated",
-        "user": {
-            "public_id": user.public_id,
-            "phone_display": phone_display(user.phone),
-            **profile,
-            "roles": roles,
-        },
+        "user": profile,
         "is_new_user": result.is_new_user,
         "restricted": result.restricted,
-        "restriction_kind": restriction_kind,
+        "restriction_kind": profile["restriction_kind"],
         "other_sessions": [
             {
                 "public_id": s.public_id,

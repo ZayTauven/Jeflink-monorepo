@@ -171,6 +171,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/me/:
+    get:
+      operationId: me_retrieve
+      description: Profil du compte. Une session restreinte lit un profil minimal
+        mais ne modifie rien.
+      tags:
+      - me
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+    patch:
+      operationId: me_update
+      description: Profil du compte. Une session restreinte lit un profil minimal
+        mais ne modifie rien.
+      tags:
+      - me
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdateRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+        '400':
+          description: display_name_length, display_name_invalid, display_name_reserved
+        '403':
+          description: session_restricted
   /api/me/sessions/:
     get:
       operationId: me_sessions_list
@@ -357,6 +399,51 @@ components:
           type: string
       required:
       - status
+    Me:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+        phone_display:
+          type: string
+        display_name:
+          type: string
+        email:
+          type: string
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+        profile_status:
+          $ref: '#/components/schemas/ProfileStatusEnum'
+        roles:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        restricted:
+          type: boolean
+        restriction_kind:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RestrictionKindEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - created_at
+      - display_name
+      - email
+      - phone
+      - phone_display
+      - preferred_language
+      - profile_status
+      - public_id
+      - restricted
+      - restriction_kind
+      - roles
     NullEnum:
       enum:
       - null
@@ -517,6 +604,37 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DeviceSession'
+    PatchedMeUpdateRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          maxLength: 256
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+    PreferredLanguageEnum:
+      enum:
+      - fr
+      - wo
+      type: string
+      description: |-
+        * `fr` - Français
+        * `wo` - Wolof
+    ProfileStatusEnum:
+      enum:
+      - guest
+      - complete
+      type: string
+      description: |-
+        * `guest` - Invité
+        * `complete` - Complet
     RefreshRequestRequest:
       type: object
       properties:

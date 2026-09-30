@@ -1,4 +1,4 @@
-"""Vues d'authentification et de sessions. Permissions + désérialisation + service, rien d'autre."""
+"""Vues de sessions et de profil. Permissions + désérialisation + service, rien d'autre."""
 
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -8,9 +8,10 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from jeflink.accounts.models import DeviceSession
+from jeflink.accounts.models import DeviceSession, User
 from jeflink.accounts.permissions import AllowRestrictedSession, IsClient, token_claims
-from jeflink.accounts.selectors import active_sessions_for
+from jeflink.accounts.selectors import account_profile, active_sessions_for
+from jeflink.accounts.services import update_profile
 from jeflink.accounts.sessions import (
     TokenPair,
     refresh_session,
@@ -18,7 +19,13 @@ from jeflink.accounts.sessions import (
     revoke_session,
 )
 
-from .serializers import DeviceSessionSerializer, RefreshRequestSerializer, TokenPairSerializer
+from .serializers import (
+    DeviceSessionSerializer,
+    MeSerializer,
+    MeUpdateSerializer,
+    RefreshRequestSerializer,
+    TokenPairSerializer,
+)
 
 
 def _token_response(pair: TokenPair) -> Response:
@@ -65,6 +72,43 @@ class LogoutView(APIView):
         if session is not None:
             revoke_session(session, reason=DeviceSession.RevokedReason.LOGOUT)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MeView(APIView):
+    """Profil du compte. Une session restreinte lit un profil minimal mais ne modifie rien."""
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            # Profil minimal : l'app sait quel écran de compte dormant afficher (I2).
+            return [AllowRestrictedSession()]
+        return [IsClient()]
+
+    @staticmethod
+    def _body(request: Request, user: User) -> dict:
+        restricted = bool(token_claims(request).get("restricted", False))
+        return MeSerializer(account_profile(user, restricted=restricted)).data
+
+    @extend_schema(tags=["me"], operation_id="me_retrieve", responses=MeSerializer)
+    def get(self, request: Request) -> Response:
+        return Response(self._body(request, request.user))
+
+    @extend_schema(
+        tags=["me"],
+        operation_id="me_update",
+        request=MeUpdateSerializer,
+        responses={
+            200: MeSerializer,
+            400: OpenApiResponse(
+                description="display_name_length, display_name_invalid, display_name_reserved"
+            ),
+            403: OpenApiResponse(description="session_restricted"),
+        },
+    )
+    def patch(self, request: Request) -> Response:
+        serializer = MeUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = update_profile(user=request.user, **serializer.validated_data)
+        return Response(self._body(request, user))
 
 
 class MySessionsView(generics.ListAPIView):

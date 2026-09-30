@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from jeflink.accounts.models import DeviceSession
+from jeflink.accounts.models import DeviceSession, User
 
 
 class RefreshRequestSerializer(serializers.Serializer):
@@ -114,3 +114,31 @@ class OtpVerifyResponseSerializer(serializers.Serializer):
     other_sessions = OtherSessionSerializer(many=True)
     pending_invitations = serializers.ListField(child=serializers.DictField())
     tokens = TokenPairSerializer()
+
+
+# --- Profil ----------------------------------------------------------------------------------
+
+
+class MeSerializer(serializers.Serializer):
+    public_id = serializers.UUIDField()
+    phone = serializers.CharField()
+    phone_display = serializers.CharField()
+    display_name = serializers.CharField()
+    email = serializers.CharField()
+    preferred_language = serializers.ChoiceField(choices=User.Language.choices)
+    profile_status = serializers.ChoiceField(choices=User.ProfileStatus.choices)
+    roles = serializers.ListField(child=serializers.CharField())
+    # Nul pour une session restreinte : rien de l'ancien titulaire (I2).
+    created_at = serializers.DateTimeField(allow_null=True)
+    restricted = serializers.BooleanField()
+    restriction_kind = serializers.ChoiceField(choices=["client", "pro"], allow_null=True)
+
+
+class MeUpdateSerializer(serializers.Serializer):
+    # Borne de taille seulement : les règles du nom (2 à 80 caractères, termes réservés…)
+    # sont celles du service, avec leurs codes d'erreur propres.
+    display_name = serializers.CharField(
+        max_length=256, required=False, allow_blank=True, trim_whitespace=False
+    )
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
+    preferred_language = serializers.ChoiceField(choices=User.Language.choices, required=False)

@@ -9,6 +9,7 @@ from jeflink.trust.services import audit
 
 from .models import Role, RoleGrant, User
 from .phone import normalize_phone, phone_display, phone_region
+from .validators import clean_display_name
 
 __all__ = [
     "grant_role",
@@ -16,7 +17,44 @@ __all__ = [
     "phone_display",
     "phone_region",
     "revoke_role",
+    "update_profile",
 ]
+
+
+@transaction.atomic
+def update_profile(
+    *,
+    user: User,
+    display_name: str | None = None,
+    email: str | None = None,
+    preferred_language: str | None = None,
+) -> User:
+    """Mise à jour du profil par son titulaire. ``None`` laisse le champ inchangé.
+
+    Donner un nom fait passer l'invité à complet. Le nom ne peut pas être vidé : un profil
+    complet ne redevient jamais invité. L'e-mail est informatif, jamais vérifié ni utilisé
+    pour la récupération (S27) ; une chaîne vide l'efface.
+    """
+    user = User.objects.select_for_update(no_key=True).get(pk=user.pk)
+    # Relu sur la ligne verrouillée : une suppression ou une désactivation concurrente gagne.
+    if not user.is_active or user.is_deleted:
+        raise DomainError("account_disabled", status=403)
+    changed: list[str] = []
+    if display_name is not None:
+        user.display_name = clean_display_name(display_name)
+        user.profile_status = User.ProfileStatus.COMPLETE
+        changed += ["display_name", "profile_status"]
+    if email is not None:
+        user.email = User.objects.normalize_email(email.strip())
+        changed.append("email")
+    if preferred_language is not None:
+        if preferred_language not in User.Language.values:
+            raise DomainError("language_invalid")
+        user.preferred_language = preferred_language
+        changed.append("preferred_language")
+    if changed:
+        user.save(update_fields=[*changed, "updated_at"])
+    return user
 
 
 @transaction.atomic

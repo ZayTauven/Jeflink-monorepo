@@ -9,6 +9,7 @@ urlpatterns = [
     path("auth/otp/verify/", otp_views.OtpVerifyView.as_view(), name="auth-otp-verify"),
     path("auth/token/refresh/", views.TokenRefreshView.as_view(), name="auth-token-refresh"),
     path("auth/logout/", views.LogoutView.as_view(), name="auth-logout"),
+    path("me/", views.MeView.as_view(), name="me"),
     path("me/sessions/", views.MySessionsView.as_view(), name="me-sessions"),
     path(
         "me/sessions/revoke-others/",

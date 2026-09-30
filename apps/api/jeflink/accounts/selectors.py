@@ -1,7 +1,10 @@
+from typing import Any
+
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from .models import DeviceSession, RoleGrant, User
+from .models import DeviceSession, Role, RoleGrant, User
+from .phone import phone_display
 
 
 def active_roles(user: User) -> set[str]:
@@ -9,6 +12,43 @@ def active_roles(user: User) -> set[str]:
     return set(
         RoleGrant.objects.filter(user=user, revoked_at__isnull=True).values_list("role", flat=True)
     )
+
+
+def account_profile(user: User, *, restricted: bool) -> dict[str, Any]:
+    """Profil du compte vu par son titulaire (``GET /api/me/``, réponse de ``otp/verify``).
+
+    Session restreinte (compte dormant, numéro peut-être recyclé) : rien de l'ancien titulaire,
+    seulement le numéro que la session vient de prouver et le type d'écran à afficher (I2).
+    """
+    roles = sorted(active_roles(user))
+    profile: dict[str, Any] = {
+        "public_id": user.public_id,
+        "phone": user.phone,
+        "phone_display": phone_display(user.phone),
+        "restricted": restricted,
+    }
+    if restricted:
+        is_pro = bool({Role.OWNER, Role.TECHNICIAN} & set(roles))
+        return {
+            **profile,
+            "display_name": "",
+            "email": "",
+            "preferred_language": User.Language.FR,
+            "profile_status": User.ProfileStatus.GUEST,
+            "roles": [],
+            "created_at": None,
+            "restriction_kind": "pro" if is_pro else "client",
+        }
+    return {
+        **profile,
+        "display_name": user.display_name,
+        "email": user.email,
+        "preferred_language": user.preferred_language,
+        "profile_status": user.profile_status,
+        "roles": roles,
+        "created_at": user.created_at,
+        "restriction_kind": None,
+    }
 
 
 def has_role(user: User, *roles: str) -> bool:

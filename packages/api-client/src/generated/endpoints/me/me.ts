@@ -25,12 +25,14 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  Me,
   MeSessionsListParams,
-  PaginatedDeviceSessionList
+  PaginatedDeviceSessionList,
+  PatchedMeUpdateRequest
 } from '../../model';
 
 import { jeflinkFetch } from '../../../http.ts';
-import type { ErrorType } from '../../../http.ts';
+import type { ErrorType , BodyType } from '../../../http.ts';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -56,7 +58,224 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export type meSessionsListResponse200 = {
+export type meRetrieveResponse200 = {
+  data: Me
+  status: 200
+}
+
+export type meRetrieveResponseSuccess = (meRetrieveResponse200) & {
+  headers: Headers;
+};
+;
+
+export type meRetrieveResponse = (meRetrieveResponseSuccess)
+
+export const getMeRetrieveUrl = () => {
+
+
+
+
+  return `/api/me/`
+}
+
+/**
+ * Profil du compte. Une session restreinte lit un profil minimal mais ne modifie rien.
+ */
+export const meRetrieve = async ( options?: Parameters<typeof jeflinkFetch>[1]): Promise<meRetrieveResponse> => {
+
+  return jeflinkFetch<meRetrieveResponse>(getMeRetrieveUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getMeRetrieveQueryKey = () => {
+    return [
+    `/api/me/`
+    ] as const;
+    }
+
+
+export const getMeRetrieveQueryOptions = <TData = Awaited<ReturnType<typeof meRetrieve>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof meRetrieve>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMeRetrieveQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof meRetrieve>>> = ({ signal }) => meRetrieve({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof meRetrieve>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type MeRetrieveQueryResult = NonNullable<Awaited<ReturnType<typeof meRetrieve>>>
+export type MeRetrieveQueryError = ErrorType<unknown>
+
+
+export function useMeRetrieve<TData = Awaited<ReturnType<typeof meRetrieve>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof meRetrieve>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof meRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof meRetrieve>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMeRetrieve<TData = Awaited<ReturnType<typeof meRetrieve>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof meRetrieve>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof meRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof meRetrieve>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMeRetrieve<TData = Awaited<ReturnType<typeof meRetrieve>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof meRetrieve>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useMeRetrieve<TData = Awaited<ReturnType<typeof meRetrieve>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof meRetrieve>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMeRetrieveQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type meUpdateResponse200 = {
+  data: Me
+  status: 200
+}
+
+export type meUpdateResponse400 = {
+  data: void
+  status: 400
+}
+
+export type meUpdateResponse403 = {
+  data: void
+  status: 403
+}
+
+export type meUpdateResponseSuccess = (meUpdateResponse200) & {
+  headers: Headers;
+};
+export type meUpdateResponseError = (meUpdateResponse400 | meUpdateResponse403) & {
+  headers: Headers;
+};
+
+export type meUpdateResponse = (meUpdateResponseSuccess | meUpdateResponseError)
+
+export const getMeUpdateUrl = () => {
+
+
+
+
+  return `/api/me/`
+}
+
+/**
+ * Profil du compte. Une session restreinte lit un profil minimal mais ne modifie rien.
+ */
+export const meUpdate = async (patchedMeUpdateRequest?: PatchedMeUpdateRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<meUpdateResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<meUpdateResponse>(getMeUpdateUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(patchedMeUpdateRequest)
+  }
+);}
+
+
+
+
+
+export const getMeUpdateMutationKey = () => ['meUpdate'] as const;
+
+export const getMeUpdateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meUpdate>>, TError,MeUpdateMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof meUpdate>>, TError,MeUpdateMutationVariables, TContext> => {
+
+const mutationKey = getMeUpdateMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof meUpdate>>, MeUpdateMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  meUpdate(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MeUpdateMutationResult = NonNullable<Awaited<ReturnType<typeof meUpdate>>>
+    export type MeUpdateMutationBody = BodyType<PatchedMeUpdateRequest> | undefined
+    export type MeUpdateMutationError = ErrorType<void>
+    export type MeUpdateMutationVariables = {data?: BodyType<PatchedMeUpdateRequest>}
+
+    export const useMeUpdate = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meUpdate>>, TError,MeUpdateMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof meUpdate>>,
+        TError,
+        MeUpdateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMeUpdateMutationOptions(options), queryClient);
+    }
+    export type meSessionsListResponse200 = {
   data: PaginatedDeviceSessionList
   status: 200
 }
