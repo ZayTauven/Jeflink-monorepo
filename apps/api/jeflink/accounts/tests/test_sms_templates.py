@@ -32,3 +32,16 @@ def test_gabarits_client_et_pro_distincts():
 def test_ligne_webotp_pour_le_web():
     body = otp_sms_body(app="web", purpose="login", code="482913")
     assert body.splitlines()[-1] == "@jeflink.sn #482913"
+
+
+@pytest.mark.parametrize("kind", ["invitation", "phone_changed"])
+@pytest.mark.parametrize("language", ["fr", "wo"])
+def test_sms_d_information_gsm7_un_seul_sms_sans_donnee(kind, language):
+    """Chaque gabarit d'information passe en GSM-7 sur un seul SMS (un « ê » le casserait)."""
+    from jeflink.accounts.models import NoticeSms
+    from jeflink.accounts.sms_templates import notice_sms_body
+
+    assert kind in NoticeSms.Kind.values
+    body = notice_sms_body(kind=kind, language=language)
+    assert is_gsm7(body) and segments(body) == 1
+    assert "+221" not in body

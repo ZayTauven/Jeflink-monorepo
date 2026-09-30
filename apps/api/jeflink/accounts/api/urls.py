@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import deletion_views, mfa_views, ops_views, otp_views, views
+from . import deletion_views, mfa_views, ops_views, otp_views, phone_change_views, views
 
 urlpatterns = [
     path("auth/config/", otp_views.AuthConfigView.as_view(), name="auth-config"),
@@ -14,6 +14,29 @@ urlpatterns = [
     path("auth/token/refresh/", views.TokenRefreshView.as_view(), name="auth-token-refresh"),
     path("auth/logout/", views.LogoutView.as_view(), name="auth-logout"),
     path("me/", views.MeView.as_view(), name="me"),
+    path(
+        "auth/phone-change/confirm/",
+        phone_change_views.PhoneChangeConfirmView.as_view(),
+        name="auth-phone-change-confirm",
+    ),
+    path(
+        "ops/accounts/<uuid:public_id>/phone-change/",
+        phone_change_views.PhoneChangeCreateView.as_view(),
+        name="ops-phone-change",
+    ),
+    path(
+        "ops/phone-changes/",
+        phone_change_views.PhoneChangeListView.as_view(),
+        name="ops-phone-changes",
+    ),
+    *[
+        path(f"ops/phone-changes/<uuid:public_id>/{slug}/", view.as_view(), name=f"ops-pc-{slug}")
+        for slug, view in (
+            ("approve", phone_change_views.PhoneChangeApproveView),
+            ("reject", phone_change_views.PhoneChangeRejectView),
+            ("resend-code", phone_change_views.PhoneChangeResendView),
+        )
+    ],
     path("ops/accounts/search/", ops_views.OpsAccountSearchView.as_view(), name="ops-search"),
     path(
         "ops/accounts/<uuid:public_id>/",

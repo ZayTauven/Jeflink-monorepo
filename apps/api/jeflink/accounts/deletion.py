@@ -29,6 +29,7 @@ from .models import (
     MfaChallenge,
     NoticeSms,
     OtpChallenge,
+    PhoneChangeRequest,
     Role,
     RoleInvitation,
     User,
@@ -140,6 +141,10 @@ def _anonymize(user: User, *, reason: str, session_public_id=None) -> None:
     MfaChallenge.objects.filter(user=user).update(device_label="", install_id="")
     user.groups.clear()
     user.user_permissions.clear()
+    # Demandes de changement de numéro ouvertes : closes, nouveau numéro effacé.
+    PhoneChangeRequest.objects.filter(user=user, status__in=PhoneChangeRequest.OPEN).update(
+        status=PhoneChangeRequest.Status.EXPIRED, new_phone="", updated_at=timezone.now()
+    )
     OtpChallenge.objects.filter(user=user).delete()
     if phone:
         OtpChallenge.objects.filter(phone=phone).delete()

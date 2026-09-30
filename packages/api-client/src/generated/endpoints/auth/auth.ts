@@ -32,6 +32,7 @@ import type {
   OtpResendRequest,
   OtpVerifyRequest,
   OtpVerifyResponse,
+  PhoneChangeConfirmRequest,
   RefreshRequestRequest,
   StepUpRequestRequest,
   TokenPair,
@@ -1004,6 +1005,119 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getAuthOtpVerifyMutationOptions(options), queryClient);
+    }
+    export type authPhoneChangeConfirmResponse200 = {
+  data: OtpVerifyResponse
+  status: 200
+}
+
+export type authPhoneChangeConfirmResponse400 = {
+  data: void
+  status: 400
+}
+
+export type authPhoneChangeConfirmResponse403 = {
+  data: void
+  status: 403
+}
+
+export type authPhoneChangeConfirmResponse409 = {
+  data: void
+  status: 409
+}
+
+export type authPhoneChangeConfirmResponseSuccess = (authPhoneChangeConfirmResponse200) & {
+  headers: Headers;
+};
+export type authPhoneChangeConfirmResponseError = (authPhoneChangeConfirmResponse400 | authPhoneChangeConfirmResponse403 | authPhoneChangeConfirmResponse409) & {
+  headers: Headers;
+};
+
+export type authPhoneChangeConfirmResponse = (authPhoneChangeConfirmResponseSuccess | authPhoneChangeConfirmResponseError)
+
+export const getAuthPhoneChangeConfirmUrl = () => {
+
+
+
+
+  return `/api/auth/phone-change/confirm/`
+}
+
+/**
+ * « J'ai changé de numéro » : l'utilisateur saisit le code reçu sur le nouveau numéro.
+ */
+export const authPhoneChangeConfirm = async (phoneChangeConfirmRequest: PhoneChangeConfirmRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<authPhoneChangeConfirmResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<authPhoneChangeConfirmResponse>(getAuthPhoneChangeConfirmUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(phoneChangeConfirmRequest)
+  }
+);}
+
+
+
+
+
+export const getAuthPhoneChangeConfirmMutationKey = () => ['authPhoneChangeConfirm'] as const;
+
+export const getAuthPhoneChangeConfirmMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authPhoneChangeConfirm>>, TError,AuthPhoneChangeConfirmMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authPhoneChangeConfirm>>, TError,AuthPhoneChangeConfirmMutationVariables, TContext> => {
+
+const mutationKey = getAuthPhoneChangeConfirmMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authPhoneChangeConfirm>>, AuthPhoneChangeConfirmMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authPhoneChangeConfirm(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthPhoneChangeConfirmMutationResult = NonNullable<Awaited<ReturnType<typeof authPhoneChangeConfirm>>>
+    export type AuthPhoneChangeConfirmMutationBody = BodyType<PhoneChangeConfirmRequest>
+    export type AuthPhoneChangeConfirmMutationError = ErrorType<void>
+    export type AuthPhoneChangeConfirmMutationVariables = {data: BodyType<PhoneChangeConfirmRequest>}
+
+    export const useAuthPhoneChangeConfirm = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authPhoneChangeConfirm>>, TError,AuthPhoneChangeConfirmMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authPhoneChangeConfirm>>,
+        TError,
+        AuthPhoneChangeConfirmMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthPhoneChangeConfirmMutationOptions(options), queryClient);
     }
     export type authTokenRefreshResponse200 = {
   data: TokenPair

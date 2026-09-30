@@ -252,6 +252,40 @@ paths:
           description: otp_already_used
         '429':
           description: otp_locked
+  /api/auth/phone-change/confirm/:
+    post:
+      operationId: auth_phone_change_confirm
+      description: '« J''ai changé de numéro » : l''utilisateur saisit le code reçu
+        sur le nouveau numéro.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeConfirmRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '400':
+          description: otp_invalid, terms_not_accepted, phone_invalid
+        '403':
+          description: account_disabled
+        '409':
+          description: otp_already_used, phone_in_use
   /api/auth/token/refresh/:
     post:
       operationId: auth_token_refresh
@@ -635,6 +669,48 @@ paths:
           description: ops_rate_limited (+ retry_after)
         '404':
           description: not_found
+  /api/ops/accounts/{public_id}/phone-change/:
+    post:
+      operationId: ops_accounts_phone_change
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneChangeRequest'
+          description: ''
+        '400':
+          description: phone_invalid, phone_unchanged, reason_invalid, note_invalid
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_second_operator_required
+        '404':
+          description: not_found
+        '409':
+          description: phone_in_use, phone_change_in_progress, account_disabled
+        '429':
+          description: otp_rate_limited, phone_change_codes_exhausted
   /api/ops/accounts/{public_id}/reactivate/:
     post:
       operationId: ops_accounts_reactivate
@@ -821,6 +897,110 @@ paths:
           description: ''
         '400':
           description: phone_invalid
+  /api/ops/phone-changes/:
+    get:
+      operationId: ops_phone_changes_list
+      description: Demandes ouvertes, pour que le second Ops trouve celles à approuver.
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - ops-accounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPhoneChangeRequestList'
+          description: ''
+  /api/ops/phone-changes/{public_id}/approve/:
+    post:
+      operationId: ops_phone_changes_approve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      responses:
+        '204':
+          description: No response body
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_second_operator_required
+        '404':
+          description: not_found
+        '409':
+          description: phone_change_closed
+        '429':
+          description: otp_rate_limited, phone_change_codes_exhausted
+  /api/ops/phone-changes/{public_id}/reject/:
+    post:
+      operationId: ops_phone_changes_reject
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeRejectRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeRejectRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeRejectRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_second_operator_required
+        '404':
+          description: not_found
+        '409':
+          description: phone_change_closed
+        '429':
+          description: otp_rate_limited, phone_change_codes_exhausted
+  /api/ops/phone-changes/{public_id}/resend-code/:
+    post:
+      operationId: ops_phone_changes_resend_code
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      responses:
+        '204':
+          description: No response body
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_second_operator_required
+        '404':
+          description: not_found
+        '409':
+          description: phone_change_closed
+        '429':
+          description: otp_rate_limited, phone_change_codes_exhausted
 components:
   schemas:
     AcceptInvitationRequest:
@@ -1501,6 +1681,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Invitation'
+    PaginatedPhoneChangeRequestList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhoneChangeRequest'
     PatchedMeUpdateRequest:
       type: object
       properties:
@@ -1516,6 +1715,121 @@ components:
             maxLength: 0
         preferred_language:
           $ref: '#/components/schemas/PreferredLanguageEnum'
+    PhoneChangeConfirmRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+        terms_version:
+          type: string
+          minLength: 1
+          maxLength: 16
+        device:
+          $ref: '#/components/schemas/DeviceRequest'
+        app:
+          $ref: '#/components/schemas/AppD8cEnum'
+      required:
+      - code
+      - device
+      - phone
+      - terms_version
+    PhoneChangeCreateReasonCodeEnum:
+      enum:
+      - sim_lost_new_number
+      - number_changed
+      - operator_change
+      type: string
+      description: |-
+        * `sim_lost_new_number` - sim_lost_new_number
+        * `number_changed` - number_changed
+        * `operator_change` - operator_change
+    PhoneChangeCreateRequest:
+      type: object
+      properties:
+        new_phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+        reason_code:
+          $ref: '#/components/schemas/PhoneChangeCreateReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - new_phone
+      - reason_code
+    PhoneChangeRejectReasonCodeEnum:
+      enum:
+      - proof_insufficient
+      - suspected_fraud
+      - request_error
+      type: string
+      description: |-
+        * `proof_insufficient` - proof_insufficient
+        * `suspected_fraud` - suspected_fraud
+        * `request_error` - request_error
+    PhoneChangeRejectRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/PhoneChangeRejectReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    PhoneChangeRequest:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        account:
+          type: string
+          format: uuid
+        current_phone_masked:
+          type: string
+          readOnly: true
+        new_phone_masked:
+          type: string
+          readOnly: true
+        requested_by:
+          type: string
+          format: uuid
+        requires_approval:
+          type: boolean
+        reason_code:
+          type: string
+        status:
+          type: string
+        codes_sent:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - account
+      - codes_sent
+      - created_at
+      - current_phone_masked
+      - expires_at
+      - new_phone_masked
+      - public_id
+      - reason_code
+      - requested_by
+      - requires_approval
+      - status
     PreferredLanguageEnum:
       enum:
       - fr

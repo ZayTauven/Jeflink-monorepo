@@ -387,6 +387,7 @@ class NoticeSms(BaseModel):
 
     class Kind(models.TextChoices):
         INVITATION = "invitation", "Invitation"
+        PHONE_CHANGED = "phone_changed", "Information à l'ancien numéro"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "En file"
@@ -474,3 +475,72 @@ class MfaChallenge(BaseModel):
 
     def __str__(self) -> str:
         return "challenge MFA"
+
+
+class PhoneChangeRequest(BaseModel):
+    """Changement de numéro par l'Ops (S2) : jamais en libre-service.
+
+    Compte ``owner`` ou ``technician`` : un second Ops approuve. Le code part vers le nouveau
+    numéro et l'utilisateur le saisit lui-même ; l'Ops ne le voit jamais. Le nouveau numéro
+    n'est gardé que tant que la demande est ouverte.
+    """
+
+    class Status(models.TextChoices):
+        PENDING_APPROVAL = "pending_approval", "En attente d'approbation"
+        APPROVED = "approved", "Approuvée, code envoyé"
+        COMPLETED = "completed", "Terminée"
+        REJECTED = "rejected", "Refusée"
+        EXPIRED = "expired", "Expirée"
+
+    OPEN = (Status.PENDING_APPROVAL, Status.APPROVED)
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    new_phone = models.CharField(max_length=16, blank=True)
+    new_phone_hmac = models.CharField(max_length=64)
+    requested_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="+")
+    approved_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    rejected_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    requires_approval = models.BooleanField()
+    reason_code = models.CharField(max_length=32)
+    note = models.CharField(max_length=280, blank=True)
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING_APPROVAL
+    )
+    # Dernier challenge change_phone envoyé (3 envois au plus par demande).
+    challenge = models.ForeignKey(
+        OtpChallenge, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    codes_sent = models.PositiveSmallIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(approved_by__isnull=True) | ~Q(approved_by=models.F("requested_by")),
+                name="phonechange_second_operator",
+            ),
+            models.CheckConstraint(
+                condition=(Q(status__in=["pending_approval", "approved"]) & ~Q(new_phone=""))
+                | (~Q(status__in=["pending_approval", "approved"]) & Q(new_phone="")),
+                name="phonechange_new_phone_only_while_open",
+            ),
+            models.CheckConstraint(condition=Q(codes_sent__lte=3), name="phonechange_max_codes"),
+            models.UniqueConstraint(
+                fields=["user"],
+                condition=Q(status__in=["pending_approval", "approved"]),
+                name="phonechange_one_open_per_user",
+            ),
+            models.UniqueConstraint(
+                fields=["new_phone"],
+                condition=Q(status__in=["pending_approval", "approved"]),
+                name="phonechange_one_open_per_new_phone",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"changement de numéro · {self.status}"

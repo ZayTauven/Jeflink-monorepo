@@ -42,6 +42,22 @@ class AccountsConfig(AppConfig):
         register_audit_schema("accounts.session.evicted_limit", {"app": str})
         register_audit_schema("accounts.dormant.cleared", {"reason_code": str, "note": str})
         register_audit_schema("ops.accounts.viewed", {})
+        register_audit_schema(
+            "accounts.phone_change.requested",
+            {
+                "request": str,
+                "reason_code": str,
+                "note": str,
+                "new_phone_hmac": PhoneHmac,
+                "requires_approval": bool,
+            },
+        )
+        register_audit_schema("accounts.phone_change.approved", {"request": str})
+        register_audit_schema(
+            "accounts.phone_change.rejected", {"request": str, "reason_code": str, "note": str}
+        )
+        register_audit_schema("accounts.phone_change.code_sent", {"request": str, "attempt": int})
+        register_audit_schema("accounts.phone_change.completed", {"request": str})
         register_audit_schema("ops.accounts.quota_exceeded", {"scope": str})
         ops_fields: dict[str, type] = {"reason_code": str, "note": str}
         register_audit_schema("ops.accounts.searched", {"phone_hmac": PhoneHmac, "found": bool})

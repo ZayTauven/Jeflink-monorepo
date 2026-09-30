@@ -68,6 +68,11 @@ def notice_sms_body(*, kind: str, language: str = "fr") -> str:
                 "Jeflink Pro : une équipe vous invite à la rejoindre. Installez l'app et "
                 "connectez-vous avec ce numéro : %(link)s"
             ) % {"link": settings.PRO_APP_LINK}
+        elif kind == "phone_changed":
+            body = _(
+                "Jeflink : le numéro de votre compte a été changé. Si ce n'est pas vous, "
+                "contactez vite le support Jeflink."
+            )
         else:
             raise ValueError(f"SMS d'information inconnu : {kind}")
     if not is_gsm7(body) or segments(body) != 1:

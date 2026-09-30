@@ -276,3 +276,53 @@ def ops_action_serializer(action: str) -> type[serializers.Serializer]:
 
 class RevealedPhoneSerializer(serializers.Serializer):
     phone = serializers.CharField()
+
+
+# --- Changement de numéro (S2) -----------------------------------------------------------------
+
+
+class PhoneChangeCreateSerializer(serializers.Serializer):
+    new_phone = serializers.CharField(max_length=32)
+    reason_code = serializers.ChoiceField(
+        choices=["sim_lost_new_number", "number_changed", "operator_change"]
+    )
+    note = serializers.CharField(max_length=400, required=False, default="", allow_blank=True)
+
+
+class PhoneChangeRejectSerializer(serializers.Serializer):
+    reason_code = serializers.ChoiceField(
+        choices=["proof_insufficient", "suspected_fraud", "request_error"]
+    )
+    note = serializers.CharField(max_length=400, required=False, default="", allow_blank=True)
+
+
+class PhoneChangeRequestSerializer(serializers.Serializer):
+    public_id = serializers.UUIDField()
+    account = serializers.UUIDField(source="user.public_id")
+    current_phone_masked = serializers.SerializerMethodField()
+    new_phone_masked = serializers.SerializerMethodField()
+    requested_by = serializers.UUIDField(source="requested_by.public_id")
+    requires_approval = serializers.BooleanField()
+    reason_code = serializers.CharField()
+    status = serializers.CharField()
+    codes_sent = serializers.IntegerField()
+    created_at = serializers.DateTimeField()
+    expires_at = serializers.DateTimeField()
+
+    def get_current_phone_masked(self, obj) -> str:
+        from jeflink.common.pii import mask_phone
+
+        return mask_phone(obj.user.phone) if obj.user.phone else ""
+
+    def get_new_phone_masked(self, obj) -> str:
+        from jeflink.common.pii import mask_phone
+
+        return mask_phone(obj.new_phone) if obj.new_phone else ""
+
+
+class PhoneChangeConfirmSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=32)
+    code = serializers.RegexField(r"^[0-9]{6}$")
+    terms_version = serializers.CharField(max_length=16)
+    device = DeviceSerializer()
+    app = serializers.ChoiceField(choices=["client", "pro"], required=False)

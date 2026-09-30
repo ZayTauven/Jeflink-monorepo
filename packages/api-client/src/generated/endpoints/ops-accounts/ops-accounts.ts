@@ -28,12 +28,17 @@ import type {
   OpsAccountDetail,
   OpsClearDormantRequestRequest,
   OpsDeactivateRequestRequest,
+  OpsPhoneChangesListParams,
   OpsReactivateRequestRequest,
   OpsRevealPhoneRequestRequest,
   OpsRevokeSessionsRequestRequest,
   OpsSearchRequest,
   OpsSearchResult,
   OpsUnblockOtpRequestRequest,
+  PaginatedPhoneChangeRequestList,
+  PhoneChangeCreateRequest,
+  PhoneChangeRejectRequest,
+  PhoneChangeRequest,
   RevealedPhone
 } from '../../model';
 
@@ -438,6 +443,127 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getOpsAccountsDeactivateMutationOptions(options), queryClient);
+    }
+    export type opsAccountsPhoneChangeResponse201 = {
+  data: PhoneChangeRequest
+  status: 201
+}
+
+export type opsAccountsPhoneChangeResponse400 = {
+  data: void
+  status: 400
+}
+
+export type opsAccountsPhoneChangeResponse403 = {
+  data: void
+  status: 403
+}
+
+export type opsAccountsPhoneChangeResponse404 = {
+  data: void
+  status: 404
+}
+
+export type opsAccountsPhoneChangeResponse409 = {
+  data: void
+  status: 409
+}
+
+export type opsAccountsPhoneChangeResponse429 = {
+  data: void
+  status: 429
+}
+
+export type opsAccountsPhoneChangeResponseSuccess = (opsAccountsPhoneChangeResponse201) & {
+  headers: Headers;
+};
+export type opsAccountsPhoneChangeResponseError = (opsAccountsPhoneChangeResponse400 | opsAccountsPhoneChangeResponse403 | opsAccountsPhoneChangeResponse404 | opsAccountsPhoneChangeResponse409 | opsAccountsPhoneChangeResponse429) & {
+  headers: Headers;
+};
+
+export type opsAccountsPhoneChangeResponse = (opsAccountsPhoneChangeResponseSuccess | opsAccountsPhoneChangeResponseError)
+
+export const getOpsAccountsPhoneChangeUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/ops/accounts/${publicId}/phone-change/`
+}
+
+export const opsAccountsPhoneChange = async (publicId: string,
+    phoneChangeCreateRequest: PhoneChangeCreateRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<opsAccountsPhoneChangeResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<opsAccountsPhoneChangeResponse>(getOpsAccountsPhoneChangeUrl(publicId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(phoneChangeCreateRequest)
+  }
+);}
+
+
+
+
+
+export const getOpsAccountsPhoneChangeMutationKey = () => ['opsAccountsPhoneChange'] as const;
+
+export const getOpsAccountsPhoneChangeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof opsAccountsPhoneChange>>, TError,OpsAccountsPhoneChangeMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof opsAccountsPhoneChange>>, TError,OpsAccountsPhoneChangeMutationVariables, TContext> => {
+
+const mutationKey = getOpsAccountsPhoneChangeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof opsAccountsPhoneChange>>, OpsAccountsPhoneChangeMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  opsAccountsPhoneChange(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OpsAccountsPhoneChangeMutationResult = NonNullable<Awaited<ReturnType<typeof opsAccountsPhoneChange>>>
+    export type OpsAccountsPhoneChangeMutationBody = BodyType<PhoneChangeCreateRequest>
+    export type OpsAccountsPhoneChangeMutationError = ErrorType<void>
+    export type OpsAccountsPhoneChangeMutationVariables = {publicId: string;data: BodyType<PhoneChangeCreateRequest>}
+
+    export const useOpsAccountsPhoneChange = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof opsAccountsPhoneChange>>, TError,OpsAccountsPhoneChangeMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof opsAccountsPhoneChange>>,
+        TError,
+        OpsAccountsPhoneChangeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getOpsAccountsPhoneChangeMutationOptions(options), queryClient);
     }
     export type opsAccountsReactivateResponse204 = {
   data: void
@@ -1022,4 +1148,438 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getOpsAccountsSearchMutationOptions(options), queryClient);
+    }
+    export type opsPhoneChangesListResponse200 = {
+  data: PaginatedPhoneChangeRequestList
+  status: 200
+}
+
+export type opsPhoneChangesListResponseSuccess = (opsPhoneChangesListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type opsPhoneChangesListResponse = (opsPhoneChangesListResponseSuccess)
+
+export const getOpsPhoneChangesListUrl = (params?: OpsPhoneChangesListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/ops/phone-changes/?${stringifiedParams}` : `/api/ops/phone-changes/`
+}
+
+/**
+ * Demandes ouvertes, pour que le second Ops trouve celles à approuver.
+ */
+export const opsPhoneChangesList = async (params?: OpsPhoneChangesListParams, options?: Parameters<typeof jeflinkFetch>[1]): Promise<opsPhoneChangesListResponse> => {
+
+  return jeflinkFetch<opsPhoneChangesListResponse>(getOpsPhoneChangesListUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getOpsPhoneChangesListQueryKey = (params?: OpsPhoneChangesListParams,) => {
+    return [
+    `/api/ops/phone-changes/`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getOpsPhoneChangesListQueryOptions = <TData = Awaited<ReturnType<typeof opsPhoneChangesList>>, TError = ErrorType<unknown>>(params?: OpsPhoneChangesListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof opsPhoneChangesList>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getOpsPhoneChangesListQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof opsPhoneChangesList>>> = ({ signal }) => opsPhoneChangesList(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof opsPhoneChangesList>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type OpsPhoneChangesListQueryResult = NonNullable<Awaited<ReturnType<typeof opsPhoneChangesList>>>
+export type OpsPhoneChangesListQueryError = ErrorType<unknown>
+
+
+export function useOpsPhoneChangesList<TData = Awaited<ReturnType<typeof opsPhoneChangesList>>, TError = ErrorType<unknown>>(
+ params: undefined |  OpsPhoneChangesListParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof opsPhoneChangesList>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof opsPhoneChangesList>>,
+          TError,
+          Awaited<ReturnType<typeof opsPhoneChangesList>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOpsPhoneChangesList<TData = Awaited<ReturnType<typeof opsPhoneChangesList>>, TError = ErrorType<unknown>>(
+ params?: OpsPhoneChangesListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof opsPhoneChangesList>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof opsPhoneChangesList>>,
+          TError,
+          Awaited<ReturnType<typeof opsPhoneChangesList>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useOpsPhoneChangesList<TData = Awaited<ReturnType<typeof opsPhoneChangesList>>, TError = ErrorType<unknown>>(
+ params?: OpsPhoneChangesListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof opsPhoneChangesList>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useOpsPhoneChangesList<TData = Awaited<ReturnType<typeof opsPhoneChangesList>>, TError = ErrorType<unknown>>(
+ params?: OpsPhoneChangesListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof opsPhoneChangesList>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getOpsPhoneChangesListQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type opsPhoneChangesApproveResponse204 = {
+  data: void
+  status: 204
+}
+
+export type opsPhoneChangesApproveResponse403 = {
+  data: void
+  status: 403
+}
+
+export type opsPhoneChangesApproveResponse404 = {
+  data: void
+  status: 404
+}
+
+export type opsPhoneChangesApproveResponse409 = {
+  data: void
+  status: 409
+}
+
+export type opsPhoneChangesApproveResponse429 = {
+  data: void
+  status: 429
+}
+
+export type opsPhoneChangesApproveResponseSuccess = (opsPhoneChangesApproveResponse204) & {
+  headers: Headers;
+};
+export type opsPhoneChangesApproveResponseError = (opsPhoneChangesApproveResponse403 | opsPhoneChangesApproveResponse404 | opsPhoneChangesApproveResponse409 | opsPhoneChangesApproveResponse429) & {
+  headers: Headers;
+};
+
+export type opsPhoneChangesApproveResponse = (opsPhoneChangesApproveResponseSuccess | opsPhoneChangesApproveResponseError)
+
+export const getOpsPhoneChangesApproveUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/ops/phone-changes/${publicId}/approve/`
+}
+
+export const opsPhoneChangesApprove = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<opsPhoneChangesApproveResponse> => {
+
+  return jeflinkFetch<opsPhoneChangesApproveResponse>(getOpsPhoneChangesApproveUrl(publicId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getOpsPhoneChangesApproveMutationKey = () => ['opsPhoneChangesApprove'] as const;
+
+export const getOpsPhoneChangesApproveMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesApprove>>, TError,OpsPhoneChangesApproveMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesApprove>>, TError,OpsPhoneChangesApproveMutationVariables, TContext> => {
+
+const mutationKey = getOpsPhoneChangesApproveMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof opsPhoneChangesApprove>>, OpsPhoneChangesApproveMutationVariables> = (props) => {
+          const {publicId} = props ?? {};
+
+          return  opsPhoneChangesApprove(publicId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OpsPhoneChangesApproveMutationResult = NonNullable<Awaited<ReturnType<typeof opsPhoneChangesApprove>>>
+
+    export type OpsPhoneChangesApproveMutationError = ErrorType<void>
+    export type OpsPhoneChangesApproveMutationVariables = {publicId: string}
+
+    export const useOpsPhoneChangesApprove = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesApprove>>, TError,OpsPhoneChangesApproveMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof opsPhoneChangesApprove>>,
+        TError,
+        OpsPhoneChangesApproveMutationVariables,
+        TContext
+      > => {
+      return useMutation(getOpsPhoneChangesApproveMutationOptions(options), queryClient);
+    }
+    export type opsPhoneChangesRejectResponse204 = {
+  data: void
+  status: 204
+}
+
+export type opsPhoneChangesRejectResponse403 = {
+  data: void
+  status: 403
+}
+
+export type opsPhoneChangesRejectResponse404 = {
+  data: void
+  status: 404
+}
+
+export type opsPhoneChangesRejectResponse409 = {
+  data: void
+  status: 409
+}
+
+export type opsPhoneChangesRejectResponse429 = {
+  data: void
+  status: 429
+}
+
+export type opsPhoneChangesRejectResponseSuccess = (opsPhoneChangesRejectResponse204) & {
+  headers: Headers;
+};
+export type opsPhoneChangesRejectResponseError = (opsPhoneChangesRejectResponse403 | opsPhoneChangesRejectResponse404 | opsPhoneChangesRejectResponse409 | opsPhoneChangesRejectResponse429) & {
+  headers: Headers;
+};
+
+export type opsPhoneChangesRejectResponse = (opsPhoneChangesRejectResponseSuccess | opsPhoneChangesRejectResponseError)
+
+export const getOpsPhoneChangesRejectUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/ops/phone-changes/${publicId}/reject/`
+}
+
+export const opsPhoneChangesReject = async (publicId: string,
+    phoneChangeRejectRequest: PhoneChangeRejectRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<opsPhoneChangesRejectResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<opsPhoneChangesRejectResponse>(getOpsPhoneChangesRejectUrl(publicId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(phoneChangeRejectRequest)
+  }
+);}
+
+
+
+
+
+export const getOpsPhoneChangesRejectMutationKey = () => ['opsPhoneChangesReject'] as const;
+
+export const getOpsPhoneChangesRejectMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesReject>>, TError,OpsPhoneChangesRejectMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesReject>>, TError,OpsPhoneChangesRejectMutationVariables, TContext> => {
+
+const mutationKey = getOpsPhoneChangesRejectMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof opsPhoneChangesReject>>, OpsPhoneChangesRejectMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  opsPhoneChangesReject(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OpsPhoneChangesRejectMutationResult = NonNullable<Awaited<ReturnType<typeof opsPhoneChangesReject>>>
+    export type OpsPhoneChangesRejectMutationBody = BodyType<PhoneChangeRejectRequest>
+    export type OpsPhoneChangesRejectMutationError = ErrorType<void>
+    export type OpsPhoneChangesRejectMutationVariables = {publicId: string;data: BodyType<PhoneChangeRejectRequest>}
+
+    export const useOpsPhoneChangesReject = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesReject>>, TError,OpsPhoneChangesRejectMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof opsPhoneChangesReject>>,
+        TError,
+        OpsPhoneChangesRejectMutationVariables,
+        TContext
+      > => {
+      return useMutation(getOpsPhoneChangesRejectMutationOptions(options), queryClient);
+    }
+    export type opsPhoneChangesResendCodeResponse204 = {
+  data: void
+  status: 204
+}
+
+export type opsPhoneChangesResendCodeResponse403 = {
+  data: void
+  status: 403
+}
+
+export type opsPhoneChangesResendCodeResponse404 = {
+  data: void
+  status: 404
+}
+
+export type opsPhoneChangesResendCodeResponse409 = {
+  data: void
+  status: 409
+}
+
+export type opsPhoneChangesResendCodeResponse429 = {
+  data: void
+  status: 429
+}
+
+export type opsPhoneChangesResendCodeResponseSuccess = (opsPhoneChangesResendCodeResponse204) & {
+  headers: Headers;
+};
+export type opsPhoneChangesResendCodeResponseError = (opsPhoneChangesResendCodeResponse403 | opsPhoneChangesResendCodeResponse404 | opsPhoneChangesResendCodeResponse409 | opsPhoneChangesResendCodeResponse429) & {
+  headers: Headers;
+};
+
+export type opsPhoneChangesResendCodeResponse = (opsPhoneChangesResendCodeResponseSuccess | opsPhoneChangesResendCodeResponseError)
+
+export const getOpsPhoneChangesResendCodeUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/ops/phone-changes/${publicId}/resend-code/`
+}
+
+export const opsPhoneChangesResendCode = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<opsPhoneChangesResendCodeResponse> => {
+
+  return jeflinkFetch<opsPhoneChangesResendCodeResponse>(getOpsPhoneChangesResendCodeUrl(publicId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getOpsPhoneChangesResendCodeMutationKey = () => ['opsPhoneChangesResendCode'] as const;
+
+export const getOpsPhoneChangesResendCodeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesResendCode>>, TError,OpsPhoneChangesResendCodeMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesResendCode>>, TError,OpsPhoneChangesResendCodeMutationVariables, TContext> => {
+
+const mutationKey = getOpsPhoneChangesResendCodeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof opsPhoneChangesResendCode>>, OpsPhoneChangesResendCodeMutationVariables> = (props) => {
+          const {publicId} = props ?? {};
+
+          return  opsPhoneChangesResendCode(publicId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OpsPhoneChangesResendCodeMutationResult = NonNullable<Awaited<ReturnType<typeof opsPhoneChangesResendCode>>>
+
+    export type OpsPhoneChangesResendCodeMutationError = ErrorType<void>
+    export type OpsPhoneChangesResendCodeMutationVariables = {publicId: string}
+
+    export const useOpsPhoneChangesResendCode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesResendCode>>, TError,OpsPhoneChangesResendCodeMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof opsPhoneChangesResendCode>>,
+        TError,
+        OpsPhoneChangesResendCodeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getOpsPhoneChangesResendCodeMutationOptions(options), queryClient);
     }

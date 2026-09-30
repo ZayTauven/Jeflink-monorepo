@@ -252,7 +252,7 @@ def test_aucune_donnee_personnelle_dans_les_urls():
                 yield prefix + str(pattern.pattern)
 
     ops_routes = [r for r in walk(get_resolver().url_patterns) if "ops/" in r]
-    assert len(ops_routes) == 8
+    assert len(ops_routes) == 13  # 8 fiches et actions + 5 changement de numéro
     assert all("<" not in r or "<uuid:public_id>" in r for r in ops_routes)
     assert not [r for r in ops_routes if "phone>" in r or "<str:" in r]
 
