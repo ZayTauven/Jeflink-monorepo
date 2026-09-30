@@ -27,6 +27,130 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/auth/mfa/totp/confirm/:
+    post:
+      operationId: auth_mfa_totp_confirm
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '400':
+          description: mfa_invalid (+ attempts_remaining)
+        '401':
+          description: mfa_token_invalid
+        '403':
+          description: mfa_locked, mfa_enrollment_not_authorized
+  /api/auth/mfa/totp/setup/:
+    post:
+      operationId: auth_mfa_totp_setup
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpSetupRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TotpSetupRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TotpSetupRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpSetupResponse'
+          description: ''
+        '400':
+          description: mfa_invalid (+ attempts_remaining)
+        '401':
+          description: mfa_token_invalid
+        '403':
+          description: mfa_locked, mfa_enrollment_not_authorized
+  /api/auth/mfa/totp/step-up/:
+    post:
+      operationId: auth_mfa_totp_step_up
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StepUpRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StepUpRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StepUpRequestRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+          description: ''
+        '400':
+          description: mfa_invalid
+        '403':
+          description: ops_forbidden, mfa_locked
+  /api/auth/mfa/totp/verify/:
+    post:
+      operationId: auth_mfa_totp_verify
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '400':
+          description: mfa_invalid (+ attempts_remaining)
+        '401':
+          description: mfa_token_invalid
+        '403':
+          description: mfa_locked, mfa_enrollment_not_authorized
   /api/auth/otp/request/:
     post:
       operationId: auth_otp_request
@@ -335,6 +459,17 @@ components:
           type: string
           default: ''
           maxLength: 256
+    AccessToken:
+      type: object
+      properties:
+        access:
+          type: string
+        access_expires_at:
+          type: string
+          format: date-time
+      required:
+      - access
+      - access_expires_at
     AppD8cEnum:
       enum:
       - client
@@ -654,8 +789,13 @@ components:
       - terms_version
     OtpVerifyResponse:
       type: object
+      description: |-
+        ``authenticated`` : session ouverte. ``mfa_required`` / ``mfa_enrollment_required`` (Ops
+        sur la console) : seulement ``mfa_token``, à présenter aux endpoints ``mfa/totp/*``.
       properties:
         status:
+          $ref: '#/components/schemas/StatusEnum'
+        mfa_token:
           type: string
         user:
           $ref: '#/components/schemas/AuthUser'
@@ -679,14 +819,7 @@ components:
         tokens:
           $ref: '#/components/schemas/TokenPair'
       required:
-      - is_new_user
-      - other_sessions
-      - pending_invitations
-      - restricted
-      - restriction_kind
       - status
-      - tokens
-      - user
     PaginatedDeviceSessionList:
       type: object
       required:
@@ -794,6 +927,25 @@ components:
       description: |-
         * `owner` - owner
         * `technician` - technician
+    StatusEnum:
+      enum:
+      - authenticated
+      - mfa_required
+      - mfa_enrollment_required
+      type: string
+      description: |-
+        * `authenticated` - authenticated
+        * `mfa_required` - mfa_required
+        * `mfa_enrollment_required` - mfa_enrollment_required
+    StepUpRequestRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+      required:
+      - code
     TokenPair:
       type: object
       properties:
@@ -808,3 +960,41 @@ components:
       - access
       - access_expires_at
       - refresh
+    TotpCodeRequestRequest:
+      type: object
+      properties:
+        mfa_token:
+          type: string
+          minLength: 1
+          maxLength: 128
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+      required:
+      - code
+      - mfa_token
+    TotpSetupRequestRequest:
+      type: object
+      properties:
+        mfa_token:
+          type: string
+          minLength: 1
+          maxLength: 128
+        enrollment_token:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - enrollment_token
+      - mfa_token
+    TotpSetupResponse:
+      type: object
+      properties:
+        secret:
+          type: string
+        otpauth_uri:
+          type: string
+      required:
+      - otpauth_uri
+      - secret

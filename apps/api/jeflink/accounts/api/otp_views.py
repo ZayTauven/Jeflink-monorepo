@@ -130,7 +130,10 @@ class OtpResendView(APIView):
         return Response(body, status=status.HTTP_202_ACCEPTED)
 
 
-def _verify_body(result: VerifyResult) -> dict:
+def verify_body(result: VerifyResult) -> dict:
+    if result.mfa is not None:
+        status_ = "mfa_enrollment_required" if result.mfa.enrollment_required else "mfa_required"
+        return {"status": status_, "mfa_token": result.mfa.mfa_token}
     # Numéro peut-être recyclé : rien de l'ancien titulaire (nom, rôles, langue) (I2).
     profile = account_profile(result.user, restricted=result.restricted)
     return {
@@ -198,4 +201,4 @@ class OtpVerifyView(APIView):
             device_label=device["label"],
             install_id=install_id,
         )
-        return Response(OtpVerifyResponseSerializer(_verify_body(result)).data)
+        return Response(OtpVerifyResponseSerializer(verify_body(result)).data)

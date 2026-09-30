@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AccessToken,
   AuthConfig,
   OtpChallengeResponse,
   OtpRequestRequest,
@@ -32,7 +33,11 @@ import type {
   OtpVerifyRequest,
   OtpVerifyResponse,
   RefreshRequestRequest,
-  TokenPair
+  StepUpRequestRequest,
+  TokenPair,
+  TotpCodeRequestRequest,
+  TotpSetupRequestRequest,
+  TotpSetupResponse
 } from '../../model';
 
 import { jeflinkFetch } from '../../../http.ts';
@@ -246,6 +251,441 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getAuthLogoutMutationOptions(options), queryClient);
+    }
+    export type authMfaTotpConfirmResponse200 = {
+  data: OtpVerifyResponse
+  status: 200
+}
+
+export type authMfaTotpConfirmResponse400 = {
+  data: void
+  status: 400
+}
+
+export type authMfaTotpConfirmResponse401 = {
+  data: void
+  status: 401
+}
+
+export type authMfaTotpConfirmResponse403 = {
+  data: void
+  status: 403
+}
+
+export type authMfaTotpConfirmResponseSuccess = (authMfaTotpConfirmResponse200) & {
+  headers: Headers;
+};
+export type authMfaTotpConfirmResponseError = (authMfaTotpConfirmResponse400 | authMfaTotpConfirmResponse401 | authMfaTotpConfirmResponse403) & {
+  headers: Headers;
+};
+
+export type authMfaTotpConfirmResponse = (authMfaTotpConfirmResponseSuccess | authMfaTotpConfirmResponseError)
+
+export const getAuthMfaTotpConfirmUrl = () => {
+
+
+
+
+  return `/api/auth/mfa/totp/confirm/`
+}
+
+export const authMfaTotpConfirm = async (totpCodeRequestRequest: TotpCodeRequestRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<authMfaTotpConfirmResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<authMfaTotpConfirmResponse>(getAuthMfaTotpConfirmUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(totpCodeRequestRequest)
+  }
+);}
+
+
+
+
+
+export const getAuthMfaTotpConfirmMutationKey = () => ['authMfaTotpConfirm'] as const;
+
+export const getAuthMfaTotpConfirmMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpConfirm>>, TError,AuthMfaTotpConfirmMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpConfirm>>, TError,AuthMfaTotpConfirmMutationVariables, TContext> => {
+
+const mutationKey = getAuthMfaTotpConfirmMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authMfaTotpConfirm>>, AuthMfaTotpConfirmMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authMfaTotpConfirm(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthMfaTotpConfirmMutationResult = NonNullable<Awaited<ReturnType<typeof authMfaTotpConfirm>>>
+    export type AuthMfaTotpConfirmMutationBody = BodyType<TotpCodeRequestRequest>
+    export type AuthMfaTotpConfirmMutationError = ErrorType<void>
+    export type AuthMfaTotpConfirmMutationVariables = {data: BodyType<TotpCodeRequestRequest>}
+
+    export const useAuthMfaTotpConfirm = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpConfirm>>, TError,AuthMfaTotpConfirmMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authMfaTotpConfirm>>,
+        TError,
+        AuthMfaTotpConfirmMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthMfaTotpConfirmMutationOptions(options), queryClient);
+    }
+    export type authMfaTotpSetupResponse200 = {
+  data: TotpSetupResponse
+  status: 200
+}
+
+export type authMfaTotpSetupResponse400 = {
+  data: void
+  status: 400
+}
+
+export type authMfaTotpSetupResponse401 = {
+  data: void
+  status: 401
+}
+
+export type authMfaTotpSetupResponse403 = {
+  data: void
+  status: 403
+}
+
+export type authMfaTotpSetupResponseSuccess = (authMfaTotpSetupResponse200) & {
+  headers: Headers;
+};
+export type authMfaTotpSetupResponseError = (authMfaTotpSetupResponse400 | authMfaTotpSetupResponse401 | authMfaTotpSetupResponse403) & {
+  headers: Headers;
+};
+
+export type authMfaTotpSetupResponse = (authMfaTotpSetupResponseSuccess | authMfaTotpSetupResponseError)
+
+export const getAuthMfaTotpSetupUrl = () => {
+
+
+
+
+  return `/api/auth/mfa/totp/setup/`
+}
+
+export const authMfaTotpSetup = async (totpSetupRequestRequest: TotpSetupRequestRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<authMfaTotpSetupResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<authMfaTotpSetupResponse>(getAuthMfaTotpSetupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(totpSetupRequestRequest)
+  }
+);}
+
+
+
+
+
+export const getAuthMfaTotpSetupMutationKey = () => ['authMfaTotpSetup'] as const;
+
+export const getAuthMfaTotpSetupMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpSetup>>, TError,AuthMfaTotpSetupMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpSetup>>, TError,AuthMfaTotpSetupMutationVariables, TContext> => {
+
+const mutationKey = getAuthMfaTotpSetupMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authMfaTotpSetup>>, AuthMfaTotpSetupMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authMfaTotpSetup(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthMfaTotpSetupMutationResult = NonNullable<Awaited<ReturnType<typeof authMfaTotpSetup>>>
+    export type AuthMfaTotpSetupMutationBody = BodyType<TotpSetupRequestRequest>
+    export type AuthMfaTotpSetupMutationError = ErrorType<void>
+    export type AuthMfaTotpSetupMutationVariables = {data: BodyType<TotpSetupRequestRequest>}
+
+    export const useAuthMfaTotpSetup = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpSetup>>, TError,AuthMfaTotpSetupMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authMfaTotpSetup>>,
+        TError,
+        AuthMfaTotpSetupMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthMfaTotpSetupMutationOptions(options), queryClient);
+    }
+    export type authMfaTotpStepUpResponse200 = {
+  data: AccessToken
+  status: 200
+}
+
+export type authMfaTotpStepUpResponse400 = {
+  data: void
+  status: 400
+}
+
+export type authMfaTotpStepUpResponse403 = {
+  data: void
+  status: 403
+}
+
+export type authMfaTotpStepUpResponseSuccess = (authMfaTotpStepUpResponse200) & {
+  headers: Headers;
+};
+export type authMfaTotpStepUpResponseError = (authMfaTotpStepUpResponse400 | authMfaTotpStepUpResponse403) & {
+  headers: Headers;
+};
+
+export type authMfaTotpStepUpResponse = (authMfaTotpStepUpResponseSuccess | authMfaTotpStepUpResponseError)
+
+export const getAuthMfaTotpStepUpUrl = () => {
+
+
+
+
+  return `/api/auth/mfa/totp/step-up/`
+}
+
+export const authMfaTotpStepUp = async (stepUpRequestRequest: StepUpRequestRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<authMfaTotpStepUpResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<authMfaTotpStepUpResponse>(getAuthMfaTotpStepUpUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(stepUpRequestRequest)
+  }
+);}
+
+
+
+
+
+export const getAuthMfaTotpStepUpMutationKey = () => ['authMfaTotpStepUp'] as const;
+
+export const getAuthMfaTotpStepUpMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpStepUp>>, TError,AuthMfaTotpStepUpMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpStepUp>>, TError,AuthMfaTotpStepUpMutationVariables, TContext> => {
+
+const mutationKey = getAuthMfaTotpStepUpMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authMfaTotpStepUp>>, AuthMfaTotpStepUpMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authMfaTotpStepUp(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthMfaTotpStepUpMutationResult = NonNullable<Awaited<ReturnType<typeof authMfaTotpStepUp>>>
+    export type AuthMfaTotpStepUpMutationBody = BodyType<StepUpRequestRequest>
+    export type AuthMfaTotpStepUpMutationError = ErrorType<void>
+    export type AuthMfaTotpStepUpMutationVariables = {data: BodyType<StepUpRequestRequest>}
+
+    export const useAuthMfaTotpStepUp = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpStepUp>>, TError,AuthMfaTotpStepUpMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authMfaTotpStepUp>>,
+        TError,
+        AuthMfaTotpStepUpMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthMfaTotpStepUpMutationOptions(options), queryClient);
+    }
+    export type authMfaTotpVerifyResponse200 = {
+  data: OtpVerifyResponse
+  status: 200
+}
+
+export type authMfaTotpVerifyResponse400 = {
+  data: void
+  status: 400
+}
+
+export type authMfaTotpVerifyResponse401 = {
+  data: void
+  status: 401
+}
+
+export type authMfaTotpVerifyResponse403 = {
+  data: void
+  status: 403
+}
+
+export type authMfaTotpVerifyResponseSuccess = (authMfaTotpVerifyResponse200) & {
+  headers: Headers;
+};
+export type authMfaTotpVerifyResponseError = (authMfaTotpVerifyResponse400 | authMfaTotpVerifyResponse401 | authMfaTotpVerifyResponse403) & {
+  headers: Headers;
+};
+
+export type authMfaTotpVerifyResponse = (authMfaTotpVerifyResponseSuccess | authMfaTotpVerifyResponseError)
+
+export const getAuthMfaTotpVerifyUrl = () => {
+
+
+
+
+  return `/api/auth/mfa/totp/verify/`
+}
+
+export const authMfaTotpVerify = async (totpCodeRequestRequest: TotpCodeRequestRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<authMfaTotpVerifyResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<authMfaTotpVerifyResponse>(getAuthMfaTotpVerifyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(totpCodeRequestRequest)
+  }
+);}
+
+
+
+
+
+export const getAuthMfaTotpVerifyMutationKey = () => ['authMfaTotpVerify'] as const;
+
+export const getAuthMfaTotpVerifyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpVerify>>, TError,AuthMfaTotpVerifyMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpVerify>>, TError,AuthMfaTotpVerifyMutationVariables, TContext> => {
+
+const mutationKey = getAuthMfaTotpVerifyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authMfaTotpVerify>>, AuthMfaTotpVerifyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authMfaTotpVerify(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthMfaTotpVerifyMutationResult = NonNullable<Awaited<ReturnType<typeof authMfaTotpVerify>>>
+    export type AuthMfaTotpVerifyMutationBody = BodyType<TotpCodeRequestRequest>
+    export type AuthMfaTotpVerifyMutationError = ErrorType<void>
+    export type AuthMfaTotpVerifyMutationVariables = {data: BodyType<TotpCodeRequestRequest>}
+
+    export const useAuthMfaTotpVerify = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authMfaTotpVerify>>, TError,AuthMfaTotpVerifyMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authMfaTotpVerify>>,
+        TError,
+        AuthMfaTotpVerifyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthMfaTotpVerifyMutationOptions(options), queryClient);
     }
     export type authOtpRequestResponse202 = {
   data: OtpChallengeResponse

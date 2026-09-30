@@ -41,6 +41,7 @@ from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
 from .client_challenge import check_client_challenge
+from .mfa import MfaStart, open_mfa_challenge, reissue_mfa_challenge
 from .models import DeviceSession, NoticeSms, OtpChallenge, OtpDelivery, Role, User
 from .otp_limits import (
     FallbackCounts,
@@ -54,6 +55,7 @@ from .phone import normalize_phone, phone_display, phone_region
 from .selectors import active_sessions_for, has_role
 from .sessions import (
     TokenPair,
+    clean_device_label,
     clean_install_id,
     create_session,
     is_dormant_login,
@@ -298,10 +300,12 @@ def resend_otp(*, challenge_id, challenge_secret: str) -> dict:
 @dataclass
 class VerifyResult:
     user: User
-    tokens: TokenPair
+    tokens: TokenPair | None
     is_new_user: bool
     restricted: bool
     other_sessions: list[DeviceSession] = field(default_factory=list)
+    # Ops sur la console : pas de session, un jeton MFA (S1).
+    mfa: MfaStart | None = None
 
 
 def _code_matches(challenge: OtpChallenge, code: str, *, now: datetime | None) -> bool:
@@ -408,9 +412,6 @@ def _refusal_reason(user: User | None, app: str) -> tuple[str, str, int] | None:
         return ("account_not_allowed", "technical_account", 403)
     if user.is_review_account:
         return ("account_not_allowed", "review_account", 403)
-    if app == DeviceSession.App.CONSOLE and has_role(user, Role.OPS):
-        # Second facteur obligatoire pour les Ops : branché à la tâche 13.
-        return ("ops_mfa_unavailable", "ops_mfa_unavailable", 403)
     return None
 
 
@@ -476,6 +477,19 @@ def _open_session(
             )
         if is_new:
             audit(action="accounts.user.created", actor=user, target=user, metadata={"app": app})
+        if app == DeviceSession.App.CONSOLE and not is_new and has_role(user, Role.OPS):
+            # Aucune session avant le TOTP ; la règle du compte dormant est sans objet ici.
+            start = open_mfa_challenge(
+                user=user,
+                otp_challenge=challenge,
+                device_label=clean_device_label(device_label),
+                install_id=clean_install_id(install_id),
+            )
+            OtpChallenge.objects.filter(pk=challenge.pk).update(user=user)
+            _audit_verified(user, app=app, replay=False)
+            return VerifyResult(
+                user=user, tokens=None, is_new_user=False, restricted=False, mfa=start
+            )
         restricted = not is_new and is_dormant_login(user=user, install_id=install_id)
         tokens = create_session(
             user=user,
@@ -526,7 +540,7 @@ def _replay(challenge: OtpChallenge, *, code: str, install_id: str, now: datetim
         and now - challenge.verified_at <= REPLAY_WINDOW
         and install_id
         and hmac.compare_digest(install_id, challenge.verified_install_id)
-        and challenge.session_id is not None
+        and (challenge.session_id is not None or challenge.user_id is not None)
         and _code_matches(challenge, code, now=now)
     )
     if not eligible:
@@ -538,6 +552,15 @@ def _replay(challenge: OtpChallenge, *, code: str, install_id: str, now: datetim
         allowed = False
     if not allowed:
         raise DomainError("otp_already_used", status=409)
+    if challenge.session_id is None:
+        # Parcours Ops : nouveau jeton MFA pour le même challenge (l'ancien est remplacé).
+        start = reissue_mfa_challenge(otp_challenge=challenge)
+        if start is None:
+            raise DomainError("otp_already_used", status=409)
+        _audit_verified(start.user, app=challenge.app, replay=True)
+        return VerifyResult(
+            user=start.user, tokens=None, is_new_user=False, restricted=False, mfa=start
+        )
     session = DeviceSession.objects.select_related("user").get(pk=challenge.session_id)
     tokens = reissue_session(session)
     audit(
@@ -558,4 +581,14 @@ def _replay(challenge: OtpChallenge, *, code: str, install_id: str, now: datetim
         tokens=tokens,
         is_new_user=False,
         restricted=session.restricted,
+    )
+
+
+def _audit_verified(user: User, *, app: str, replay: bool) -> None:
+    audit(
+        action="accounts.otp.verified",
+        actor=user,
+        actor_kind=AuditEvent.ActorKind.USER,
+        target=user,
+        metadata={"app": app, "is_new_user": False, "restricted": False, "replay": replay},
     )

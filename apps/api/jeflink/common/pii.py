@@ -58,6 +58,8 @@ _SN_NATIONAL = re.compile(
     rf"(?:{_EDGE_BEFORE}(?:00221|221)[\s.-]?|{_EDGE_BEFORE})7\d(?:[\s.-]?\d){{7}}{_EDGE_AFTER}"
 )
 _JWT = re.compile(r"eyJ[\w-]+\.[\w-]+\.[\w-]+")
+# Jetons opaques Jeflink : refresh (jfr_), MFA (jfm_), enrôlement TOTP (jfe_).
+_OPAQUE_TOKEN = re.compile(r"(?<![\w-])jf[rme]_[\w-]{20,}")
 
 
 def _key_pattern(keys: tuple[str, ...]) -> str:
@@ -110,6 +112,7 @@ def redact(text: str) -> str:
     text = _WHOLE_LINE.sub(_replace_value, text)
     text = _KEY_VALUE.sub(_replace_value, text)
     text = _JWT.sub(REDACTED, text)
+    text = _OPAQUE_TOKEN.sub(REDACTED, text)
     text = _INTERNATIONAL.sub(REDACTED, text)
     return _SN_NATIONAL.sub(REDACTED, text)
 

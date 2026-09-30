@@ -122,16 +122,31 @@ class OtherSessionSerializer(serializers.Serializer):
 
 
 class OtpVerifyResponseSerializer(serializers.Serializer):
-    status = serializers.CharField()
-    user = AuthUserSerializer()
-    is_new_user = serializers.BooleanField()
-    restricted = serializers.BooleanField()
+    """``authenticated`` : session ouverte. ``mfa_required`` / ``mfa_enrollment_required`` (Ops
+    sur la console) : seulement ``mfa_token``, à présenter aux endpoints ``mfa/totp/*``."""
+
+    status = serializers.ChoiceField(
+        choices=["authenticated", "mfa_required", "mfa_enrollment_required"]
+    )
+    mfa_token = serializers.CharField(required=False)
+    user = AuthUserSerializer(required=False)
+    is_new_user = serializers.BooleanField(required=False)
+    restricted = serializers.BooleanField(required=False)
     # Session restreinte (compte dormant) : type d'écran à afficher, sans rien de l'ancien
     # titulaire du numéro (I2).
-    restriction_kind = serializers.ChoiceField(choices=["client", "pro"], allow_null=True)
-    other_sessions = OtherSessionSerializer(many=True)
-    pending_invitations = InvitationSerializer(many=True)
-    tokens = TokenPairSerializer()
+    restriction_kind = serializers.ChoiceField(
+        choices=["client", "pro"], allow_null=True, required=False
+    )
+    other_sessions = OtherSessionSerializer(many=True, required=False)
+    pending_invitations = InvitationSerializer(many=True, required=False)
+    tokens = TokenPairSerializer(required=False)
+
+    def to_representation(self, instance: dict) -> dict:
+        data = super().to_representation(instance)
+        if data["status"] != "authenticated":
+            # Aucune donnée du compte avant le second facteur.
+            return {"status": data["status"], "mfa_token": data["mfa_token"]}
+        return data
 
 
 # --- Profil ----------------------------------------------------------------------------------
@@ -160,3 +175,32 @@ class MeUpdateSerializer(serializers.Serializer):
     )
     email = serializers.EmailField(max_length=254, required=False, allow_blank=True)
     preferred_language = serializers.ChoiceField(choices=User.Language.choices, required=False)
+
+
+# --- Second facteur Ops (TOTP) ---------------------------------------------------------------
+
+
+class MfaTokenSerializer(serializers.Serializer):
+    mfa_token = serializers.CharField(max_length=128)
+
+
+class TotpSetupRequestSerializer(MfaTokenSerializer):
+    enrollment_token = serializers.CharField(max_length=128)
+
+
+class TotpSetupResponseSerializer(serializers.Serializer):
+    secret = serializers.CharField()
+    otpauth_uri = serializers.CharField()
+
+
+class TotpCodeRequestSerializer(MfaTokenSerializer):
+    code = serializers.RegexField(r"^[0-9]{6}$")
+
+
+class StepUpRequestSerializer(serializers.Serializer):
+    code = serializers.RegexField(r"^[0-9]{6}$")
+
+
+class AccessTokenSerializer(serializers.Serializer):
+    access = serializers.CharField()
+    access_expires_at = serializers.DateTimeField()

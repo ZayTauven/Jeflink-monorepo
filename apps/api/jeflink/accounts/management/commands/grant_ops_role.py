@@ -10,7 +10,8 @@ from argparse import ArgumentParser
 from django.core.management.base import CommandError
 from django.db import transaction
 
-from jeflink.accounts.models import DeviceSession, Role
+from jeflink.accounts.mfa import issue_enrollment_token
+from jeflink.accounts.models import DeviceSession, Role, TotpDevice
 from jeflink.accounts.services import grant_role
 from jeflink.accounts.sessions import revoke_all_sessions
 from jeflink.common.errors import DomainError
@@ -65,4 +66,13 @@ class Command(OpsCommand):
                 operators=operators,
                 reason=options["reason"],
             )
+            enrolled = TotpDevice.objects.filter(user=target, confirmed_at__isnull=False).exists()
+            token = (
+                None
+                if enrolled
+                else issue_enrollment_token(user=target, operator=operators[0][:64])
+            )
         self.stdout.write(f"Rôle ops accordé à {mask_phone(target.phone)} ({', '.join(names)}).")
+        if token:
+            # Affiché une seule fois, jamais journalisé : à remettre hors bande (S1).
+            self.stdout.write(f"Jeton d'enrôlement TOTP (24 h, usage unique) : {token}")

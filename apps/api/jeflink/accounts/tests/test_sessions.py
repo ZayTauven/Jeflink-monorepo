@@ -19,6 +19,8 @@ from jeflink.accounts.tokens import decode_access, encode_access
 from jeflink.common.errors import DomainError
 from jeflink.trust.models import AuditEvent
 
+from .mfa_helpers import enroll
+
 INSTALL_A = "6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f"
 INSTALL_B = "0b9a8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d"
 durable_db = pytest.mark.django_db(transaction=True, databases="__all__", serialized_rollback=True)
@@ -213,6 +215,10 @@ def test_revocation_immediate_dans_le_cache(user_factory):
 def test_politique_ops_sur_la_console(user_factory):
     user = user_factory()
     grant_role(user=user, role=Role.OPS, reason_code="t", operator="a", second_operator="b")
+    # Sans TOTP confirmé, le claim mfa reste faux (recalculé à chaque émission, S1).
+    without = open_session(user, app="console", platform="web", mfa_verified_at=timezone.now())
+    assert decode_access(without.access)["mfa"] is False
+    enroll(user)
     pair = open_session(user, app="console", platform="web", mfa_verified_at=timezone.now())
     session = pair.session
     assert session.absolute_expires_at - session.created_at <= timedelta(hours=12, seconds=5)

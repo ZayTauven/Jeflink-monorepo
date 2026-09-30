@@ -133,3 +133,11 @@ def test_filtre_sur_arguments_incoherents():
     record = logging.LogRecord("t", logging.INFO, __file__, 1, "%s %s", ("+221771234567",), None)
     PiiRedactingFilter().filter(record)
     assert "771234567" not in record.getMessage()
+
+
+@pytest.mark.parametrize("prefix", ["jfr_", "jfm_", "jfe_"])
+def test_jetons_opaques_masques_meme_hors_cle_sensible(prefix):
+    jeton = prefix + "Zm9vYmFyYmF6cXV4LXRlc3QtdG9rZW4tMDAw"
+    sortie = redact(f"échec avec {jeton} en argument")
+    assert jeton not in sortie
+    assert REDACTED in sortie

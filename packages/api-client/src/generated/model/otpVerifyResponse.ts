@@ -10,15 +10,21 @@ import type { Invitation } from './invitation.ts';
 import type { NullEnum } from './nullEnum.ts';
 import type { OtherSession } from './otherSession.ts';
 import type { RestrictionKindEnum } from './restrictionKindEnum.ts';
+import type { StatusEnum } from './statusEnum.ts';
 import type { TokenPair } from './tokenPair.ts';
 
+/**
+ * ``authenticated`` : session ouverte. ``mfa_required`` / ``mfa_enrollment_required`` (Ops
+ * sur la console) : seulement ``mfa_token``, à présenter aux endpoints ``mfa/totp/*``.
+ */
 export interface OtpVerifyResponse {
-  status: string;
-  user: AuthUser;
-  is_new_user: boolean;
-  restricted: boolean;
-  restriction_kind: RestrictionKindEnum | NullEnum | null;
-  other_sessions: OtherSession[];
-  pending_invitations: Invitation[];
-  tokens: TokenPair;
+  status: StatusEnum;
+  mfa_token?: string;
+  user?: AuthUser;
+  is_new_user?: boolean;
+  restricted?: boolean;
+  restriction_kind?: RestrictionKindEnum | NullEnum | null;
+  other_sessions?: OtherSession[];
+  pending_invitations?: Invitation[];
+  tokens?: TokenPair;
 }

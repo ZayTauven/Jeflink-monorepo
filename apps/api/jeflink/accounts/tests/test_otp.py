@@ -331,20 +331,37 @@ def test_ops_sur_la_console_attend_le_second_facteur(ask, check, user_factory, s
     challenge = ask(app=None, **bff).json()
     from django.test import Client
 
-    response = Client().post(
-        reverse("auth-otp-verify"),
-        {
-            "challenge_id": challenge["challenge_id"],
-            "challenge_secret": challenge["challenge_secret"],
-            "code": last_code(),
-            "terms_version": settings.TERMS_VERSION,
-            "device": {"platform": "web", "install_id": INSTALL_A},
-        },
-        content_type="application/json",
-        **bff,
-    )
-    assert response.json() == {"code": "ops_mfa_unavailable"}
+    payload = {
+        "challenge_id": challenge["challenge_id"],
+        "challenge_secret": challenge["challenge_secret"],
+        "code": last_code(),
+        "terms_version": settings.TERMS_VERSION,
+        "device": {"platform": "web", "install_id": INSTALL_A},
+    }
+
+    def post():
+        return Client().post(
+            reverse("auth-otp-verify"), payload, content_type="application/json", **bff
+        )
+
+    response = post()
+    body = response.json()
+    # Aucune session avant le TOTP : seulement un jeton MFA (S1).
+    assert set(body) == {"status", "mfa_token"}
+    assert body["status"] == "mfa_enrollment_required"
+    assert body["mfa_token"].startswith("jfm_")
     assert not DeviceSession.objects.exists()
+
+    # Rejeu T1 (réponse perdue) : nouveau jeton MFA, l'ancien ne vaut plus.
+    from jeflink.accounts.mfa import verify_totp
+    from jeflink.common.errors import DomainError
+
+    replay = post().json()
+    assert replay["status"] == "mfa_enrollment_required"
+    assert replay["mfa_token"] != body["mfa_token"]
+    with pytest.raises(DomainError) as exc:
+        verify_totp(mfa_token=body["mfa_token"], code="000000")
+    assert exc.value.code == "mfa_token_invalid"
 
 
 # --- Renvoi ----------------------------------------------------------------------------------

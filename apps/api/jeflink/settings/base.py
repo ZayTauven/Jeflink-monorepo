@@ -179,6 +179,8 @@ IP_RATE_LIMITS = {
     # Forcer un refresh de 256 bits est de toute façon impossible (revue sécu tâche 8, M7).
     "token_refresh": {"limit": 300, "window": 60},
     "phone_change_confirm": {"limit": 20, "window": 600},
+    # Second facteur Ops : le vrai verrou est par jeton (5 essais) et par compte (10/24 h).
+    "mfa": {"limit": 30, "window": 600},
 }
 OTP_PHONE_BLOCK_MAX_HOURS = 24
 SMS_DAILY_CAP = env.int("SMS_DAILY_CAP", default=5000)

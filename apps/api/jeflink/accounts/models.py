@@ -184,6 +184,8 @@ class DeviceSession(BaseModel):
         ACCOUNT_DELETED = "account_deleted", "Compte supprimé"
         ACCOUNT_DISABLED = "account_disabled", "Compte désactivé"
         OPS_ROLE_CHANGED = "ops_role_changed", "Rôle ops modifié"
+        MFA_LOCKED = "mfa_locked", "Second facteur verrouillé"
+        MFA_RESET = "mfa_reset", "Second facteur réinitialisé"
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="device_sessions")
     app = models.CharField(max_length=8, choices=App.choices)
@@ -412,3 +414,62 @@ class NoticeSms(BaseModel):
 
     def __str__(self) -> str:
         return f"SMS {self.kind} · {self.status}"
+
+
+class TotpDevice(BaseModel):
+    """Second facteur TOTP d'un Ops (S1). Le secret n'existe qu'en MultiFernet."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="totp_device")
+    secret_encrypted = models.TextField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    # Anti-rejeu : un code d'un pas de temps déjà utilisé (ou antérieur) est refusé.
+    last_used_step = models.BigIntegerField(default=0)
+    # 10 échecs sur 24 h → verrou jusqu'à reset_ops_mfa (compté en base, sans Redis).
+    failure_count = models.PositiveSmallIntegerField(default=0)
+    failure_window_start = models.DateTimeField(null=True, blank=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return "TOTP confirmé" if self.confirmed_at else "TOTP en attente"
+
+
+class OpsEnrollmentToken(BaseModel):
+    """Jeton d'enrôlement TOTP remis hors bande (S1) : 24 h, usage unique, stocké haché."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    token_hash = models.CharField(max_length=64, unique=True)
+    issued_by_operator = models.CharField(max_length=64)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self) -> str:
+        return f"jeton d'enrôlement · {self.expires_at:%Y-%m-%d %H:%M}"
+
+
+class MfaChallenge(BaseModel):
+    """Étape entre l'OTP et le TOTP d'un Ops sur la console (S1) : 5 min, 5 essais."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    otp_challenge = models.ForeignKey(OtpChallenge, on_delete=models.CASCADE, related_name="+")
+    token_hash = models.CharField(max_length=64, unique=True)
+    app = models.CharField(max_length=8, choices=DeviceSession.App.choices)
+    device_label = models.CharField(max_length=60, blank=True)
+    install_id = models.CharField(max_length=64, blank=True)
+    # Enrôlement en cours : jeton présenté à setup, consommé à confirm.
+    enrollment_token = models.ForeignKey(
+        OpsEnrollmentToken, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(failed_attempts__lte=5), name="mfachallenge_max_attempts"
+            ),
+            models.CheckConstraint(condition=Q(app="console"), name="mfachallenge_console_only"),
+        ]
+
+    def __str__(self) -> str:
+        return "challenge MFA"

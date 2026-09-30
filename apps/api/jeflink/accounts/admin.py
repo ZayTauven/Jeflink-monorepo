@@ -5,7 +5,7 @@ from django.contrib.auth.models import Group
 
 from jeflink.common.pii import mask_phone
 
-from .models import RoleGrant, User
+from .models import RoleGrant, TotpDevice, User
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
@@ -35,6 +35,15 @@ class UserAdmin(ReadOnlyAdmin):
 class RoleGrantAdmin(ReadOnlyAdmin):
     list_display = ("public_id", "role", "reason_code", "created_at", "revoked_at")
     list_filter = ("role",)
+
+
+@admin.register(TotpDevice)
+class TotpDeviceAdmin(ReadOnlyAdmin):
+    """État du second facteur, jamais le secret (même chiffré)."""
+
+    list_display = ("public_id", "confirmed_at", "locked_at", "failure_count", "updated_at")
+    list_filter = ("locked_at",)
+    exclude = ("secret_encrypted", "user")
 
 
 # Les groupes portent les permissions Ops : jamais modifiables depuis l'admin (I2).

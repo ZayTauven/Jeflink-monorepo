@@ -34,7 +34,7 @@ from jeflink.common.ratelimit import client as auth_redis
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
-from .models import DeviceSession, RetiredRefreshToken, Role, User
+from .models import DeviceSession, RetiredRefreshToken, Role, TotpDevice, User
 from .selectors import has_role
 from .tokens import encode_access
 
@@ -51,6 +51,8 @@ _SYSTEM_REASONS = frozenset(
         DeviceSession.RevokedReason.REPLACED,
         DeviceSession.RevokedReason.OPS_ROLE_CHANGED,
         DeviceSession.RevokedReason.ACCOUNT_DISABLED,
+        DeviceSession.RevokedReason.MFA_LOCKED,
+        DeviceSession.RevokedReason.MFA_RESET,
     }
 )
 
@@ -134,10 +136,37 @@ def _cache_tombstone(sid) -> None:
         auth_redis().set(_cache_key(sid), _TOMBSTONE, ex=SESSION_CACHE_TTL)
 
 
+def _mfa_at(session: DeviceSession) -> datetime | None:
+    """Claim ``mfa`` recalculé à chaque émission : un TOTP réinitialisé ou verrouillé, ou une
+    session hors console ops, donne ``mfa = false`` (S1)."""
+    if session.policy != "console_ops" or session.mfa_verified_at is None:
+        return None
+    usable = TotpDevice.objects.filter(
+        user=session.user, confirmed_at__isnull=False, locked_at__isnull=True
+    ).exists()
+    return session.mfa_verified_at if usable else None
+
+
+def issue_access(session: DeviceSession, now: datetime) -> tuple[str, datetime]:
+    """Jeton d'accès seul, pour la même session (step-up TOTP) : le refresh ne change pas."""
+    expires = now + _policy(session.policy)["access"]
+    access = encode_access(
+        user_public_id=session.user.public_id,
+        session_public_id=session.public_id,
+        app=session.app,
+        auth_time=session.auth_time,
+        mfa_at=_mfa_at(session),
+        restricted=session.restricted,
+        issued_at=now,
+        expires_at=expires,
+    )
+    return access, expires
+
+
 def _issue(session: DeviceSession, refresh: str, now: datetime) -> TokenPair:
     policy = _policy(session.policy)
     expires = now + policy["access"]
-    mfa_at = session.mfa_verified_at if session.policy == "console_ops" else None
+    mfa_at = _mfa_at(session)
     access = encode_access(
         user_public_id=session.user.public_id,
         session_public_id=session.public_id,
