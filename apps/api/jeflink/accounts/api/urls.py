@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import deletion_views, mfa_views, otp_views, views
+from . import deletion_views, mfa_views, ops_views, otp_views, views
 
 urlpatterns = [
     path("auth/config/", otp_views.AuthConfigView.as_view(), name="auth-config"),
@@ -14,6 +14,23 @@ urlpatterns = [
     path("auth/token/refresh/", views.TokenRefreshView.as_view(), name="auth-token-refresh"),
     path("auth/logout/", views.LogoutView.as_view(), name="auth-logout"),
     path("me/", views.MeView.as_view(), name="me"),
+    path("ops/accounts/search/", ops_views.OpsAccountSearchView.as_view(), name="ops-search"),
+    path(
+        "ops/accounts/<uuid:public_id>/",
+        ops_views.OpsAccountDetailView.as_view(),
+        name="ops-account",
+    ),
+    *[
+        path(f"ops/accounts/<uuid:public_id>/{slug}/", view.as_view(), name=f"ops-{slug}")
+        for slug, view in (
+            ("reveal-phone", ops_views.OpsRevealPhoneView),
+            ("revoke-sessions", ops_views.OpsRevokeSessionsView),
+            ("unblock-otp", ops_views.OpsUnblockOtpView),
+            ("deactivate", ops_views.OpsDeactivateView),
+            ("reactivate", ops_views.OpsReactivateView),
+            ("clear-dormant", ops_views.OpsClearDormantView),
+        )
+    ],
     path("me/deletion/otp/", deletion_views.DeletionOtpView.as_view(), name="me-deletion-otp"),
     path("me/deletion/", deletion_views.DeletionView.as_view(), name="me-deletion"),
     path("me/fresh-start/", deletion_views.FreshStartView.as_view(), name="me-fresh-start"),

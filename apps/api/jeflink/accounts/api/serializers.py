@@ -213,3 +213,66 @@ class DeletionConfirmSerializer(serializers.Serializer):
     challenge_id = serializers.UUIDField()
     challenge_secret = serializers.CharField(max_length=64)
     code = serializers.RegexField(r"^[0-9]{6}$")
+
+
+# --- Ops : comptes -----------------------------------------------------------------------------
+
+
+class OpsSearchSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=32)
+
+
+class OpsAccountSummarySerializer(serializers.Serializer):
+    public_id = serializers.UUIDField()
+    phone_masked = serializers.CharField()
+    display_name = serializers.CharField()
+    profile_status = serializers.CharField()
+    is_active = serializers.BooleanField()
+    roles = serializers.ListField(child=serializers.CharField())
+
+
+class OpsSearchResultSerializer(serializers.Serializer):
+    results = OpsAccountSummarySerializer(many=True)
+
+
+class OpsSessionSerializer(serializers.Serializer):
+    public_id = serializers.UUIDField()
+    app = serializers.CharField()
+    platform = serializers.CharField()
+    device_label = serializers.CharField()
+    restricted = serializers.BooleanField()
+    last_seen_at = serializers.DateTimeField()
+    created_at = serializers.DateTimeField()
+
+
+class OpsAccountDetailSerializer(OpsAccountSummarySerializer):
+    preferred_language = serializers.CharField()
+    deactivation_reason = serializers.CharField()
+    deleted = serializers.BooleanField()
+    dormant_restricted = serializers.BooleanField()
+    otp_blocked_until = serializers.DateTimeField(allow_null=True)
+    sessions = OpsSessionSerializer(many=True)
+    created_at = serializers.DateTimeField()
+    phone_verified_at = serializers.DateTimeField(allow_null=True)
+    phone_changed_at = serializers.DateTimeField(allow_null=True)
+
+
+def ops_action_serializer(action: str) -> type[serializers.Serializer]:
+    """Motif énuméré propre à l'action, note facultative (filtrée par le service)."""
+    from jeflink.accounts.ops import REASONS
+
+    name = "".join(part.capitalize() for part in action.split("_"))
+    return type(
+        f"Ops{name}RequestSerializer",
+        (serializers.Serializer,),
+        {
+            "reason_code": serializers.ChoiceField(choices=REASONS[action]),
+            "note": serializers.CharField(
+                max_length=400, required=False, default="", allow_blank=True
+            ),
+        },
+    )
+
+
+class RevealedPhoneSerializer(serializers.Serializer):
+    phone = serializers.CharField()

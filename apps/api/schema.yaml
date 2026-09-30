@@ -526,6 +526,259 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/ops/accounts/{public_id}/:
+    get:
+      operationId: ops_accounts_retrieve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpsAccountDetail'
+          description: ''
+        '400':
+          description: reason_invalid, note_invalid
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/clear-dormant/:
+    post:
+      operationId: ops_accounts_clear_dormant
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsClearDormantRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsClearDormantRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsClearDormantRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/deactivate/:
+    post:
+      operationId: ops_accounts_deactivate
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsDeactivateRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsDeactivateRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsDeactivateRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/reactivate/:
+    post:
+      operationId: ops_accounts_reactivate
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsReactivateRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsReactivateRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsReactivateRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/reveal-phone/:
+    post:
+      operationId: ops_accounts_reveal_phone
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsRevealPhoneRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsRevealPhoneRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsRevealPhoneRequestRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevealedPhone'
+          description: ''
+        '400':
+          description: reason_invalid, note_invalid
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/revoke-sessions/:
+    post:
+      operationId: ops_accounts_revoke_sessions
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsRevokeSessionsRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsRevokeSessionsRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsRevokeSessionsRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/unblock-otp/:
+    post:
+      operationId: ops_accounts_unblock_otp
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsUnblockOtpRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsUnblockOtpRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsUnblockOtpRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+        '404':
+          description: not_found
+  /api/ops/accounts/search/:
+    post:
+      operationId: ops_accounts_search
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsSearchRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsSearchRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsSearchRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpsSearchResult'
+          description: ''
+        '400':
+          description: phone_invalid
 components:
   schemas:
     AcceptInvitationRequest:
@@ -779,6 +1032,260 @@ components:
     NullEnum:
       enum:
       - null
+    OpsAccountDetail:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        phone_masked:
+          type: string
+        display_name:
+          type: string
+        profile_status:
+          type: string
+        is_active:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+        preferred_language:
+          type: string
+        deactivation_reason:
+          type: string
+        deleted:
+          type: boolean
+        dormant_restricted:
+          type: boolean
+        otp_blocked_until:
+          type: string
+          format: date-time
+          nullable: true
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpsSession'
+        created_at:
+          type: string
+          format: date-time
+        phone_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        phone_changed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - deactivation_reason
+      - deleted
+      - display_name
+      - dormant_restricted
+      - is_active
+      - otp_blocked_until
+      - phone_changed_at
+      - phone_masked
+      - phone_verified_at
+      - preferred_language
+      - profile_status
+      - public_id
+      - roles
+      - sessions
+    OpsAccountSummary:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        phone_masked:
+          type: string
+        display_name:
+          type: string
+        profile_status:
+          type: string
+        is_active:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+      required:
+      - display_name
+      - is_active
+      - phone_masked
+      - profile_status
+      - public_id
+      - roles
+    OpsClearDormantRequestReasonCodeEnum:
+      enum:
+      - owner_verified
+      - kyc_verified
+      type: string
+      description: |-
+        * `owner_verified` - owner_verified
+        * `kyc_verified` - kyc_verified
+    OpsClearDormantRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsClearDormantRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsDeactivateRequestReasonCodeEnum:
+      enum:
+      - fraud
+      - user_request
+      - ops_other
+      type: string
+      description: |-
+        * `fraud` - fraud
+        * `user_request` - user_request
+        * `ops_other` - ops_other
+    OpsDeactivateRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsDeactivateRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsReactivateRequestReasonCodeEnum:
+      enum:
+      - user_verified
+      - error_correction
+      type: string
+      description: |-
+        * `user_verified` - user_verified
+        * `error_correction` - error_correction
+    OpsReactivateRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsReactivateRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsRevealPhoneRequestReasonCodeEnum:
+      enum:
+      - support_call
+      - kyc_review
+      - dispute
+      - legal_request
+      type: string
+      description: |-
+        * `support_call` - support_call
+        * `kyc_review` - kyc_review
+        * `dispute` - dispute
+        * `legal_request` - legal_request
+    OpsRevealPhoneRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsRevealPhoneRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsRevokeSessionsRequestReasonCodeEnum:
+      enum:
+      - device_lost
+      - account_compromised
+      - user_request
+      type: string
+      description: |-
+        * `device_lost` - device_lost
+        * `account_compromised` - account_compromised
+        * `user_request` - user_request
+    OpsRevokeSessionsRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsRevokeSessionsRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsSearchRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+      required:
+      - phone
+    OpsSearchResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpsAccountSummary'
+      required:
+      - results
+    OpsSession:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        app:
+          type: string
+        platform:
+          type: string
+        device_label:
+          type: string
+        restricted:
+          type: boolean
+        last_seen_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - app
+      - created_at
+      - device_label
+      - last_seen_at
+      - platform
+      - public_id
+      - restricted
+    OpsUnblockOtpRequestReasonCodeEnum:
+      enum:
+      - user_verified
+      - false_positive
+      type: string
+      description: |-
+        * `user_verified` - user_verified
+        * `false_positive` - false_positive
+    OpsUnblockOtpRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsUnblockOtpRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
     OtherSession:
       type: object
       properties:
@@ -1013,6 +1520,13 @@ components:
       description: |-
         * `client` - client
         * `pro` - pro
+    RevealedPhone:
+      type: object
+      properties:
+        phone:
+          type: string
+      required:
+      - phone
     RoleEnum:
       enum:
       - owner
