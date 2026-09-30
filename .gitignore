@@ -1,5 +1,6 @@
-.env
-apps/**/.env
+# Tout fichier d'environnement, à tous les niveaux (.env.local, .env.production…), sauf les exemples
+.env*
+!.env.example
 node_modules/
 .next/
 dist/
