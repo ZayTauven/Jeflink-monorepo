@@ -320,6 +320,28 @@ def _rotate(session: DeviceSession, now: datetime, *, grace: bool) -> TokenPair:
     return _issue(session, refresh, now)
 
 
+def reissue_session(session: DeviceSession) -> TokenPair:
+    """Rejeu de ``otp/verify`` (T1) : nouveaux jetons pour la **même** session, avec rotation.
+
+    Le refresh courant est retiré ; aucune grâce n'est ouverte (le client a perdu la réponse
+    précédente, il repart du couple émis ici).
+    """
+    with transaction.atomic():
+        now = timezone.now()
+        session = (
+            DeviceSession.objects.select_for_update().select_related("user").get(pk=session.pk)
+        )
+        if not _usable(session, now):
+            raise DomainError("session_revoked", status=401)
+        refresh, refresh_hash = _new_refresh()
+        RetiredRefreshToken.objects.create(session=session, refresh_hash=session.refresh_hash)
+        session.refresh_hash = refresh_hash
+        _extend_idle(session, now)
+        session.save()
+        transaction.on_commit(lambda: _cache_fill(session))
+        return _issue(session, refresh, now)
+
+
 # --- Révocation -------------------------------------------------------------------------------
 
 

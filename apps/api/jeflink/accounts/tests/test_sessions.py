@@ -204,7 +204,7 @@ def test_meme_appareil_remplace_la_session(user_factory):
 @pytest.mark.django_db
 def test_revocation_immediate_dans_le_cache(user_factory):
     pair = open_session(user_factory())
-    assert session_state(pair.session.public_id) .restricted is False
+    assert session_state(pair.session.public_id).restricted is False
     revoke_session(pair.session, reason="user_revoked")
     assert session_state(pair.session.public_id) is None
 
@@ -260,9 +260,9 @@ def test_compte_recent_jamais_dormant(user_factory):
 def test_levee_de_restriction_par_l_ops(user_factory):
     user, ops = user_factory(), user_factory()
     pair = open_session(user, restricted=True)
-    assert session_state(pair.session.public_id) .restricted is True
+    assert session_state(pair.session.public_id).restricted is True
     assert clear_dormant_restriction(user=user, actor=ops, reason_code="bookings_described") == 1
-    assert session_state(pair.session.public_id) .restricted is False
+    assert session_state(pair.session.public_id).restricted is False
     assert AuditEvent.objects.filter(action="accounts.dormant.cleared").count() == 1
 
 

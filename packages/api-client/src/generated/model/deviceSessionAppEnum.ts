@@ -12,10 +12,10 @@
  * * `web` - Web
  * * `console` - Console
  */
-export type AppEnum = typeof AppEnum[keyof typeof AppEnum];
+export type DeviceSessionAppEnum = typeof DeviceSessionAppEnum[keyof typeof DeviceSessionAppEnum];
 
 
-export const AppEnum = {
+export const DeviceSessionAppEnum = {
   client: 'client',
   pro: 'pro',
   web: 'web',

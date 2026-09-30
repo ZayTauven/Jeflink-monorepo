@@ -5,13 +5,13 @@
  * Contrat unique des fronts et apps Jeflink (client TS généré depuis ce schéma).
  * OpenAPI spec version: 0.1.0
  */
-import type { AppEnum } from './appEnum.ts';
-import type { PlatformEnum } from './platformEnum.ts';
+import type { DeviceSessionAppEnum } from './deviceSessionAppEnum.ts';
+import type { DeviceSessionPlatformEnum } from './deviceSessionPlatformEnum.ts';
 
 export interface DeviceSession {
   readonly public_id: string;
-  readonly app: AppEnum;
-  readonly platform: PlatformEnum;
+  readonly app: DeviceSessionAppEnum;
+  readonly platform: DeviceSessionPlatformEnum;
   readonly device_label: string;
   readonly last_seen_at: string;
   readonly created_at: string;

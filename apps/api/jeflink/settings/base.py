@@ -201,6 +201,19 @@ MAX_ACTIVE_SESSIONS = 10
 REFRESH_GRACE_SECONDS = _DAY  # Q15 : 24 h, une seule fois par rotation
 DORMANT_AFTER_DAYS = 60  # Q17
 
+# --- OTP (spec 001, « OTP ») ---------------------------------------------------------------
+OTP_ALLOWED_REGIONS = env.list("OTP_ALLOWED_REGIONS", default=["SN"])  # Q1 : Sénégal seul en V1
+TERMS_VERSION = env("TERMS_VERSION", default="2026-09-30")
+# Défi client (S13, tâche 10) : livré éteint ; activable sans déploiement.
+OTP_CHALLENGE_REQUIRED = env.bool("OTP_CHALLENGE_REQUIRED", default=False)
+OTP_CHALLENGE_VERIFIER = env("OTP_CHALLENGE_VERIFIER", default="")
+# Hachage SMS Retriever par app et par clé de signature (obligatoire en production).
+SMS_ANDROID_APP_HASH = {
+    "client": env("SMS_ANDROID_APP_HASH_CLIENT", default=""),
+    "pro": env("SMS_ANDROID_APP_HASH_PRO", default=""),
+}
+WEBOTP_DOMAIN = env("WEBOTP_DOMAIN", default="jeflink.sn")
+
 # Schéma OpenAPI servi seulement en local/test ; `make openapi` le génère hors ligne (S24).
 SERVE_API_SCHEMA = DJANGO_ENV in {"local", "test"}
 

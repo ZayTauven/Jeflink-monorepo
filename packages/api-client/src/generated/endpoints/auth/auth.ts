@@ -6,16 +6,31 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
-  useMutation
+  useMutation,
+  useQuery
 } from '@tanstack/react-query';
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
   QueryClient,
+  QueryFunction,
+  QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
-  UseMutationResult
+  UseMutationResult,
+  UseQueryOptions,
+  UseQueryResult
 } from '@tanstack/react-query';
 
 import type {
+  AuthConfig,
+  OtpChallengeResponse,
+  OtpRequestRequest,
+  OtpResendRequest,
+  OtpVerifyRequest,
+  OtpVerifyResponse,
   RefreshRequestRequest,
   TokenPair
 } from '../../model';
@@ -29,6 +44,127 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
+  const result = { queryKey } as T & { queryKey: K };
+  for (const key of Object.keys(query)) {
+    // The explicit queryKey always wins, matching the previous
+    // `{ ...query, queryKey }` spread where it was set last.
+    if (key === 'queryKey') continue;
+    Object.defineProperty(result, key, {
+      enumerable: true,
+      configurable: true,
+      get: () => (query as Record<string, unknown>)[key],
+    });
+  }
+  return result;
+};
+
+export type authConfigResponse200 = {
+  data: AuthConfig
+  status: 200
+}
+
+export type authConfigResponseSuccess = (authConfigResponse200) & {
+  headers: Headers;
+};
+;
+
+export type authConfigResponse = (authConfigResponseSuccess)
+
+export const getAuthConfigUrl = () => {
+
+
+
+
+  return `/api/auth/config/`
+}
+
+export const authConfig = async ( options?: Parameters<typeof jeflinkFetch>[1]): Promise<authConfigResponse> => {
+
+  return jeflinkFetch<authConfigResponse>(getAuthConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAuthConfigQueryKey = () => {
+    return [
+    `/api/auth/config/`
+    ] as const;
+    }
+
+
+export const getAuthConfigQueryOptions = <TData = Awaited<ReturnType<typeof authConfig>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authConfig>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAuthConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof authConfig>>> = ({ signal }) => authConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof authConfig>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AuthConfigQueryResult = NonNullable<Awaited<ReturnType<typeof authConfig>>>
+export type AuthConfigQueryError = ErrorType<unknown>
+
+
+export function useAuthConfig<TData = Awaited<ReturnType<typeof authConfig>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof authConfig>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authConfig>>,
+          TError,
+          Awaited<ReturnType<typeof authConfig>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthConfig<TData = Awaited<ReturnType<typeof authConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authConfig>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof authConfig>>,
+          TError,
+          Awaited<ReturnType<typeof authConfig>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAuthConfig<TData = Awaited<ReturnType<typeof authConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authConfig>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAuthConfig<TData = Awaited<ReturnType<typeof authConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof authConfig>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAuthConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
 
 
 
@@ -110,6 +246,324 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getAuthLogoutMutationOptions(options), queryClient);
+    }
+    export type authOtpRequestResponse202 = {
+  data: OtpChallengeResponse
+  status: 202
+}
+
+export type authOtpRequestResponse400 = {
+  data: void
+  status: 400
+}
+
+export type authOtpRequestResponse429 = {
+  data: void
+  status: 429
+}
+
+export type authOtpRequestResponse503 = {
+  data: void
+  status: 503
+}
+
+export type authOtpRequestResponseSuccess = (authOtpRequestResponse202) & {
+  headers: Headers;
+};
+export type authOtpRequestResponseError = (authOtpRequestResponse400 | authOtpRequestResponse429 | authOtpRequestResponse503) & {
+  headers: Headers;
+};
+
+export type authOtpRequestResponse = (authOtpRequestResponseSuccess | authOtpRequestResponseError)
+
+export const getAuthOtpRequestUrl = () => {
+
+
+
+
+  return `/api/auth/otp/request/`
+}
+
+export const authOtpRequest = async (otpRequestRequest: OtpRequestRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<authOtpRequestResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<authOtpRequestResponse>(getAuthOtpRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(otpRequestRequest)
+  }
+);}
+
+
+
+
+
+export const getAuthOtpRequestMutationKey = () => ['authOtpRequest'] as const;
+
+export const getAuthOtpRequestMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authOtpRequest>>, TError,AuthOtpRequestMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authOtpRequest>>, TError,AuthOtpRequestMutationVariables, TContext> => {
+
+const mutationKey = getAuthOtpRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authOtpRequest>>, AuthOtpRequestMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authOtpRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthOtpRequestMutationResult = NonNullable<Awaited<ReturnType<typeof authOtpRequest>>>
+    export type AuthOtpRequestMutationBody = BodyType<OtpRequestRequest>
+    export type AuthOtpRequestMutationError = ErrorType<void>
+    export type AuthOtpRequestMutationVariables = {data: BodyType<OtpRequestRequest>}
+
+    export const useAuthOtpRequest = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authOtpRequest>>, TError,AuthOtpRequestMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authOtpRequest>>,
+        TError,
+        AuthOtpRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthOtpRequestMutationOptions(options), queryClient);
+    }
+    export type authOtpResendResponse202 = {
+  data: OtpChallengeResponse
+  status: 202
+}
+
+export type authOtpResendResponseSuccess = (authOtpResendResponse202) & {
+  headers: Headers;
+};
+;
+
+export type authOtpResendResponse = (authOtpResendResponseSuccess)
+
+export const getAuthOtpResendUrl = () => {
+
+
+
+
+  return `/api/auth/otp/resend/`
+}
+
+export const authOtpResend = async (otpResendRequest: OtpResendRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<authOtpResendResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<authOtpResendResponse>(getAuthOtpResendUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(otpResendRequest)
+  }
+);}
+
+
+
+
+
+export const getAuthOtpResendMutationKey = () => ['authOtpResend'] as const;
+
+export const getAuthOtpResendMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authOtpResend>>, TError,AuthOtpResendMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authOtpResend>>, TError,AuthOtpResendMutationVariables, TContext> => {
+
+const mutationKey = getAuthOtpResendMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authOtpResend>>, AuthOtpResendMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authOtpResend(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthOtpResendMutationResult = NonNullable<Awaited<ReturnType<typeof authOtpResend>>>
+    export type AuthOtpResendMutationBody = BodyType<OtpResendRequest>
+    export type AuthOtpResendMutationError = ErrorType<unknown>
+    export type AuthOtpResendMutationVariables = {data: BodyType<OtpResendRequest>}
+
+    export const useAuthOtpResend = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authOtpResend>>, TError,AuthOtpResendMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authOtpResend>>,
+        TError,
+        AuthOtpResendMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthOtpResendMutationOptions(options), queryClient);
+    }
+    export type authOtpVerifyResponse200 = {
+  data: OtpVerifyResponse
+  status: 200
+}
+
+export type authOtpVerifyResponse400 = {
+  data: void
+  status: 400
+}
+
+export type authOtpVerifyResponse403 = {
+  data: void
+  status: 403
+}
+
+export type authOtpVerifyResponse409 = {
+  data: void
+  status: 409
+}
+
+export type authOtpVerifyResponse429 = {
+  data: void
+  status: 429
+}
+
+export type authOtpVerifyResponseSuccess = (authOtpVerifyResponse200) & {
+  headers: Headers;
+};
+export type authOtpVerifyResponseError = (authOtpVerifyResponse400 | authOtpVerifyResponse403 | authOtpVerifyResponse409 | authOtpVerifyResponse429) & {
+  headers: Headers;
+};
+
+export type authOtpVerifyResponse = (authOtpVerifyResponseSuccess | authOtpVerifyResponseError)
+
+export const getAuthOtpVerifyUrl = () => {
+
+
+
+
+  return `/api/auth/otp/verify/`
+}
+
+export const authOtpVerify = async (otpVerifyRequest: OtpVerifyRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<authOtpVerifyResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<authOtpVerifyResponse>(getAuthOtpVerifyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(otpVerifyRequest)
+  }
+);}
+
+
+
+
+
+export const getAuthOtpVerifyMutationKey = () => ['authOtpVerify'] as const;
+
+export const getAuthOtpVerifyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authOtpVerify>>, TError,AuthOtpVerifyMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof authOtpVerify>>, TError,AuthOtpVerifyMutationVariables, TContext> => {
+
+const mutationKey = getAuthOtpVerifyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof authOtpVerify>>, AuthOtpVerifyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  authOtpVerify(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AuthOtpVerifyMutationResult = NonNullable<Awaited<ReturnType<typeof authOtpVerify>>>
+    export type AuthOtpVerifyMutationBody = BodyType<OtpVerifyRequest>
+    export type AuthOtpVerifyMutationError = ErrorType<void>
+    export type AuthOtpVerifyMutationVariables = {data: BodyType<OtpVerifyRequest>}
+
+    export const useAuthOtpVerify = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof authOtpVerify>>, TError,AuthOtpVerifyMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof authOtpVerify>>,
+        TError,
+        AuthOtpVerifyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAuthOtpVerifyMutationOptions(options), queryClient);
     }
     export type authTokenRefreshResponse200 = {
   data: TokenPair

@@ -11,10 +11,10 @@
  * * `ios` - iOS
  * * `web` - Web
  */
-export type PlatformEnum = typeof PlatformEnum[keyof typeof PlatformEnum];
+export type DeviceSessionPlatformEnum = typeof DeviceSessionPlatformEnum[keyof typeof DeviceSessionPlatformEnum];
 
 
-export const PlatformEnum = {
+export const DeviceSessionPlatformEnum = {
   android: 'android',
   ios: 'ios',
   web: 'web',

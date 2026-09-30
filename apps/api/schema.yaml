@@ -5,6 +5,20 @@ info:
   description: Contrat unique des fronts et apps Jeflink (client TS généré depuis
     ce schéma).
 paths:
+  /api/auth/config/:
+    get:
+      operationId: auth_config
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthConfig'
+          description: ''
   /api/auth/logout/:
     post:
       operationId: auth_logout
@@ -13,6 +27,107 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/auth/otp/request/:
+    post:
+      operationId: auth_otp_request
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie du numéro (16 à 64 caractères) : même clé,
+          même réponse.'
+        required: true
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpChallengeResponse'
+          description: ''
+        '400':
+          description: phone_invalid, phone_not_mobile, phone_region_not_supported
+        '429':
+          description: otp_rate_limited (+ retry_after)
+        '503':
+          description: otp_temporarily_unavailable
+  /api/auth/otp/resend/:
+    post:
+      operationId: auth_otp_resend
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpResendRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpResendRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpResendRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpChallengeResponse'
+          description: ''
+  /api/auth/otp/verify/:
+    post:
+      operationId: auth_otp_verify
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '400':
+          description: otp_invalid (+ attempts_remaining), otp_expired, otp_challenge_invalid,
+            terms_not_accepted
+        '403':
+          description: account_disabled, account_not_allowed
+        '409':
+          description: otp_already_used
+        '429':
+          description: otp_locked
   /api/auth/token/refresh/:
     post:
       operationId: auth_token_refresh
@@ -100,18 +215,82 @@ paths:
           description: No response body
 components:
   schemas:
-    AppEnum:
+    AppD8cEnum:
       enum:
       - client
       - pro
-      - web
-      - console
       type: string
       description: |-
-        * `client` - App client
-        * `pro` - App Pro
-        * `web` - Web
-        * `console` - Console
+        * `client` - client
+        * `pro` - pro
+    AuthConfig:
+      type: object
+      properties:
+        regions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Region'
+        code_length:
+          type: integer
+        client_challenge_required:
+          type: boolean
+        terms_version:
+          type: string
+      required:
+      - client_challenge_required
+      - code_length
+      - regions
+      - terms_version
+    AuthUser:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        phone_display:
+          type: string
+        display_name:
+          type: string
+        profile_status:
+          type: string
+        preferred_language:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+      required:
+      - display_name
+      - phone_display
+      - preferred_language
+      - profile_status
+      - public_id
+      - roles
+    DevicePlatformEnum:
+      enum:
+      - android
+      - ios
+      - web
+      type: string
+      description: |-
+        * `android` - android
+        * `ios` - ios
+        * `web` - web
+    DeviceRequest:
+      type: object
+      properties:
+        platform:
+          $ref: '#/components/schemas/DevicePlatformEnum'
+        label:
+          type: string
+          default: ''
+          maxLength: 120
+        install_id:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - platform
     DeviceSession:
       type: object
       properties:
@@ -121,11 +300,11 @@ components:
           readOnly: true
         app:
           allOf:
-          - $ref: '#/components/schemas/AppEnum'
+          - $ref: '#/components/schemas/DeviceSessionAppEnum'
           readOnly: true
         platform:
           allOf:
-          - $ref: '#/components/schemas/PlatformEnum'
+          - $ref: '#/components/schemas/DeviceSessionPlatformEnum'
           readOnly: true
         device_label:
           type: string
@@ -149,6 +328,28 @@ components:
       - last_seen_at
       - platform
       - public_id
+    DeviceSessionAppEnum:
+      enum:
+      - client
+      - pro
+      - web
+      - console
+      type: string
+      description: |-
+        * `client` - App client
+        * `pro` - App Pro
+        * `web` - Web
+        * `console` - Console
+    DeviceSessionPlatformEnum:
+      enum:
+      - android
+      - ios
+      - web
+      type: string
+      description: |-
+        * `android` - Android
+        * `ios` - iOS
+        * `web` - Web
     Health:
       type: object
       properties:
@@ -156,6 +357,138 @@ components:
           type: string
       required:
       - status
+    OtherSession:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        app:
+          type: string
+        device_label:
+          type: string
+        last_seen_at:
+          type: string
+          format: date-time
+      required:
+      - app
+      - device_label
+      - last_seen_at
+      - public_id
+    OtpChallengeResponse:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        challenge_secret:
+          type: string
+        phone_display:
+          type: string
+        code_length:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+        resend_available_at:
+          type: string
+          format: date-time
+        deliveries_remaining:
+          type: integer
+      required:
+      - challenge_id
+      - code_length
+      - deliveries_remaining
+      - expires_at
+      - phone_display
+      - resend_available_at
+    OtpRequestRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+        app:
+          $ref: '#/components/schemas/AppD8cEnum'
+        client_challenge_token:
+          type: string
+          minLength: 1
+          default: ''
+          maxLength: 4096
+      required:
+      - phone
+    OtpResendRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        challenge_secret:
+          type: string
+          minLength: 1
+          maxLength: 64
+      required:
+      - challenge_id
+      - challenge_secret
+    OtpVerifyRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        challenge_secret:
+          type: string
+          minLength: 1
+          maxLength: 64
+        code:
+          type: string
+          minLength: 1
+          pattern: ^\d{6}$
+        terms_version:
+          type: string
+          minLength: 1
+          maxLength: 16
+        device:
+          $ref: '#/components/schemas/DeviceRequest'
+        app:
+          $ref: '#/components/schemas/AppD8cEnum'
+      required:
+      - challenge_id
+      - challenge_secret
+      - code
+      - device
+      - terms_version
+    OtpVerifyResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        user:
+          $ref: '#/components/schemas/AuthUser'
+        is_new_user:
+          type: boolean
+        restricted:
+          type: boolean
+        other_sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OtherSession'
+        pending_invitations:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        tokens:
+          $ref: '#/components/schemas/TokenPair'
+      required:
+      - is_new_user
+      - other_sessions
+      - pending_invitations
+      - restricted
+      - status
+      - tokens
+      - user
     PaginatedDeviceSessionList:
       type: object
       required:
@@ -175,16 +508,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DeviceSession'
-    PlatformEnum:
-      enum:
-      - android
-      - ios
-      - web
-      type: string
-      description: |-
-        * `android` - Android
-        * `ios` - iOS
-        * `web` - Web
     RefreshRequestRequest:
       type: object
       properties:
@@ -194,6 +517,19 @@ components:
           maxLength: 128
       required:
       - refresh
+    Region:
+      type: object
+      properties:
+        region:
+          type: string
+        dial_code:
+          type: string
+        label:
+          type: string
+      required:
+      - dial_code
+      - label
+      - region
     TokenPair:
       type: object
       properties:

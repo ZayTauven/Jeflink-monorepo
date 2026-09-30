@@ -1,8 +1,12 @@
 from django.urls import path
 
-from . import views
+from . import otp_views, views
 
 urlpatterns = [
+    path("auth/config/", otp_views.AuthConfigView.as_view(), name="auth-config"),
+    path("auth/otp/request/", otp_views.OtpRequestView.as_view(), name="auth-otp-request"),
+    path("auth/otp/resend/", otp_views.OtpResendView.as_view(), name="auth-otp-resend"),
+    path("auth/otp/verify/", otp_views.OtpVerifyView.as_view(), name="auth-otp-verify"),
     path("auth/token/refresh/", views.TokenRefreshView.as_view(), name="auth-token-refresh"),
     path("auth/logout/", views.LogoutView.as_view(), name="auth-logout"),
     path("me/sessions/", views.MySessionsView.as_view(), name="me-sessions"),

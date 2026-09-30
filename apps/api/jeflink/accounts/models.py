@@ -228,3 +228,89 @@ class RetiredRefreshToken(models.Model):
 
     def __str__(self) -> str:
         return f"refresh retiré · {self.retired_at:%Y-%m-%d}"
+
+
+class OtpChallenge(BaseModel):
+    """Un parcours de vérification par code (spec 001, OTP). Ni code ni secret en clair."""
+
+    class Purpose(models.TextChoices):
+        LOGIN = "login", "Connexion"
+        DELETE_ACCOUNT = "delete_account", "Suppression du compte"
+        CHANGE_PHONE = "change_phone", "Changement de numéro"
+        SENSITIVE_ACTION = "sensitive_action", "Action sensible"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "En attente"
+        VERIFIED = "verified", "Vérifié"
+        LOCKED = "locked", "Verrouillé"
+        EXPIRED = "expired", "Expiré"
+
+    phone = models.CharField(max_length=16)
+    region = models.CharField(max_length=2)
+    purpose = models.CharField(max_length=16, choices=Purpose.choices)
+    user = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.CASCADE, related_name="+"
+    )
+    challenge_secret_hash = models.CharField(max_length=64)
+    app = models.CharField(max_length=8, choices=DeviceSession.App.choices)
+    language = models.CharField(max_length=2, default="fr")
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.PENDING)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    expires_at = models.DateTimeField()
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verified_install_id = models.CharField(max_length=64, blank=True)
+    session = models.ForeignKey(
+        DeviceSession, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class Meta:
+        indexes = [models.Index(fields=["phone", "created_at"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(failed_attempts__lte=5), name="otpchallenge_max_attempts"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.purpose} · {self.status}"
+
+
+class OtpDelivery(BaseModel):
+    """Un envoi de code (3 au plus par challenge). Le code n'existe qu'en HMAC."""
+
+    class Channel(models.TextChoices):
+        SMS = "sms", "SMS"
+        WHATSAPP = "whatsapp", "WhatsApp"
+        VOICE = "voice", "Appel vocal"
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "En file"
+        SENT = "sent", "Envoyé"
+        FAILED = "failed", "Échec"
+        UNKNOWN = "unknown", "Issue inconnue"
+
+    challenge = models.ForeignKey(OtpChallenge, on_delete=models.CASCADE, related_name="deliveries")
+    attempt_no = models.PositiveSmallIntegerField()
+    channel = models.CharField(max_length=8, choices=Channel.choices, default=Channel.SMS)
+    code_hash = models.CharField(max_length=64, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.QUEUED)
+    gateway = models.CharField(max_length=32, blank=True)
+    provider_message_id = models.CharField(max_length=128, blank=True)
+    segments = models.PositiveSmallIntegerField(default=0)
+    error_code = models.CharField(max_length=64, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["challenge", "attempt_no"], name="otpdelivery_unique_attempt"
+            ),
+            models.CheckConstraint(
+                condition=Q(attempt_no__gte=1) & Q(attempt_no__lte=3),
+                name="otpdelivery_attempt_range",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"envoi {self.attempt_no} · {self.status}"

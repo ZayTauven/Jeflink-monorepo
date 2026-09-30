@@ -40,3 +40,8 @@ class AccountsConfig(AppConfig):
         register_audit_schema("accounts.session.refresh_reuse_detected", {"app": str})
         register_audit_schema("accounts.session.evicted_limit", {"app": str})
         register_audit_schema("accounts.dormant.cleared", {"reason_code": str})
+        register_audit_schema("accounts.user.created", {"app": str})
+        register_audit_schema(
+            "accounts.otp.verified", {"app": str, "is_new_user": bool, "restricted": bool}
+        )
+        register_audit_schema("accounts.otp.locked", {"phone_hmac": PhoneHmac, "app": str})
