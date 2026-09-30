@@ -64,10 +64,25 @@ def test_ajout_seul():
         event.delete()
 
 
-@pytest.mark.django_db(transaction=True, databases="__all__")
+# Test transactionnel : pytest-django le place en fin de passage ; serialized_rollback
+# restaure les données de migration (groupes Ops) vidées par un flush précédent.
+@pytest.mark.django_db(transaction=True, databases="__all__", serialized_rollback=True)
 def test_audit_durable_survit_au_rollback():
     with pytest.raises(RuntimeError), transaction.atomic():
         audit(action=ACTION, metadata={"count": 1})
         audit(action=ACTION, metadata={"count": 2}, durable=True)
         raise RuntimeError("échec métier")
     assert list(AuditEvent.objects.values_list("metadata", flat=True)) == [{"count": 2}]
+
+
+@pytest.mark.django_db
+def test_action_utilisateur_sans_acteur_refusee():
+    from django.db import IntegrityError
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        audit(action=ACTION, actor_kind="user")
+
+
+@pytest.mark.django_db
+def test_action_ops_de_commande_sans_compte_acceptee():
+    assert audit(action=ACTION, actor_kind="ops").actor_id is None

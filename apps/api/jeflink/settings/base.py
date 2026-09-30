@@ -97,6 +97,7 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "jeflink.common.pagination.CreatedCursorPagination",
     "PAGE_SIZE": 20,
+    "EXCEPTION_HANDLER": "jeflink.common.api.exceptions.exception_handler",
 }
 
 SPECTACULAR_SETTINGS = {

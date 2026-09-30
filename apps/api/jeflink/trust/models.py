@@ -32,9 +32,11 @@ class AuditEvent(models.Model):
     class Meta:
         ordering = ["-created_at"]
         constraints = [
+            # Une action « user » a toujours un compte acteur. Une action « ops » lancée par une
+            # commande de gestion n'en a pas : l'opérateur est nommé dans les métadonnées.
             models.CheckConstraint(
-                condition=models.Q(actor_kind="system") | models.Q(actor__isnull=False),
-                name="audit_actor_required_unless_system",
+                condition=~models.Q(actor_kind="user") | models.Q(actor__isnull=False),
+                name="audit_user_action_has_actor",
             ),
         ]
 

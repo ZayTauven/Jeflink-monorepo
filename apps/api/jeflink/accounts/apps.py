@@ -4,3 +4,16 @@ from django.apps import AppConfig
 class AccountsConfig(AppConfig):
     name = "jeflink.accounts"
     label = "accounts"
+    verbose_name = "Comptes"
+
+    def ready(self) -> None:
+        from jeflink.trust.services import register_audit_schema
+
+        role_fields: dict[str, type] = {
+            "role": str,
+            "reason_code": str,
+            "operator": str,
+            "second_operator": str,
+        }
+        register_audit_schema("accounts.role.granted", role_fields)
+        register_audit_schema("accounts.role.revoked", role_fields)
