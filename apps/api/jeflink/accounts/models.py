@@ -66,6 +66,9 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     )
     is_staff = models.BooleanField(default=False)
     is_review_account = models.BooleanField(default=False)
+    # Compte dormant (S18) : posé à la première connexion restreinte, levé seulement par l'Ops
+    # ou par « Repartir de zéro ». Tant qu'il est posé, toute nouvelle session est restreinte.
+    dormant_restricted_since = models.DateTimeField(null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     objects = UserManager()
@@ -184,6 +187,8 @@ class DeviceSession(BaseModel):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="device_sessions")
     app = models.CharField(max_length=8, choices=App.choices)
+    # Politique de durée figée à la création (client, pro, web, console, console_ops).
+    policy = models.CharField(max_length=12)
     platform = models.CharField(max_length=8, choices=Platform.choices)
     device_label = models.CharField(max_length=60, blank=True)
     install_id = models.CharField(max_length=64, blank=True)

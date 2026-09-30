@@ -10,8 +10,9 @@ from argparse import ArgumentParser
 from django.core.management.base import CommandError
 from django.db import transaction
 
-from jeflink.accounts.models import Role
+from jeflink.accounts.models import DeviceSession, Role
 from jeflink.accounts.services import grant_role
+from jeflink.accounts.sessions import revoke_all_sessions
 from jeflink.common.errors import DomainError
 from jeflink.common.pii import mask_phone
 
@@ -53,6 +54,10 @@ class Command(OpsCommand):
                 raise CommandError(exc.code) from exc
             current = set(target.groups.values_list("name", flat=True))
             target.groups.add(*groups)
+            # Politique de session changée (console_ops) : sessions console révoquées (I2, S1).
+            revoke_all_sessions(
+                user=target, reason=DeviceSession.RevokedReason.OPS_ROLE_CHANGED, app="console"
+            )
             self.audit_groups(
                 target=target,
                 added=[g.name for g in groups if g.name not in current],

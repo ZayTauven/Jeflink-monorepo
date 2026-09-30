@@ -7,7 +7,11 @@ Règles clés :
   nouveau refresh et retire le courant : si le vrai client présente ensuite ce courant retiré,
   la réutilisation est détectée et la session révoquée ;
 - toute autre présentation d'un refresh retiré est une **réutilisation** : révocation + audit ;
-- chaque requête vérifie que la session est active (cache Redis 60 s, repli en base).
+- la politique de durée est figée à la création ; si elle change (rôle ops accordé ou retiré),
+  la session est révoquée au refresh suivant ;
+- chaque requête vérifie que la session est active (cache Redis 60 s, repli en base). Une
+  révocation pose une pierre tombale dans le cache : aucun lecteur concurrent ne peut y
+  réinscrire « active ».
 """
 
 import contextlib
@@ -15,6 +19,7 @@ import hashlib
 import re
 import secrets
 import unicodedata
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -35,7 +40,19 @@ from .tokens import encode_access
 
 REFRESH_PREFIX = "jfr_"
 SESSION_CACHE_TTL = 60
-_INSTALL_ID = re.compile(r"^[A-Za-z0-9-]{8,64}$")
+_TOMBSTONE = b"x"
+# Au moins 128 bits aléatoires côté app (UUID v4 = 36 caractères, 22 en base64url).
+_INSTALL_ID = re.compile(r"^[A-Za-z0-9_-]{22,64}$")
+# Révocations décidées par le système : jamais attribuées à l'utilisateur dans l'audit (M4).
+_SYSTEM_REASONS = frozenset(
+    {
+        DeviceSession.RevokedReason.REUSE_DETECTED,
+        DeviceSession.RevokedReason.LIMIT,
+        DeviceSession.RevokedReason.REPLACED,
+        DeviceSession.RevokedReason.OPS_ROLE_CHANGED,
+        DeviceSession.RevokedReason.ACCOUNT_DISABLED,
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +61,12 @@ class TokenPair:
     refresh: str
     access_expires_at: datetime
     session: DeviceSession
+
+
+@dataclass(frozen=True)
+class SessionState:
+    restricted: bool
+    user_public_id: str
 
 
 # --- Politique ---------------------------------------------------------------------------
@@ -85,25 +108,36 @@ def clean_install_id(raw: str) -> str:
     return raw if raw and _INSTALL_ID.match(raw) else ""
 
 
+def new_install_id() -> str:
+    """Identifiant d'installation conforme (UUID v4), pour les tests et les outils."""
+    return str(uuid.uuid4())
+
+
 def _cache_key(sid) -> str:
     return f"jf:auth:sid:{sid}"
 
 
-def _cache_set(session: DeviceSession) -> None:
-    value = "r" if session.restricted else "1"
-    with contextlib.suppress(redis.RedisError):
-        auth_redis().set(_cache_key(session.public_id), value, ex=SESSION_CACHE_TTL)
+def _cache_value(session: DeviceSession) -> str:
+    return f"{'r' if session.restricted else 'a'}:{session.user.public_id}"
 
 
-def _cache_delete(sid) -> None:
+def _cache_fill(session: DeviceSession) -> None:
+    """Remplit le cache sans jamais écraser (NX) : une pierre tombale reste en place."""
     with contextlib.suppress(redis.RedisError):
-        auth_redis().delete(_cache_key(sid))
+        auth_redis().set(
+            _cache_key(session.public_id), _cache_value(session), ex=SESSION_CACHE_TTL, nx=True
+        )
+
+
+def _cache_tombstone(sid) -> None:
+    with contextlib.suppress(redis.RedisError):
+        auth_redis().set(_cache_key(sid), _TOMBSTONE, ex=SESSION_CACHE_TTL)
 
 
 def _issue(session: DeviceSession, refresh: str, now: datetime) -> TokenPair:
-    policy = _policy(policy_name(session))
+    policy = _policy(session.policy)
     expires = now + policy["access"]
-    mfa_at = session.mfa_verified_at if policy_name(session) == "console_ops" else None
+    mfa_at = session.mfa_verified_at if session.policy == "console_ops" else None
     access = encode_access(
         user_public_id=session.user.public_id,
         session_public_id=session.public_id,
@@ -118,9 +152,16 @@ def _issue(session: DeviceSession, refresh: str, now: datetime) -> TokenPair:
 
 
 def _extend_idle(session: DeviceSession, now: datetime) -> None:
-    idle = _policy(policy_name(session))["idle"]
+    idle = _policy(session.policy)["idle"]
     session.last_seen_at = now
     session.idle_expires_at = min(now + idle, session.absolute_expires_at)
+
+
+def account_allowed(user: User) -> bool:
+    """Compte autorisé à détenir une session API : actif, non supprimé, non technique (S3)."""
+    return (
+        user.is_active and user.deleted_at is None and not user.is_staff and not user.is_superuser
+    )
 
 
 # --- Création -------------------------------------------------------------------------------
@@ -137,10 +178,20 @@ def create_session(
     mfa_verified_at: datetime | None = None,
     restricted: bool = False,
 ) -> TokenPair:
-    """Ouvre une session après un OTP réussi. Au plus ``MAX_ACTIVE_SESSIONS`` par compte."""
+    """Ouvre une session après un OTP réussi. Au plus ``MAX_ACTIVE_SESSIONS`` par compte.
+
+    Un compte marqué dormant n'obtient que des sessions restreintes, quel que soit l'appareil.
+    """
     now = timezone.now()
     install_id = clean_install_id(install_id)
-    User.objects.select_for_update(no_key=True).filter(pk=user.pk).first()
+    user = User.objects.select_for_update(no_key=True).get(pk=user.pk)
+    if not account_allowed(user):
+        raise DomainError("account_not_allowed", status=403)
+    if restricted and user.dormant_restricted_since is None:
+        user.dormant_restricted_since = now
+        user.save(update_fields=["dormant_restricted_since", "updated_at"])
+    restricted = restricted or user.dormant_restricted_since is not None
+
     active = DeviceSession.objects.filter(
         user=user, revoked_at__isnull=True, idle_expires_at__gt=now, absolute_expires_at__gt=now
     )
@@ -152,7 +203,7 @@ def create_session(
         revoke_session(oldest, reason=DeviceSession.RevokedReason.LIMIT)
         audit(
             action="accounts.session.evicted_limit",
-            actor=user,
+            actor_kind=AuditEvent.ActorKind.SYSTEM,
             target=user,
             metadata={"app": oldest.app},
         )
@@ -169,14 +220,13 @@ def create_session(
         mfa_verified_at=mfa_verified_at,
         restricted=restricted,
         last_seen_at=now,
-        idle_expires_at=now,
-        absolute_expires_at=now,
     )
-    policy = _policy(policy_name(session))
+    session.policy = policy_name(session)
+    policy = _policy(session.policy)
     session.absolute_expires_at = now + policy["absolute"]
     session.idle_expires_at = min(now + policy["idle"], session.absolute_expires_at)
     session.save()
-    transaction.on_commit(lambda: _cache_set(session))
+    transaction.on_commit(lambda: _cache_fill(session))
     return _issue(session, refresh, now)
 
 
@@ -186,7 +236,8 @@ def create_session(
 def refresh_session(refresh: str) -> TokenPair:
     """Échange un refresh contre un nouveau couple. Lève ``refresh_invalid`` ou ``session_revoked``.
 
-    Une réutilisation révoque la session : la révocation et l'audit sont validés avant l'erreur.
+    Une réutilisation ou un changement de politique révoque la session : la révocation et
+    l'audit sont validés avant l'erreur.
     """
     if not refresh or not refresh.startswith(REFRESH_PREFIX):
         raise DomainError("refresh_invalid", status=401)
@@ -195,30 +246,24 @@ def refresh_session(refresh: str) -> TokenPair:
 
     with transaction.atomic():
         now = timezone.now()
-        session = (
-            DeviceSession.objects.select_for_update()
-            .select_related("user")
-            .filter(refresh_hash=presented)
-            .first()
-        )
+        base = DeviceSession.objects.select_for_update().select_related("user")
+        session = base.filter(refresh_hash=presented).first()
         is_current = session is not None
         if session is None:
-            session = (
-                DeviceSession.objects.select_for_update()
-                .select_related("user")
-                .filter(previous_refresh_hash=presented)
-                .first()
-            )
+            session = base.filter(previous_refresh_hash=presented).first()
         if session is None:
             retired = RetiredRefreshToken.objects.filter(refresh_hash=presented).first()
             if retired is None:
                 raise DomainError("refresh_invalid", status=401)
-            session = DeviceSession.objects.select_for_update().get(pk=retired.session_id)
+            session = base.get(pk=retired.session_id)
             if session.revoked_at is None:
                 revoke_session(session, reason=DeviceSession.RevokedReason.REUSE_DETECTED)
                 reuse_detected = session
         elif not _usable(session, now):
             raise DomainError("session_revoked", status=401)
+        elif policy_name(session) != session.policy:
+            # Rôle ops accordé ou retiré depuis la connexion : nouvelle connexion exigée (I2).
+            revoke_session(session, reason=DeviceSession.RevokedReason.OPS_ROLE_CHANGED)
         elif is_current:
             return _rotate(session, now, grace=False)
         elif _grace_available(session, now):
@@ -231,7 +276,7 @@ def refresh_session(refresh: str) -> TokenPair:
     if reuse_detected is not None:
         audit(
             action="accounts.session.refresh_reuse_detected",
-            actor=reuse_detected.user,
+            actor_kind=AuditEvent.ActorKind.SYSTEM,
             target=reuse_detected.user,
             session_public_id=reuse_detected.public_id,
             metadata={"app": reuse_detected.app},
@@ -241,15 +286,11 @@ def refresh_session(refresh: str) -> TokenPair:
 
 
 def _usable(session: DeviceSession, now: datetime) -> bool:
-    user = session.user
     return (
         session.revoked_at is None
         and session.idle_expires_at > now
         and session.absolute_expires_at > now
-        and user.is_active
-        and user.deleted_at is None
-        and not user.is_staff
-        and not user.is_superuser
+        and account_allowed(session.user)
     )
 
 
@@ -275,7 +316,7 @@ def _rotate(session: DeviceSession, now: datetime, *, grace: bool) -> TokenPair:
     session.refresh_hash = refresh_hash
     _extend_idle(session, now)
     session.save()
-    transaction.on_commit(lambda: _cache_set(session))
+    transaction.on_commit(lambda: _cache_fill(session))
     return _issue(session, refresh, now)
 
 
@@ -289,14 +330,20 @@ def revoke_session(session: DeviceSession, *, reason: str, actor: User | None = 
     session.revoked_reason = reason
     session.save(update_fields=["revoked_at", "revoked_reason", "updated_at"])
     sid = session.public_id
-    # Suppression immédiate (effet instantané sur cette instance), puis à nouveau après commit.
-    # Supprimer est toujours sûr : au pire, la prochaine lecture repasse par la base.
-    _cache_delete(sid)
-    transaction.on_commit(lambda: _cache_delete(sid))
+    # Pierre tombale immédiate (effet instantané), puis à nouveau après commit : un lecteur
+    # concurrent ne peut plus réinscrire « active » (le remplissage se fait en NX).
+    _cache_tombstone(sid)
+    transaction.on_commit(lambda: _cache_tombstone(sid))
+    if reason in _SYSTEM_REASONS:
+        actor, actor_kind = None, AuditEvent.ActorKind.SYSTEM
+    elif reason == DeviceSession.RevokedReason.OPS_REVOKED:
+        actor_kind = AuditEvent.ActorKind.OPS
+    else:
+        actor, actor_kind = actor or session.user, AuditEvent.ActorKind.USER
     audit(
         action="accounts.session.revoked",
-        actor=actor or session.user,
-        actor_kind=AuditEvent.ActorKind.OPS if reason == "ops_revoked" else None,
+        actor=actor,
+        actor_kind=actor_kind,
         target=session.user,
         session_public_id=session.public_id,
         metadata={"reason": reason, "app": session.app},
@@ -314,11 +361,14 @@ def revoke_other_sessions(*, user: User, current_sid, reason: str) -> int:
 
 
 @transaction.atomic
-def revoke_all_sessions(*, user: User, reason: str, actor: User | None = None) -> int:
+def revoke_all_sessions(
+    *, user: User, reason: str, actor: User | None = None, app: str | None = None
+) -> int:
+    sessions = DeviceSession.objects.select_for_update().filter(user=user, revoked_at__isnull=True)
+    if app is not None:
+        sessions = sessions.filter(app=app)
     revoked = 0
-    for session in DeviceSession.objects.select_for_update().filter(
-        user=user, revoked_at__isnull=True
-    ):
+    for session in sessions:
         revoke_session(session, reason=reason, actor=actor)
         revoked += 1
     return revoked
@@ -327,23 +377,30 @@ def revoke_all_sessions(*, user: User, reason: str, actor: User | None = None) -
 # --- Vérification à chaque requête ---------------------------------------------------------
 
 
-def session_state(sid) -> str | None:
-    """``"active"``, ``"restricted"`` ou None (révoquée, expirée, inconnue)."""
+def session_state(sid) -> SessionState | None:
+    """État d'une session active, ou None (révoquée, expirée, inconnue)."""
     with contextlib.suppress(redis.RedisError):
         cached = auth_redis().get(_cache_key(sid))
-        if cached is not None:
-            return "restricted" if cached == b"r" else "active"
+        if cached == _TOMBSTONE:
+            return None
+        if cached:
+            kind, _, user_public_id = cached.decode().partition(":")
+            return SessionState(restricted=kind == "r", user_public_id=user_public_id)
     now = timezone.now()
-    session = DeviceSession.objects.filter(
-        public_id=sid,
-        revoked_at__isnull=True,
-        idle_expires_at__gt=now,
-        absolute_expires_at__gt=now,
-    ).first()
+    session = (
+        DeviceSession.objects.select_related("user")
+        .filter(
+            public_id=sid,
+            revoked_at__isnull=True,
+            idle_expires_at__gt=now,
+            absolute_expires_at__gt=now,
+        )
+        .first()
+    )
     if session is None:
         return None
-    _cache_set(session)
-    return "restricted" if session.restricted else "active"
+    _cache_fill(session)
+    return SessionState(restricted=session.restricted, user_public_id=str(session.user.public_id))
 
 
 def touch_session(sid) -> None:
@@ -358,37 +415,51 @@ def touch_session(sid) -> None:
 
 
 def is_dormant_login(*, user: User, install_id: str) -> bool:
-    """Connexion depuis un appareil inconnu d'un compte inactif depuis plus de 60 j."""
+    """Connexion depuis un appareil inconnu d'un compte inactif depuis plus de 60 j.
+
+    Seules les sessions **non restreintes** prouvent l'activité ou un appareil connu : un
+    titulaire de SIM recyclée ne peut pas se « blanchir » en se reconnectant (C1).
+    """
+    if user.dormant_restricted_since is not None:
+        return True
     now = timezone.now()
     threshold = now - timedelta(days=settings.DORMANT_AFTER_DAYS)
     if user.created_at > threshold:
         return False
-    sessions = DeviceSession.objects.filter(user=user)
-    if sessions.filter(last_seen_at__gt=threshold).exists():
+    trusted = DeviceSession.objects.filter(user=user, restricted=False)
+    if trusted.filter(last_seen_at__gt=threshold).exists():
         return False
     install_id = clean_install_id(install_id)
-    return not (install_id and sessions.filter(install_id=install_id).exists())
+    return not (install_id and trusted.filter(install_id=install_id).exists())
 
 
 @transaction.atomic
 def clear_dormant_restriction(*, user: User, actor: User, reason_code: str) -> int:
     """Levée par l'Ops après vérification (tâche 15). Auditée."""
+    User.objects.filter(pk=user.pk).update(dormant_restricted_since=None, updated_at=timezone.now())
     sessions = list(
-        DeviceSession.objects.select_for_update().filter(
-            user=user, restricted=True, revoked_at__isnull=True
-        )
+        DeviceSession.objects.select_for_update()
+        .select_related("user")
+        .filter(user=user, restricted=True, revoked_at__isnull=True)
     )
     for session in sessions:
         session.restricted = False
         session.save(update_fields=["restricted", "updated_at"])
-        _cache_delete(session.public_id)
-        transaction.on_commit(lambda s=session: _cache_set(s))
-    if sessions:
-        audit(
-            action="accounts.dormant.cleared",
-            actor=actor,
-            actor_kind=AuditEvent.ActorKind.OPS,
-            target=user,
-            metadata={"reason_code": reason_code},
-        )
+        _clear_restricted_cache(session.public_id)
+        transaction.on_commit(lambda s=session: _cache_fill(s))
+    audit(
+        action="accounts.dormant.cleared",
+        actor=actor,
+        actor_kind=AuditEvent.ActorKind.OPS,
+        target=user,
+        metadata={"reason_code": reason_code},
+    )
     return len(sessions)
+
+
+def _clear_restricted_cache(sid) -> None:
+    """Retire l'entrée « restreinte » du cache, sans jamais effacer une pierre tombale."""
+    with contextlib.suppress(redis.RedisError):
+        key = _cache_key(sid)
+        if (auth_redis().get(key) or b"").startswith(b"r:"):
+            auth_redis().delete(key)

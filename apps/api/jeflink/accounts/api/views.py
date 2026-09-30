@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from jeflink.accounts.models import DeviceSession
-from jeflink.accounts.permissions import IsClient, IsNotRestricted, token_claims
+from jeflink.accounts.permissions import AllowRestrictedSession, IsClient, token_claims
 from jeflink.accounts.selectors import active_sessions_for
 from jeflink.accounts.sessions import (
     TokenPair,
@@ -54,7 +54,8 @@ class TokenRefreshView(APIView):
 
 
 class LogoutView(APIView):
-    permission_classes = [IsClient]
+    # Une session restreinte doit toujours pouvoir se déconnecter.
+    permission_classes = [AllowRestrictedSession]
 
     @extend_schema(tags=["auth"], operation_id="auth_logout", request=None, responses={204: None})
     def post(self, request: Request) -> Response:
@@ -67,7 +68,7 @@ class LogoutView(APIView):
 
 
 class MySessionsView(generics.ListAPIView):
-    permission_classes = [IsNotRestricted]
+    permission_classes = [IsClient]
     serializer_class = DeviceSessionSerializer
 
     def get_queryset(self):
@@ -85,7 +86,7 @@ class MySessionsView(generics.ListAPIView):
 
 
 class MySessionDetailView(APIView):
-    permission_classes = [IsNotRestricted]
+    permission_classes = [IsClient]
 
     @extend_schema(tags=["me"], operation_id="me_sessions_revoke", responses={204: None})
     def delete(self, request: Request, public_id) -> Response:
@@ -96,7 +97,7 @@ class MySessionDetailView(APIView):
 
 
 class RevokeOtherSessionsView(APIView):
-    permission_classes = [IsNotRestricted]
+    permission_classes = [IsClient]
 
     @extend_schema(
         tags=["me"], operation_id="me_sessions_revoke_others", request=None, responses={204: None}

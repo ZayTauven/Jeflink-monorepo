@@ -43,3 +43,21 @@ class RequestIdMiddleware:
             _request_id.reset(token)
         response["X-Request-Id"] = request_id
         return response
+
+
+class NoStoreMiddleware:
+    """Aucune mise en cache des réponses d'auth ni des réponses authentifiées (S4, M5).
+
+    Les jetons voyagent dans le corps des réponses de ``/api/auth/`` (RFC 6749 §5.1).
+    """
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        response = self.get_response(request)
+        if request.path.startswith("/api/auth/") or "HTTP_AUTHORIZATION" in request.META:
+            response["Cache-Control"] = "private, no-store"
+            response["Pragma"] = "no-cache"
+            response["Vary"] = "Authorization, Cookie"
+        return response

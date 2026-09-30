@@ -41,25 +41,40 @@ def _claim_age(request: Request, claim: str) -> timedelta | None:
 
 
 class IsClient(BasePermission):
-    """Authentifié, actif, non supprimé. Tout compte est client.
+    """Authentifié, actif, non supprimé, session non restreinte. Tout compte est client.
 
-    Les comptes techniques de l'admin Django (staff, superutilisateur) n'utilisent jamais
-    l'API (S3, défense en profondeur).
+    - Les comptes techniques de l'admin Django (staff, superutilisateur) n'utilisent jamais
+      l'API (S3, défense en profondeur).
+    - Une session restreinte (compte dormant, S18) est refusée **par défaut** : toutes les
+      permissions en héritent. Seule ``AllowRestrictedSession`` l'admet, sur une liste
+      blanche de vues (déconnexion, choix du compte dormant, profil minimal).
     """
 
     code = "not_authenticated"
     message = "not_authenticated"
+    allow_restricted = False
 
     def has_permission(self, request: Request, view: Any) -> bool:
         user = request.user
-        return bool(
+        if not (
             user
             and user.is_authenticated
             and user.is_active
             and user.deleted_at is None
             and not user.is_staff
             and not user.is_superuser
-        )
+        ):
+            return False
+        if not self.allow_restricted and token_claims(request).get("restricted", False):
+            self.code = self.message = "session_restricted"
+            return False
+        return True
+
+
+class AllowRestrictedSession(IsClient):
+    """Admet une session restreinte. Réservée à la liste blanche testée (déconnexion…)."""
+
+    allow_restricted = True
 
 
 class RequiresCompleteProfile(IsClient):
@@ -159,15 +174,3 @@ class IsProOwner(_DenyByDefault):
 
 class IsTechnicianAssigned(_DenyByDefault):
     pass
-
-
-class IsNotRestricted(IsClient):
-    """Session non restreinte : une session de compte dormant n'accède à aucune donnée perso."""
-
-    code = "session_restricted"
-    message = "session_restricted"
-
-    def has_permission(self, request: Request, view: Any) -> bool:
-        return super().has_permission(request, view) and not token_claims(request).get(
-            "restricted", False
-        )

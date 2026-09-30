@@ -34,6 +34,9 @@ class SessionJWTAuthentication(BaseAuthentication):
         state = session_state(claims["sid"])
         if state is None:
             raise AuthenticationFailed(code="session_revoked")
+        # Défense en profondeur (M2) : la session appartient bien au sujet du jeton.
+        if state.user_public_id != claims["sub"]:
+            raise AuthenticationFailed(code="token_invalid")
         user = User.objects.filter(public_id=claims["sub"]).first()
         if (
             user is None
@@ -45,7 +48,7 @@ class SessionJWTAuthentication(BaseAuthentication):
             raise AuthenticationFailed(code="account_disabled")
         # La restriction vient de la base (via le cache), pas du jeton : une levée par l'Ops
         # prend effet sans attendre l'expiration de l'accès.
-        claims["restricted"] = state == "restricted"
+        claims["restricted"] = state.restricted
         touch_session(claims["sid"])
         return user, claims
 

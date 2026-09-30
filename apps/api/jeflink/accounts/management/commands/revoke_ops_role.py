@@ -2,8 +2,9 @@
 
 from django.db import transaction
 
-from jeflink.accounts.models import Role
+from jeflink.accounts.models import DeviceSession, Role
 from jeflink.accounts.services import revoke_role
+from jeflink.accounts.sessions import revoke_all_sessions
 from jeflink.common.pii import mask_phone
 
 from ._ops_command import OPS_GROUPS, OpsCommand
@@ -26,6 +27,10 @@ class Command(OpsCommand):
             )
             removed = list(target.groups.filter(name__in=OPS_GROUPS).values_list("name", flat=True))
             target.groups.remove(*target.groups.filter(name__in=OPS_GROUPS))
+            # Politique de session changée (console_ops) : sessions console révoquées (I2, S1).
+            revoke_all_sessions(
+                user=target, reason=DeviceSession.RevokedReason.OPS_ROLE_CHANGED, app="console"
+            )
             self.audit_groups(
                 target=target,
                 added=[],

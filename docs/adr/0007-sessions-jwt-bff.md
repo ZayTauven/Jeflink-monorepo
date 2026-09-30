@@ -10,7 +10,7 @@ Quatre fronts consomment la même API : deux apps Expo (client, pro) et deux Nex
 
 - **Access** : JWT signé avec PyJWT (simplejwt écarté : notre table de sessions, la rotation et le `kid` sont à nous, il n'apporterait qu'une couche inutilisée), HS256, clé choisie par `kid` parmi 2 clés en rotation. Durée de 15 min, 10 min pour les Ops. Claims : `sub`, `sid`, `auth_time`, `mfa`, `mfa_at`. Aucun rôle dans le jeton.
 - **Refresh** : jeton opaque haché dans `accounts.DeviceSession`, une ligne par appareil, rotation à chaque usage.
-  - **Grâce** : l'ancien refresh est accepté une seule fois par rotation (verrou de ligne), seulement si le refresh courant n'a jamais été présenté, et pendant 24 h au plus. La grâce renvoie le refresh courant, sans nouvelle rotation.
+  - **Grâce** : l'ancien refresh est accepté une seule fois par rotation (verrou de ligne), pendant 24 h au plus. Elle émet un nouveau refresh et retire le courant (voir la précision ci-dessous).
   - Toute autre présentation d'un ancien refresh est une réutilisation : la session est révoquée et un `AuditEvent` est écrit.
   - Le compromis 24 h contre 60 s est tranché : 24 h (Q15).
   - Précision d'implémentation (2026-09-30) : le refresh n'étant stocké qu'en empreinte, la grâce ne peut pas « renvoyer le refresh courant ». Elle émet un nouveau refresh et **retire** le courant. Si un voleur utilise la grâce, le vrai client présente ensuite le courant retiré : réutilisation détectée, session révoquée pour tous. Les refresh retirés sont gardés (`RetiredRefreshToken`) pour détecter toute réutilisation, même ancienne.

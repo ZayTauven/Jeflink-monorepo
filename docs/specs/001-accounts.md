@@ -207,7 +207,7 @@ Autres règles :
 | Champ                                                                                                                                                                           | Règle                                                                                                                              |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `user`, `app`, `platform`, `device_label`, `install_id`                                                                                                                         |                                                                                                                                    |
-| `refresh_hash` (unique), `current_refresh_used_at`                                                                                                                              | `current_refresh_used_at` est renseigné à la première présentation du refresh courant.                                             |
+| `refresh_hash` (unique), `policy` (figée à la création)                                                                                                                         | Les refresh remplacés vont dans `RetiredRefreshToken` : toute présentation ultérieure est une réutilisation.                       |
 | `previous_refresh_hash`, `rotated_at`, `grace_used_at`                                                                                                                          | Portent la grâce : une seule par rotation, 24 h au plus (voir Sessions).                                                           |
 | `auth_time`, `mfa_verified_at`                                                                                                                                                  | `auth_time` = dernier OTP réussi ; il alimente `RequiresRecentAuth`.                                                               |
 | `last_seen_at`, `idle_expires_at`, `absolute_expires_at`                                                                                                                        |                                                                                                                                    |
@@ -337,25 +337,29 @@ Fournisseur à choisir (Q7). Pistes : Orange (API SMS), Infobip, Twilio, Vonage,
 
 ### Sessions et jetons (ADR 0007)
 
-- **Access JWT** : simplejwt, HS256, clé choisie par `kid` parmi 2 clés en rotation (`JWT_SIGNING_KEY`).
-  - Claims : `iss`, `aud`, `sub`, `sid`, `auth_time`, `mfa` (bool), `mfa_at`, `iat`, `exp`, `jti`.
+- **Access JWT** : PyJWT, HS256, clé choisie par `kid` parmi 2 clés en rotation (`JWT_SIGNING_KEYS`).
+  - Claims : `iss`, `aud`, `sub`, `sid`, `app`, `auth_time`, `mfa` (bool), `mfa_at`, `restricted`, `iat`, `exp`, `jti`. `sub` et `sid` sont des UUID vérifiés, et la session doit appartenir à `sub`.
   - Aucun rôle dans le jeton : les rôles sont relus en base.
 - **Refresh** : jeton opaque de 32 octets, préfixé `jfr_`, stocké en SHA-256 dans `DeviceSession`. Rotation à chaque usage.
 - **Grâce (arbitrage T1 × S6, Q15)**. Sous `select_for_update`, l'**ancien** refresh est accepté **une seule fois par rotation**, et seulement :
-  - si le refresh courant n'a jamais été présenté (`current_refresh_used_at` nul) ;
+  - si c'est bien le refresh **précédent** (présenter le courant le fait tourner : « jamais présenté » est donc implicite) ;
   - si la rotation date de **moins de 24 h** ;
   - si la grâce n'a pas déjà servi (`grace_used_at` nul).
 
-  L'usage de grâce ne modifie ni `previous_refresh_hash` ni `rotated_at`. Il renvoie un nouvel access et **le refresh courant**, sans nouvelle rotation. **Toute autre présentation d'un ancien refresh est une réutilisation** : la session est révoquée et `accounts.session.refresh_reuse_detected` est écrit.
+  L'usage de grâce ne modifie ni `previous_refresh_hash` ni `rotated_at`. Le refresh n'étant stocké qu'en empreinte, la grâce ne peut pas renvoyer le courant : elle émet un **nouveau** refresh et **retire** le courant. Si un voleur utilise la grâce, le vrai client présente ensuite le courant retiré : réutilisation détectée, session révoquée pour tous. **Toute autre présentation d'un ancien refresh est une réutilisation** : la session est révoquée et `accounts.session.refresh_reuse_detected` est écrit (acteur : système).
+
+  Deux refresh simultanés avec le même jeton : l'un tourne, l'autre passe par la grâce, et un seul des deux nouveaux refresh reste valide. Accepté : un seul refresh à la fois côté mobile, verrou entre onglets côté web (test dédié).
+
+- **Politique figée** (`DeviceSession.policy`) : si la politique change (rôle ops accordé ou retiré), la session est révoquée au refresh suivant (`ops_role_changed`). `grant_ops_role` et `revoke_ops_role` révoquent en plus les sessions console.
 
 - **Authentification** `SessionJWTAuthentication` : elle valide le JWT (`kid`), charge l'utilisateur, refuse un compte inactif ou supprimé, et vérifie que la session est **active** (S7).
   - Cache Redis `auth:sid:<sid>` (TTL 60 s), repli sur la base.
-  - La clé est écrite en `on_commit` et supprimée à la révocation.
+  - La clé (`a:` ou `r:` + `public_id` du compte) est remplie en `NX`. La révocation pose une **pierre tombale** immédiatement et après commit : aucun lecteur concurrent ne peut réinscrire « active ».
   - La déconnexion d'un appareil perdu prend effet au plus tard 60 s après, et immédiatement sur l'instance qui révoque.
 - **Redis de production** : authentification, TLS si le réseau n'est pas privé, **aucune éviction** des clés d'auth et de limites (base dédiée en `noeviction`) (S7).
 - `DEFAULT_AUTHENTICATION_CLASSES = [SessionJWTAuthentication]`. `SessionAuthentication` sort de l'API.
 - **Réauthentification récente** : `RequiresRecentAuth(max_age)` s'appuie sur `auth_time` (S18) ; `wallet` s'en servira.
-- **Compte dormant (S18, Q17 = 60 j, V1).** Si un `otp/verify` vise un compte sans activité depuis **plus de 60 j** (aucune `DeviceSession` du compte vue depuis 60 j ; une session purgée compte comme inactive) depuis un `install_id` absent des sessions conservées du compte, la session ouverte est **restreinte** (claim `restricted = true`, relu en base). Une session restreinte n'accède ni à l'historique, ni aux adresses, ni aux conversations, ni au portefeuille. Ce qu'on propose ensuite :
+- **Compte dormant (S18, Q17 = 60 j, V1).** Si un `otp/verify` vise un compte sans activité depuis **plus de 60 j** (aucune `DeviceSession` du compte vue depuis 60 j ; une session purgée compte comme inactive) depuis un `install_id` absent des sessions conservées du compte, la session ouverte est **restreinte** (claim `restricted = true`, relu en base). L'état est porté par le compte (`User.dormant_restricted_since`) : tant qu'il n'est pas levé, **toute** nouvelle session est restreinte, et seules les sessions non restreintes prouvent une activité ou un appareil connu (revue sécurité, C1). `IsClient`, dont héritent toutes les permissions, refuse une session restreinte ; seule `AllowRestrictedSession` l'admet, sur une liste blanche testée (déconnexion ; écran de choix et profil minimal à venir). Une session restreinte n'accède ni à l'historique, ni aux adresses, ni aux conversations, ni au portefeuille. Ce qu'on propose ensuite :
   - **client** : écran « Ce numéro a peut-être changé de propriétaire » avec deux choix. [Repartir de zéro] anonymise l'ancien compte (`register_anonymizer`) et en crée un nouveau sur le numéro ; c'est l'option par défaut. [C'est bien mon compte] mène au support WhatsApp, et l'Ops lève la restriction après vérification (réservations récentes décrites ; action auditée `accounts.dormant.cleared`) ;
   - **owner / technician** : restriction jusqu'à revue Ops (correspondance KYC dès que `trust` le permet), avec le message « Votre compte est en vérification » et le lien support ;
   - **ops** : sans objet, la session console exige le TOTP.
@@ -529,7 +533,7 @@ Les demandes d'OTP sont comptées en métriques, sans audit.
 
 ### Réglages, dépendances et vérifications au démarrage
 
-- **Dépendances Python** : `djangorestframework-simplejwt`, `phonenumbers`, `pyotp` ; `cryptography` est déjà tiré par simplejwt.
+- **Dépendances Python** : `pyjwt`, `phonenumbers`, `pyotp`, `cryptography`, `redis`.
 - **Dépendances Expo** :
   - `expo-secure-store` ;
   - `expo-local-authentication` (retenu, Q19 ; dépendance à justifier dans la PR).
@@ -672,13 +676,13 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
   5. [sécu] **Rôles et permissions** : `RoleGrant`, `grant_role`/`revoke_role`, classes de S5, `RequiresRecentAuth`, groupes Ops, commandes `grant_ops_role`/`revoke_ops_role` (`--operator`, `--reason`, `--second-operator`), tests.
   6. [sécu] **`notifications.sms`** : interface, exceptions, `fake` limité par `DJANGO_ENV`, aucun corps journalisé, tests.
   7. [sécu] **Socle de débit** : compteurs Lua, repli en base, `OtpPhoneBlock`, paliers et plafonds, `TrustedClientIpMiddleware`, tests.
-  8. [sécu] **Sessions** : simplejwt avec `kid`, `DeviceSession`, grâce une fois par rotation, cache des sessions actives, `SessionJWTAuthentication`, `token/refresh`, `logout`, `me/sessions*`, tests (dont refresh rejoué 10 min plus tard). **Compte dormant** : détection via `DeviceSession.last_seen_at`, claim `restricted`, permission `IsNotRestricted` appliquée par défaut aux vues de données personnelles, `clear_dormant_restriction` (Ops, audité), « Repartir de zéro », tests.
+  8. [sécu] **Sessions** : JWT (PyJWT) avec `kid`, `DeviceSession`, grâce une fois par rotation, cache des sessions actives, `SessionJWTAuthentication`, `token/refresh`, `logout`, `me/sessions*`, tests (dont refresh rejoué 10 min plus tard). **Compte dormant** : détection via `DeviceSession.last_seen_at`, claim `restricted`, permission `IsNotRestricted` appliquée par défaut aux vues de données personnelles, `clear_dormant_restriction` (Ops, audité), tests. **« Repartir de zéro » est reporté en tâche 14** : il dépend de `register_anonymizer`.
   9. [sécu] **OTP** : `OtpChallenge`, `OtpDelivery`, `challenge_secret`, idempotence, `request`/`resend`/`verify` (ordre des contrôles, rejeu, `other_sessions`), `send_otp`, gabarits client et Pro, `auth/config`, tests (dont 20 vérifications concurrentes).
   10. [sécu] **Défi client** : drapeau `OTP_CHALLENGE_REQUIRED`, désactivé, et point d'extension de vérification, tests.
   11. **Profil** : `GET`/`PATCH /api/me/`, passage d'invité à complet, `RequiresCompleteProfile`, tests.
   12. [sécu] **Invitations** : `RoleInvitation`, `invite_to_role`, `register_invitation_handler`, `me/invitations*`, SMS générique, limites, tests.
   13. [sécu] **TOTP Ops** : `TotpDevice` (MultiFernet), `OpsEnrollmentToken`, `MfaChallenge`, `mfa/totp/*` dont `step-up`, verrou, `reset_ops_mfa`, recalcul de `mfa` au refresh, tests.
-  14. [sécu] **Suppression** : `me/deletion*`, anonymisation, `register_anonymizer`, `register_deletion_blocker`, tests.
+  14. [sécu] **Suppression** : `me/deletion*`, anonymisation, `register_anonymizer`, `register_deletion_blocker`, et **« Repartir de zéro »** pour une session restreinte (anonymise l'ancien compte, en ouvre un neuf sur le numéro, lève `dormant_restricted_since`), tests.
   15. [sécu] **Endpoints Ops** : `search`, détail, `reveal-phone`, `revoke-sessions`, `unblock-otp`, `deactivate`/`reactivate`, règles de cible, motifs énumérés, tests.
   16. [sécu] **Changement de numéro** : `PhoneChangeRequest`, approbation par un second Ops, challenge `change_phone`, `phone-change/confirm`, SMS à l'ancien numéro, tests.
   17. [sécu] **Compte de revue des stores** : `create_review_account`, bornes, checks au démarrage, alertes, tests.
@@ -704,7 +708,7 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
   3. [sécu] **console — BFF** : montage, CSP stricte, politique de session ops.
   4. [sécu] **console — `/connexion` + TOTP** : OTP, puis saisie du jeton d'enrôlement et enrôlement, ou vérification ; fenêtre de step-up ; gardes de route (`/ops`, `/pro`, accès refusé) ; i18n, revue design.
 - client / pro :
-  1. [sécu] **client — session** : `expo-secure-store` (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), `allowBackup = false`, `onUnauthorized`, purge à la déconnexion et sur `session_revoked`. Test de coupure pendant le refresh.
+  1. [sécu] **client — session** (un `429` sur le refresh n'est jamais une déconnexion : on réessaie après `retry_after`) : `expo-secure-store` (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), `allowBackup = false`, `onUnauthorized`, purge à la déconnexion et sur `session_revoked`. Test de coupure pendant le refresh.
   2. **client — écrans OTP** :
      - téléphone, avec `Idempotency-Key` ;
      - code : reprenable, champ toujours actif, « Le SMS peut mettre 3 minutes », renvoi après 60 s, distinction réseau / code faux ;

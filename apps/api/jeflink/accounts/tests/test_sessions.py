@@ -19,6 +19,8 @@ from jeflink.accounts.tokens import decode_access, encode_access
 from jeflink.common.errors import DomainError
 from jeflink.trust.models import AuditEvent
 
+INSTALL_A = "6f1c2d3e-4a5b-4c6d-8e7f-0a1b2c3d4e5f"
+INSTALL_B = "0b9a8c7d-6e5f-4a3b-9c2d-1e0f9a8b7c6d"
 durable_db = pytest.mark.django_db(transaction=True, databases="__all__", serialized_rollback=True)
 
 
@@ -185,13 +187,16 @@ def test_dix_sessions_au_plus(user_factory, settings):
     assert first.session.revoked_reason == "limit"
     assert DeviceSession.objects.filter(user=user, revoked_at__isnull=True).count() == 3
     assert AuditEvent.objects.filter(action="accounts.session.evicted_limit").count() == 1
+    # Révocation décidée par le système : jamais attribuée à l'utilisateur (M4).
+    revoked = AuditEvent.objects.get(action="accounts.session.revoked")
+    assert revoked.actor_kind == "system" and revoked.actor_public_id is None
 
 
 @pytest.mark.django_db
 def test_meme_appareil_remplace_la_session(user_factory):
     user = user_factory()
-    first = open_session(user, install_id="inst-00000001")
-    open_session(user, install_id="inst-00000001")
+    first = open_session(user, install_id=INSTALL_A)
+    open_session(user, install_id=INSTALL_A)
     first.session.refresh_from_db()
     assert first.session.revoked_reason == "replaced"
 
@@ -199,7 +204,7 @@ def test_meme_appareil_remplace_la_session(user_factory):
 @pytest.mark.django_db
 def test_revocation_immediate_dans_le_cache(user_factory):
     pair = open_session(user_factory())
-    assert session_state(pair.session.public_id) == "active"
+    assert session_state(pair.session.public_id) .restricted is False
     revoke_session(pair.session, reason="user_revoked")
     assert session_state(pair.session.public_id) is None
 
@@ -238,24 +243,144 @@ def test_compte_dormant(user_factory):
     user = user_factory()
     type(user).objects.filter(pk=user.pk).update(created_at=timezone.now() - timedelta(days=200))
     user.refresh_from_db()
-    open_session(user, install_id="ancien-telephone")
+    open_session(user, install_id=INSTALL_A)
     DeviceSession.objects.update(last_seen_at=timezone.now() - timedelta(days=61))
-    assert is_dormant_login(user=user, install_id="nouveau-telephone")
-    assert not is_dormant_login(user=user, install_id="ancien-telephone")
+    assert is_dormant_login(user=user, install_id=INSTALL_B)
+    assert not is_dormant_login(user=user, install_id=INSTALL_A)
     DeviceSession.objects.update(last_seen_at=timezone.now() - timedelta(days=59))
-    assert not is_dormant_login(user=user, install_id="nouveau-telephone")
+    assert not is_dormant_login(user=user, install_id=INSTALL_B)
 
 
 @pytest.mark.django_db
 def test_compte_recent_jamais_dormant(user_factory):
-    assert not is_dormant_login(user=user_factory(), install_id="x-00000000")
+    assert not is_dormant_login(user=user_factory(), install_id=INSTALL_B)
 
 
 @pytest.mark.django_db
 def test_levee_de_restriction_par_l_ops(user_factory):
     user, ops = user_factory(), user_factory()
     pair = open_session(user, restricted=True)
-    assert session_state(pair.session.public_id) == "restricted"
+    assert session_state(pair.session.public_id) .restricted is True
     assert clear_dormant_restriction(user=user, actor=ops, reason_code="bookings_described") == 1
-    assert session_state(pair.session.public_id) == "active"
+    assert session_state(pair.session.public_id) .restricted is False
     assert AuditEvent.objects.filter(action="accounts.dormant.cleared").count() == 1
+
+
+# --- Revue sécurité de la tâche 8 ------------------------------------------------------------
+
+
+def _dormant_user(user_factory):
+    user = user_factory()
+    type(user).objects.filter(pk=user.pk).update(created_at=timezone.now() - timedelta(days=200))
+    user.refresh_from_db()
+    return user
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("second_install", [INSTALL_A, INSTALL_B])
+def test_compte_dormant_non_contournable_par_reconnexion(user_factory, second_install):
+    """C1 : une session restreinte ne « blanchit » ni l'activité ni l'appareil."""
+    user = _dormant_user(user_factory)
+    assert is_dormant_login(user=user, install_id=INSTALL_A)
+    open_session(user, install_id=INSTALL_A, restricted=True)
+    user.refresh_from_db()
+    assert user.dormant_restricted_since is not None
+    assert is_dormant_login(user=user, install_id=second_install)
+    # Même si l'appelant oublie de demander la restriction, le compte l'impose.
+    pair = open_session(user, install_id=second_install)
+    assert pair.session.restricted is True
+    assert decode_access(pair.access)["restricted"] is True
+
+
+@pytest.mark.django_db
+def test_levee_ops_rend_des_sessions_normales(user_factory):
+    user, ops = _dormant_user(user_factory), user_factory()
+    open_session(user, install_id=INSTALL_A, restricted=True)
+    clear_dormant_restriction(user=user, actor=ops, reason_code="kyc_verified")
+    user.refresh_from_db()
+    assert user.dormant_restricted_since is None
+    assert open_session(user, install_id=INSTALL_B).session.restricted is False
+
+
+@pytest.mark.django_db
+def test_install_id_trop_court_ignore(user_factory):
+    pair = open_session(user_factory(), install_id="court-1234")
+    assert pair.session.install_id == ""
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "champs",
+    [
+        {"is_staff": True},
+        {"is_superuser": True},
+        {"is_active": False, "deactivation_reason": "fraud"},
+    ],
+)
+def test_aucune_session_pour_un_compte_non_autorise(user_factory, champs):
+    """M3 : create_session refuse elle-même, sans compter sur l'appelant."""
+    with pytest.raises(DomainError) as exc:
+        open_session(user_factory(**champs))
+    assert exc.value.code == "account_not_allowed"
+    assert not DeviceSession.objects.exists()
+
+
+@durable_db
+def test_role_ops_accorde_apres_connexion_console(user_factory):
+    """I2 : une session console ouverte avant le rôle ops ne garde pas sa durée de 90 j."""
+    user = user_factory()
+    pair = open_session(user, app="console", platform="web")
+    assert pair.session.policy == "console"
+    grant_role(user=user, role=Role.OPS, reason_code="t", operator="a", second_operator="b")
+    assert error_code(refresh_session, pair.refresh) == "session_revoked"
+    assert DeviceSession.objects.get().revoked_reason == "ops_role_changed"
+
+
+@pytest.mark.django_db
+def test_pierre_tombale_non_ecrasee(user_factory):
+    """M1 : après révocation, un remplissage concurrent ne réinscrit pas « active »."""
+    from jeflink.accounts.sessions import _cache_fill
+
+    pair = open_session(user_factory())
+    revoke_session(pair.session, reason="user_revoked")
+    pair.session.revoked_at = None  # lecteur qui aurait lu la base avant la révocation
+    _cache_fill(pair.session)
+    assert session_state(pair.session.public_id) is None
+
+
+@durable_db
+def test_deux_refresh_simultanes_avec_le_meme_jeton(user_factory):
+    """M6 : l'un tourne, l'autre passe par la grâce ; un seul des deux refresh reste valide.
+
+    Accepté par la spec : un seul refresh à la fois côté mobile, verrou entre onglets côté web.
+    """
+    import threading
+
+    from django.db import connections
+
+    r1 = open_session(user_factory()).refresh
+    results: list = []
+
+    def run():
+        try:
+            results.append(refresh_session(r1).refresh)
+        except DomainError as exc:
+            results.append(exc.code)
+        finally:
+            connections.close_all()
+
+    threads = [threading.Thread(target=run) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+    tokens = [r for r in results if r.startswith("jfr_")]
+    assert len(tokens) == 2
+    outcomes = []
+    for token in tokens:
+        try:
+            refresh_session(token)
+            outcomes.append("ok")
+        except DomainError as exc:
+            outcomes.append(exc.code)
+    assert "session_revoked" in outcomes

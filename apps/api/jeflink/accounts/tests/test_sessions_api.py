@@ -108,7 +108,10 @@ def test_session_restreinte_sans_donnees_personnelles(api_client, user_factory):
 
 
 def test_compte_technique_refuse(api_client, user_factory):
-    pair = open_session(user_factory(is_staff=True))
+    """Un compte promu technique après sa connexion perd l'accès API (S3)."""
+    user = user_factory()
+    pair = open_session(user)
+    type(user).objects.filter(pk=user.pk).update(is_staff=True)
     response = bearer(api_client, pair).get(reverse("me-sessions"))
     assert response.status_code == 401
     assert response.json() == {"code": "account_disabled"}
@@ -119,3 +122,62 @@ def test_session_cookie_django_ignoree(client, user_factory):
     user = user_factory()
     client.force_login(user)
     assert client.get(reverse("me-sessions")).status_code == 401
+
+
+def test_session_d_un_autre_sujet_refusee(api_client, user_factory):
+    """M2 : un jeton dont le sid appartient à un autre compte est refusé."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from jeflink.accounts.tokens import encode_access
+
+    victim, other = open_session(user_factory()), user_factory()
+    now = timezone.now()
+    forged = encode_access(
+        user_public_id=other.public_id,
+        session_public_id=victim.session.public_id,
+        app="client",
+        auth_time=now,
+        mfa_at=None,
+        restricted=False,
+        issued_at=now,
+        expires_at=now + timedelta(minutes=5),
+    )
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {forged}")
+    response = api_client.get(reverse("me-sessions"))
+    assert response.status_code == 401
+    assert response.json() == {"code": "token_invalid"}
+
+
+def test_reponses_non_mises_en_cache(api_client, user_factory):
+    """M5 : ni les jetons ni les données authentifiées ne sont mis en cache."""
+    pair = open_session(user_factory())
+    refresh = api_client.post(
+        reverse("auth-token-refresh"), {"refresh": pair.refresh}, format="json"
+    )
+    assert refresh["Cache-Control"] == "private, no-store"
+    listing = bearer(api_client, pair).get(reverse("me-sessions"))
+    assert listing["Cache-Control"] == "private, no-store"
+    assert "Authorization" in listing["Vary"]
+
+
+def test_compte_ops_depuis_l_app_client_sans_permission_ops(user_factory):
+    """Critère d'acceptation : un compte ops connecté depuis l'app client n'a aucun droit Ops."""
+    from django.contrib.auth.models import Group
+    from rest_framework.request import Request
+    from rest_framework.test import APIRequestFactory
+
+    from jeflink.accounts.models import Role
+    from jeflink.accounts.permissions import HasOpsPerm
+    from jeflink.accounts.services import grant_role
+    from jeflink.accounts.tokens import decode_access
+
+    user = user_factory()
+    grant_role(user=user, role=Role.OPS, reason_code="t", operator="a", second_operator="b")
+    user.groups.add(Group.objects.get(name="Admin"))
+    pair = open_session(user, app="client")
+    request = Request(APIRequestFactory().get("/"))
+    request.user, request.auth = user, decode_access(pair.access)
+    assert request.auth["mfa"] is False
+    assert not HasOpsPerm("ops.accounts.view", step_up=False)().has_permission(request, None)

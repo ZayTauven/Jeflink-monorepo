@@ -62,7 +62,7 @@ def decode_access(token: str) -> dict[str, Any]:
     if key is None:
         raise DomainError("token_invalid", status=401)
     try:
-        return jwt.decode(
+        claims = jwt.decode(
             token,
             key,
             algorithms=[ALGORITHM],
@@ -74,3 +74,10 @@ def decode_access(token: str) -> dict[str, Any]:
         raise DomainError("token_expired", status=401) from exc
     except jwt.PyJWTError as exc:
         raise DomainError("token_invalid", status=401) from exc
+    try:
+        # sub et sid sont des UUID canoniques : jamais une erreur 500 sur une valeur exotique.
+        claims["sub"] = str(uuid.UUID(str(claims["sub"])))
+        claims["sid"] = str(uuid.UUID(str(claims["sid"])))
+    except ValueError as exc:
+        raise DomainError("token_invalid", status=401) from exc
+    return claims

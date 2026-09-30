@@ -36,6 +36,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "jeflink.common.request_context.RequestIdMiddleware",
     "jeflink.common.client_ip.TrustedClientIpMiddleware",
+    "jeflink.common.request_context.NoStoreMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -101,7 +102,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 REST_FRAMEWORK = {
     # Sécurisé par défaut : chaque vue publique le déclare explicitement.
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    # IsClient refuse aussi les comptes techniques et les sessions restreintes (S3, S18).
+    "DEFAULT_PERMISSION_CLASSES": ["jeflink.accounts.permissions.IsClient"],
     # Bearer JWT seulement (ADR 0007) : ni session, ni CSRF côté API.
     "DEFAULT_AUTHENTICATION_CLASSES": ["jeflink.accounts.authentication.SessionJWTAuthentication"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -173,7 +175,9 @@ IP_RATE_LIMITS = {
     "auth_config": {"limit": 120, "window": 60},
     "otp_request": {"limit": 30, "window": 600},
     "otp_verify": {"limit": 60, "window": 600},
-    "token_refresh": {"limit": 60, "window": 60},
+    # Large : derrière le CGNAT d'un opérateur, des centaines d'utilisateurs partagent une IP.
+    # Forcer un refresh de 256 bits est de toute façon impossible (revue sécu tâche 8, M7).
+    "token_refresh": {"limit": 300, "window": 60},
     "phone_change_confirm": {"limit": 20, "window": 600},
 }
 OTP_PHONE_BLOCK_MAX_HOURS = 24
