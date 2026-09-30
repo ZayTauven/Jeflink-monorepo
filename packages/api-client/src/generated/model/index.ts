@@ -51,6 +51,7 @@ export * from './paginatedDeviceSessionList.ts';
 export * from './paginatedInvitationList.ts';
 export * from './paginatedPhoneChangeRequestList.ts';
 export * from './patchedMeUpdateRequest.ts';
+export * from './phoneChangeApproveRequest.ts';
 export * from './phoneChangeConfirmRequest.ts';
 export * from './phoneChangeCreateReasonCodeEnum.ts';
 export * from './phoneChangeCreateRequest.ts';

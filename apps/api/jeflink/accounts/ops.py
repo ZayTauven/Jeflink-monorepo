@@ -249,6 +249,11 @@ def ops_deactivate(*, actor: User, public_id, reason_code: str, note: str = "") 
     target.deactivated_by = actor
     target.save(update_fields=["is_active", "deactivation_reason", "deactivated_by", "updated_at"])
     revoke_all_sessions(user=target, reason=DeviceSession.RevokedReason.ACCOUNT_DISABLED)
+    # Une demande de changement de numéro ouverte ne survit pas à une désactivation (M7).
+    from .models import PhoneChangeRequest
+    from .phone_change import close_open_requests
+
+    close_open_requests(user=target, actor=actor, status=PhoneChangeRequest.Status.REJECTED)
     audit(
         action="accounts.user.deactivated",
         actor=actor,

@@ -36,6 +36,7 @@ import type {
   OpsSearchResult,
   OpsUnblockOtpRequestRequest,
   PaginatedPhoneChangeRequestList,
+  PhoneChangeApproveRequest,
   PhoneChangeCreateRequest,
   PhoneChangeRejectRequest,
   PhoneChangeRequest,
@@ -1270,6 +1271,11 @@ export type opsPhoneChangesApproveResponse204 = {
   status: 204
 }
 
+export type opsPhoneChangesApproveResponse400 = {
+  data: void
+  status: 400
+}
+
 export type opsPhoneChangesApproveResponse403 = {
   data: void
   status: 403
@@ -1293,7 +1299,7 @@ export type opsPhoneChangesApproveResponse429 = {
 export type opsPhoneChangesApproveResponseSuccess = (opsPhoneChangesApproveResponse204) & {
   headers: Headers;
 };
-export type opsPhoneChangesApproveResponseError = (opsPhoneChangesApproveResponse403 | opsPhoneChangesApproveResponse404 | opsPhoneChangesApproveResponse409 | opsPhoneChangesApproveResponse429) & {
+export type opsPhoneChangesApproveResponseError = (opsPhoneChangesApproveResponse400 | opsPhoneChangesApproveResponse403 | opsPhoneChangesApproveResponse404 | opsPhoneChangesApproveResponse409 | opsPhoneChangesApproveResponse429) & {
   headers: Headers;
 };
 
@@ -1307,14 +1313,29 @@ export const getOpsPhoneChangesApproveUrl = (publicId: string,) => {
   return `/api/ops/phone-changes/${publicId}/approve/`
 }
 
-export const opsPhoneChangesApprove = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<opsPhoneChangesApproveResponse> => {
+export const opsPhoneChangesApprove = async (publicId: string,
+    phoneChangeApproveRequest: PhoneChangeApproveRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<opsPhoneChangesApproveResponse> => {
 
-  return jeflinkFetch<opsPhoneChangesApproveResponse>(getOpsPhoneChangesApproveUrl(publicId),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<opsPhoneChangesApproveResponse>(getOpsPhoneChangesApproveUrl(publicId),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(phoneChangeApproveRequest)
   }
 );}
 
@@ -1339,9 +1360,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof opsPhoneChangesApprove>>, OpsPhoneChangesApproveMutationVariables> = (props) => {
-          const {publicId} = props ?? {};
+          const {publicId,data} = props ?? {};
 
-          return  opsPhoneChangesApprove(publicId,requestOptions)
+          return  opsPhoneChangesApprove(publicId,data,requestOptions)
         }
 
 
@@ -1352,9 +1373,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type OpsPhoneChangesApproveMutationResult = NonNullable<Awaited<ReturnType<typeof opsPhoneChangesApprove>>>
-
+    export type OpsPhoneChangesApproveMutationBody = BodyType<PhoneChangeApproveRequest>
     export type OpsPhoneChangesApproveMutationError = ErrorType<void>
-    export type OpsPhoneChangesApproveMutationVariables = {publicId: string}
+    export type OpsPhoneChangesApproveMutationVariables = {publicId: string;data: BodyType<PhoneChangeApproveRequest>}
 
     export const useOpsPhoneChangesApprove = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof opsPhoneChangesApprove>>, TError,OpsPhoneChangesApproveMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
@@ -1482,9 +1503,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getOpsPhoneChangesRejectMutationOptions(options), queryClient);
     }
-    export type opsPhoneChangesResendCodeResponse204 = {
-  data: void
-  status: 204
+    export type opsPhoneChangesResendCodeResponse200 = {
+  data: PhoneChangeRequest
+  status: 200
 }
 
 export type opsPhoneChangesResendCodeResponse403 = {
@@ -1507,7 +1528,7 @@ export type opsPhoneChangesResendCodeResponse429 = {
   status: 429
 }
 
-export type opsPhoneChangesResendCodeResponseSuccess = (opsPhoneChangesResendCodeResponse204) & {
+export type opsPhoneChangesResendCodeResponseSuccess = (opsPhoneChangesResendCodeResponse200) & {
   headers: Headers;
 };
 export type opsPhoneChangesResendCodeResponseError = (opsPhoneChangesResendCodeResponse403 | opsPhoneChangesResendCodeResponse404 | opsPhoneChangesResendCodeResponse409 | opsPhoneChangesResendCodeResponse429) & {

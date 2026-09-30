@@ -189,6 +189,8 @@ IP_RATE_LIMITS = {
 OPS_QUOTAS = {
     "search": [(60, 3600), (300, 86400)],
     "reveal_phone": [(20, 3600), (60, 86400)],
+    # Changement de numéro : demandes et approbations (revue sécurité tâche 16, I4).
+    "phone_change": [(5, 3600), (15, 86400)],
 }
 OTP_PHONE_BLOCK_MAX_HOURS = 24
 SMS_DAILY_CAP = env.int("SMS_DAILY_CAP", default=5000)

@@ -15,6 +15,7 @@ from jeflink.accounts.permissions import HasOpsPerm
 from .otp_views import INSTALL_HEADER, resolve_app, verify_body
 from .serializers import (
     OtpVerifyResponseSerializer,
+    PhoneChangeApproveSerializer,
     PhoneChangeConfirmSerializer,
     PhoneChangeCreateSerializer,
     PhoneChangeRejectSerializer,
@@ -86,11 +87,19 @@ class PhoneChangeApproveView(APIView):
     @extend_schema(
         tags=["ops-accounts"],
         operation_id="ops_phone_changes_approve",
-        request=None,
-        responses={204: None, **OPS_ERRORS},
+        request=PhoneChangeApproveSerializer,
+        responses={
+            204: None,
+            400: OpenApiResponse(description="phone_change_mismatch"),
+            **OPS_ERRORS,
+        },
     )
     def post(self, request: Request, public_id) -> Response:
-        phone_change.approve_phone_change(actor=request.user, request_public_id=public_id)
+        serializer = PhoneChangeApproveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        phone_change.approve_phone_change(
+            actor=request.user, request_public_id=public_id, **serializer.validated_data
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -119,11 +128,14 @@ class PhoneChangeResendView(APIView):
         tags=["ops-accounts"],
         operation_id="ops_phone_changes_resend_code",
         request=None,
-        responses={204: None, **OPS_ERRORS},
+        responses={200: PhoneChangeRequestSerializer, **OPS_ERRORS},
     )
     def post(self, request: Request, public_id) -> Response:
-        phone_change.resend_phone_change_code(actor=request.user, request_public_id=public_id)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        # Statut renvoyé : « pending_approval » si le compte est devenu pro (aucun code parti).
+        change = phone_change.resend_phone_change_code(
+            actor=request.user, request_public_id=public_id
+        )
+        return Response(PhoneChangeRequestSerializer(change).data)
 
 
 class PhoneChangeConfirmView(APIView):

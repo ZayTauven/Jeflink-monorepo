@@ -326,3 +326,8 @@ class PhoneChangeConfirmSerializer(serializers.Serializer):
     terms_version = serializers.CharField(max_length=16)
     device = DeviceSerializer()
     app = serializers.ChoiceField(choices=["client", "pro"], required=False)
+
+
+class PhoneChangeApproveSerializer(serializers.Serializer):
+    # Ressaisie du nouveau numéro complet, comparée en HMAC : jamais affiché (revue tâche 16, I3).
+    new_phone = serializers.CharField(max_length=32)

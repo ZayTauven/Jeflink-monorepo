@@ -26,7 +26,7 @@ PHONE = "+221771234567"
 def registries(monkeypatch):
     """Registres isolés : les tests ajoutent leurs anonymiseurs et bloqueurs."""
     monkeypatch.setattr(deletion, "_ANONYMIZERS", {})
-    monkeypatch.setattr(deletion, "_BLOCKERS", {"accounts": deletion._ops_blocker})
+    monkeypatch.setattr(deletion, "_BLOCKERS", {"accounts": deletion._accounts_blockers})
 
 
 @pytest.fixture

@@ -388,6 +388,7 @@ class NoticeSms(BaseModel):
     class Kind(models.TextChoices):
         INVITATION = "invitation", "Invitation"
         PHONE_CHANGED = "phone_changed", "Information à l'ancien numéro"
+        PHONE_CHANGE_REQUESTED = "phone_change_req", "Alerte : changement de numéro demandé"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "En file"

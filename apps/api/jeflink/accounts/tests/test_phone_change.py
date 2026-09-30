@@ -78,6 +78,19 @@ def confirm(code, phone=NEW, *, client=None):
     )
 
 
+def approve(client, request_id, new=NEW):
+    return client.post(
+        reverse("ops-pc-approve", args=[request_id]), {"new_phone": new}, format="json"
+    )
+
+
+def backdate_last_code(seconds=120):
+    """Le délai entre deux codes (60 s) est écoulé."""
+    from jeflink.accounts.models import OtpDelivery
+
+    OtpDelivery.objects.update(created_at=timezone.now() - timedelta(seconds=seconds))
+
+
 def wrong(code: str) -> str:
     return f"{(int(code) + 1) % 10**6:06d}"
 
@@ -142,15 +155,16 @@ def test_compte_pro_exige_un_second_ops(admin, awa, user_factory):
     grant_role(user=awa, role=Role.OWNER, reason_code="test")
     response = ask(console(admin), awa)
     assert response.json()["status"] == "pending_approval"
-    assert FakeSmsGateway.outbox == []  # rien ne part avant l'approbation
+    # Seule l'alerte à l'ancien numéro part ; aucun code avant l'approbation.
+    assert [sms.to for sms in FakeSmsGateway.outbox] == [OLD]
     request_id = response.json()["public_id"]
 
-    same = console(admin).post(reverse("ops-pc-approve", args=[request_id]))
+    same = approve(console(admin), request_id)
     assert same.status_code == 403
     assert same.json() == {"code": "ops_second_operator_required"}
 
     other = make_ops(user_factory)
-    assert console(other).post(reverse("ops-pc-approve", args=[request_id])).status_code == 204
+    assert approve(console(other), request_id).status_code == 204
     assert FakeSmsGateway.outbox[-1].to == NEW
     assert confirm(last_code()).status_code == 200
     request = PhoneChangeRequest.objects.get()
@@ -263,8 +277,10 @@ def test_renvoi_limite_a_trois_codes(admin, awa):
     request_id = ask(client, awa).json()["public_id"]
     first = last_code()
     for _ in range(2):
+        backdate_last_code()
         response = client.post(reverse("ops-pc-resend-code", args=[request_id]))
-        assert response.status_code == 204
+        assert response.status_code == 200
+    backdate_last_code()
     response = client.post(reverse("ops-pc-resend-code", args=[request_id]))
     assert response.status_code == 429
     assert response.json() == {"code": "phone_change_codes_exhausted"}
@@ -287,3 +303,112 @@ def test_nouvelle_session_sur_l_appareil_de_confirmation(admin, awa):
     confirm(last_code())
     session = DeviceSession.objects.get(user=awa, revoked_at__isnull=True)
     assert (session.device_label, session.install_id) == ("Tecno Spark", INSTALL_A)
+
+
+# --- Corrections de la revue sécurité (tâche 16) ------------------------------------------------
+
+
+def test_compte_devenu_pro_apres_la_demande(admin, awa):
+    """I1 : un client devenu technicien entre la demande et la saisie du code."""
+    ask(console(admin), awa)
+    code = last_code()
+    grant_role(user=awa, role=Role.TECHNICIAN, reason_code="test")
+    assert confirm(code).json() == {"code": "otp_invalid"}
+    awa.refresh_from_db()
+    assert awa.phone == OLD
+    request = PhoneChangeRequest.objects.get()
+    assert (request.status, request.requires_approval) == ("pending_approval", True)
+    assert AuditEvent.objects.filter(action="accounts.phone_change.approval_required").exists()
+
+
+def test_renvoi_sur_un_compte_devenu_pro(admin, awa):
+    request_id = ask(console(admin), awa).json()["public_id"]
+    grant_role(user=awa, role=Role.OWNER, reason_code="test")
+    backdate_last_code()
+    sent = len(FakeSmsGateway.outbox)
+    response = console(admin).post(reverse("ops-pc-resend-code", args=[request_id]))
+    assert response.json()["status"] == "pending_approval"
+    assert len(FakeSmsGateway.outbox) == sent  # aucun code parti
+
+
+def test_alerte_a_l_ancien_numero_impossible_a_etouffer(admin, awa):
+    """I2 : saturer le plafond de l'ancien numéro n'empêche ni l'alerte ni l'information."""
+    from jeflink.accounts.otp_limits import reserve_sms
+
+    for _ in range(5):
+        reserve_sms(phone=OLD, region="SN", new_challenge=False)
+    ask(console(admin), awa)
+    assert FakeSmsGateway.outbox[0].to == OLD
+    assert "changement du numéro de votre compte est en cours" in FakeSmsGateway.outbox[0].body
+    assert confirm(last_code()).status_code == 200
+    assert FakeSmsGateway.outbox[-1].to == OLD
+    event = AuditEvent.objects.get(action="accounts.phone_change.completed")
+    assert event.metadata["notice_queued"] is True
+
+
+def test_approbation_exige_le_numero_complet(admin, awa, user_factory):
+    """I3 : le second Ops ressaisit le numéro déclaré ; un écart est refusé et tracé."""
+    grant_role(user=awa, role=Role.OWNER, reason_code="test")
+    request_id = ask(console(admin), awa).json()["public_id"]
+    other = make_ops(user_factory)
+    response = approve(console(other), request_id, new="+221781111111")
+    assert response.status_code == 400
+    assert response.json() == {"code": "phone_change_mismatch"}
+    assert AuditEvent.objects.filter(action="accounts.phone_change.mismatch").count() == 1
+    assert PhoneChangeRequest.objects.get().status == "pending_approval"
+    assert approve(console(other), request_id, new="78 123 45 67").status_code == 204
+
+
+def test_quota_de_changements_par_ops(admin, complete_user_factory, settings):
+    """I4 : un Admin compromis ne change pas des numéros en série."""
+    settings.OPS_QUOTAS = {**settings.OPS_QUOTAS, "phone_change": [(2, 3600), (5, 86400)]}
+    client = console(admin)
+    for n in range(2):
+        target = complete_user_factory()
+        assert ask(client, target, new=f"+22176000000{n}").status_code == 201
+    response = ask(client, complete_user_factory(), new="+221760000009")
+    assert response.status_code == 429
+    assert response.json()["code"] == "ops_rate_limited"
+
+
+def test_numero_pris_entre_temps(admin, awa, user_factory):
+    """M2 : jamais de code « relier ce numéro » vers un numéro devenu celui d'un autre."""
+    request_id = ask(console(admin), awa).json()["public_id"]
+    user_factory(phone=NEW)
+    backdate_last_code()
+    response = console(admin).post(reverse("ops-pc-resend-code", args=[request_id]))
+    assert response.json() == {"code": "phone_in_use"}
+
+
+def test_renvoi_trop_tot(admin, awa):
+    """M2 : 60 s au moins entre deux codes."""
+    request_id = ask(console(admin), awa).json()["public_id"]
+    response = console(admin).post(reverse("ops-pc-resend-code", args=[request_id]))
+    assert response.status_code == 429
+    assert response.json()["code"] == "otp_resend_too_early"
+
+
+def test_desactivation_ferme_la_demande(admin, awa, user_factory):
+    """M7 : une demande ouverte ne survit pas à une désactivation pour fraude."""
+    ask(console(admin), awa)
+    code = last_code()
+    support = make_ops(user_factory, group="Support")
+    console(support).post(
+        reverse("ops-deactivate", args=[awa.public_id]), {"reason_code": "fraud"}, format="json"
+    )
+    request = PhoneChangeRequest.objects.get()
+    assert (request.status, request.new_phone, request.rejected_by) == ("rejected", "", support)
+    assert confirm(code).json() == {"code": "otp_invalid"}
+
+
+def test_pas_de_suppression_dans_les_72_h(admin, awa):
+    """M9 : un compte tout juste pris ne peut pas être effacé de façon irréversible."""
+    from jeflink.accounts.deletion import deletion_blockers
+
+    ask(console(admin), awa)
+    confirm(last_code())
+    awa.refresh_from_db()
+    assert deletion_blockers(awa) == ["phone_recently_changed"]
+    User.objects.filter(pk=awa.pk).update(phone_changed_at=timezone.now() - timedelta(hours=73))
+    awa.refresh_from_db()
+    assert deletion_blockers(awa) == []

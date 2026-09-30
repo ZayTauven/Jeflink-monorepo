@@ -929,9 +929,23 @@ paths:
         required: true
       tags:
       - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeApproveRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeApproveRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeApproveRequest'
+        required: true
       responses:
         '204':
           description: No response body
+        '400':
+          description: phone_change_mismatch
         '403':
           description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
             ops_second_operator_required
@@ -990,8 +1004,12 @@ paths:
       tags:
       - ops-accounts
       responses:
-        '204':
-          description: No response body
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneChangeRequest'
+          description: ''
         '403':
           description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
             ops_second_operator_required
@@ -1715,6 +1733,15 @@ components:
             maxLength: 0
         preferred_language:
           $ref: '#/components/schemas/PreferredLanguageEnum'
+    PhoneChangeApproveRequest:
+      type: object
+      properties:
+        new_phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+      required:
+      - new_phone
     PhoneChangeConfirmRequest:
       type: object
       properties:

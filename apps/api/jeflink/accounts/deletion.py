@@ -86,7 +86,21 @@ def _ops_blocker(user: User) -> str | None:
     return "ops_role" if has_role(user, Role.OPS) else None
 
 
-register_deletion_blocker("accounts", _ops_blocker)
+def _recent_phone_change_blocker(user: User) -> str | None:
+    # 72 h après un changement de numéro, pas de suppression : un compte tout juste pris ne
+    # peut pas être effacé de façon irréversible (revue sécurité tâche 16, M9).
+    changed = user.phone_changed_at
+    if changed and timezone.now() - changed < PHONE_CHANGE_COOLDOWN:
+        return "phone_recently_changed"
+    return None
+
+
+def _accounts_blockers(user: User) -> str | None:
+    return _ops_blocker(user) or _recent_phone_change_blocker(user)
+
+
+PHONE_CHANGE_COOLDOWN = timedelta(hours=72)
+register_deletion_blocker("accounts", _accounts_blockers)
 
 
 def deletion_blockers(user: User) -> list[str]:
@@ -141,9 +155,12 @@ def _anonymize(user: User, *, reason: str, session_public_id=None) -> None:
     MfaChallenge.objects.filter(user=user).update(device_label="", install_id="")
     user.groups.clear()
     user.user_permissions.clear()
-    # Demandes de changement de numéro ouvertes : closes, nouveau numéro effacé.
+    # Demandes de changement de numéro : ouvertes closes ; HMAC et notes effacés partout (M6).
     PhoneChangeRequest.objects.filter(user=user, status__in=PhoneChangeRequest.OPEN).update(
-        status=PhoneChangeRequest.Status.EXPIRED, new_phone="", updated_at=timezone.now()
+        status=PhoneChangeRequest.Status.EXPIRED, new_phone=""
+    )
+    PhoneChangeRequest.objects.filter(user=user).update(
+        new_phone_hmac="", note="", updated_at=timezone.now()
     )
     OtpChallenge.objects.filter(user=user).delete()
     if phone:

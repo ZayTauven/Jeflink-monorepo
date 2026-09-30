@@ -7,6 +7,10 @@ pas si le SMS part : il ne peut donc rien apprendre de l'activité d'un numéro 
 Ils ont leurs propres sous-budgets (total, préfixe, bloc de 1 000 numéros) et ne partent
 jamais quand un plafond partagé est déjà utilisé à moitié : ils ne prennent pas la marge des
 connexions (revue sécurité tâche 12, I3).
+
+**SMS de sécurité** (changement de numéro) : seule alerte de la victime, ils ne doivent pas
+pouvoir être étouffés en saturant les plafonds du numéro. Ils ne comptent que dans les plafonds
+quotidiens globaux, avec repli en base si Redis tombe (revue sécurité tâche 16, I2).
 """
 
 import logging
@@ -16,10 +20,16 @@ from django.db import transaction
 
 from jeflink.common.errors import DomainError
 from jeflink.common.pii import phone_hmac
-from jeflink.common.ratelimit import Limit, RateLimitUnavailable
+from jeflink.common.ratelimit import Limit, RateLimitUnavailable, consume
 
 from .models import NoticeSms
-from .otp_limits import number_block, operator_prefix, reserve_sms, shared_caps_have_margin
+from .otp_limits import (
+    _region_cap,
+    number_block,
+    operator_prefix,
+    reserve_sms,
+    shared_caps_have_margin,
+)
 from .phone import phone_region
 
 logger = logging.getLogger(__name__)
@@ -46,6 +56,31 @@ def _notice_checks(kind: str, phone: str) -> list[tuple[Limit, str]]:
     return checks
 
 
+SECURITY_KINDS = frozenset({NoticeSms.Kind.PHONE_CHANGED, NoticeSms.Kind.PHONE_CHANGE_REQUESTED})
+
+
+def _reserve_security(phone: str, region: str) -> None:
+    """Plafonds quotidiens globaux seulement ; sans Redis, comptage en base (jamais ouvert)."""
+    from .otp import db_counts
+
+    daily = settings.SMS_DAILY_CAP
+    regional = _region_cap(region)
+    try:
+        outcome = consume(
+            [
+                (Limit("sms:daily_total", daily, 86400), "all"),
+                (Limit("sms:daily_region", regional, 86400), region),
+            ]
+        )
+    except RateLimitUnavailable:
+        counts = db_counts(phone, region)
+        if counts.total_last_day >= daily or counts.region_last_day >= regional:
+            raise DomainError("otp_temporarily_unavailable", status=503) from None
+        return
+    if not outcome.allowed:
+        raise DomainError("otp_temporarily_unavailable", status=503)
+
+
 def _skip(kind: str, reason: str) -> None:
     logger.info("notice_sms skipped kind=%s reason=%s", kind, reason)
 
@@ -54,17 +89,20 @@ def queue_notice(*, kind: str, phone: str, language: str = "fr") -> NoticeSms | 
     """Réserve le budget et programme l'envoi après commit. None si le SMS est écarté."""
     region = phone_region(phone)
     try:
-        if not shared_caps_have_margin(phone, region):
+        if kind in SECURITY_KINDS:
+            _reserve_security(phone, region)
+        elif not shared_caps_have_margin(phone, region):
             _skip(kind, "shared_caps_margin")
             return None
-        # Sans Redis, aucun SMS d'information : pas de repli en base (refus → écarté).
-        reserve_sms(
-            phone=phone,
-            region=region,
-            new_challenge=False,
-            fallback=None,
-            extra_checks=_notice_checks(kind, phone),
-        )
+        else:
+            # Sans Redis, aucun SMS d'information : pas de repli en base (refus → écarté).
+            reserve_sms(
+                phone=phone,
+                region=region,
+                new_challenge=False,
+                fallback=None,
+                extra_checks=_notice_checks(kind, phone),
+            )
     except DomainError as exc:
         _skip(kind, exc.code)
         return None

@@ -57,7 +57,17 @@ class AccountsConfig(AppConfig):
             "accounts.phone_change.rejected", {"request": str, "reason_code": str, "note": str}
         )
         register_audit_schema("accounts.phone_change.code_sent", {"request": str, "attempt": int})
-        register_audit_schema("accounts.phone_change.completed", {"request": str})
+        register_audit_schema(
+            "accounts.phone_change.completed",
+            {
+                "request": str,
+                "old_phone_hmac": (PhoneHmac, str),
+                "dormant_cleared": bool,
+                "notice_queued": bool,
+            },
+        )
+        register_audit_schema("accounts.phone_change.mismatch", {"request": str})
+        register_audit_schema("accounts.phone_change.approval_required", {"request": str})
         register_audit_schema("ops.accounts.quota_exceeded", {"scope": str})
         ops_fields: dict[str, type] = {"reason_code": str, "note": str}
         register_audit_schema("ops.accounts.searched", {"phone_hmac": PhoneHmac, "found": bool})
