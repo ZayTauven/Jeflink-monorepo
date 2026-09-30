@@ -1,0 +1,19 @@
+.env
+apps/**/.env
+node_modules/
+.next/
+dist/
+.turbo/
+__pycache__/
+.venv/
+.claude/settings.local.json
+
+# Matériel de référence local (templates sous licence Envato, originaux lourds) — jamais versionné
+references/
+Crafto - The Multipurpose HTML5 Template/
+
+# Python / outils
+.pytest_cache/
+.ruff_cache/
+apps/api/staticfiles/
+celerybeat-schedule*

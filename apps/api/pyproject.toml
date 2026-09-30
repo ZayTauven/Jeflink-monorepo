@@ -1,0 +1,42 @@
+[project]
+name = "jeflink-api"
+version = "0.0.0"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "django>=5.2.17,<5.3",
+  "djangorestframework>=3.16",
+  "drf-spectacular>=0.28",
+  "django-environ>=0.12",
+  "psycopg[binary]>=3.2",
+  "celery[redis]>=5.5",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-django>=4.10",
+  "factory-boy>=3.3",
+  "ruff>=0.11",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "jeflink.settings.test"
+python_files = ["test_*.py"]
+addopts = "-q --reuse-db"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "DJ", "S", "SIM", "RUF"]
+ignore = ["RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["S101", "S106"]
+"jeflink/settings/local.py" = ["S105"]
+"jeflink/settings/test.py" = ["S105"]

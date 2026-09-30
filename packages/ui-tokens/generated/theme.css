@@ -1,0 +1,32 @@
+/* GÉNÉRÉ par packages/ui-tokens/scripts/build.ts depuis src/tokens.ts — ne pas éditer. */
+
+@theme {
+  --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --font-*: initial;
+}
+
+@theme inline {
+  --color-ink: var(--jf-ink);
+  --color-ink-muted: var(--jf-ink-muted);
+  --color-paper: var(--jf-paper);
+  --color-sand: var(--jf-sand);
+  --color-surface: var(--jf-surface);
+  --color-line: var(--jf-line);
+  --color-line-strong: var(--jf-line-strong);
+  --color-accent: var(--jf-accent);
+  --color-on-accent: var(--jf-on-accent);
+  --color-accent-strong: var(--jf-accent-strong);
+  --color-on-accent-strong: var(--jf-on-accent-strong);
+  --color-success: var(--jf-success);
+  --color-warning: var(--jf-warning);
+  --color-danger: var(--jf-danger);
+  --color-info: var(--jf-info);
+  --radius-card: var(--jf-radius);
+  --radius-pill: var(--jf-radius-pill);
+  --shadow-overlay: var(--jf-shadow-overlay);
+  --font-display: var(--jf-font-display);
+  --font-sans: var(--jf-font-text);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}

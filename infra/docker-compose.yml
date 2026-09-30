@@ -1,0 +1,63 @@
+name: jeflink
+
+# Câblage de dev (non secret) déclaré ici ; les secrets vont dans apps/api/.env (optionnel en local).
+x-api-env: &api-env
+  DJANGO_SETTINGS_MODULE: jeflink.settings.local
+  SECRET_KEY: local-dev-only-not-secret
+  DATABASE_URL: postgis://jeflink:jeflink@db:5432/jeflink
+  REDIS_URL: redis://redis:6379/0
+  S3_ENDPOINT: http://s3:8333
+  S3_BUCKET: jeflink-dev
+  TIME_ZONE: Africa/Dakar
+
+x-api-env-file: &api-env-file
+  - path: ../apps/api/.env
+    required: false
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: jeflink
+      POSTGRES_USER: jeflink
+      POSTGRES_PASSWORD: jeflink
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jeflink"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  # Stockage objets S3-compatible de dev (photos, audio, KYC). MinIO ne publie plus d'image Docker.
+  s3:
+    image: chrislusf/seaweedfs:4.48
+    command: server -dir=/data -s3 -s3.port=8333
+    ports: ["8333:8333"]
+    volumes: [s3data:/data]
+
+  api:
+    build: ../apps/api
+    command: uv run --frozen python manage.py runserver 0.0.0.0:8000
+    environment: *api-env
+    env_file: *api-env-file
+    ports: ["8000:8000"]
+    volumes: ["../apps/api:/app"]
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  worker:
+    build: ../apps/api
+    command: uv run --frozen celery -A jeflink worker -B -l info --schedule /tmp/celerybeat-schedule
+    environment: *api-env
+    env_file: *api-env-file
+    volumes: ["../apps/api:/app"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  s3data:

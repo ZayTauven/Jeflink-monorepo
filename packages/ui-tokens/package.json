@@ -1,0 +1,20 @@
+{
+  "name": "@jeflink/ui-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./generated/tokens.css",
+    "./theme.css": "./generated/theme.css"
+  },
+  "scripts": {
+    "build": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/build.ts",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/build.ts --check",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@jeflink/config": "workspace:*",
+    "@types/node": "^22.13.0"
+  }
+}

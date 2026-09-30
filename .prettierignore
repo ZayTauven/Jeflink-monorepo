@@ -1,0 +1,6 @@
+references/
+Crafto - The Multipurpose HTML5 Template/
+pnpm-lock.yaml
+packages/api-client/src/generated/
+packages/ui-tokens/generated/
+apps/api/

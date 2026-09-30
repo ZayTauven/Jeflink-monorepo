@@ -1,0 +1,45 @@
+/* GÉNÉRÉ par packages/ui-tokens/scripts/build.ts depuis src/tokens.ts — ne pas éditer. */
+
+:root {
+  --jf-ink: #14171C;
+  --jf-ink-muted: #5B6270;
+  --jf-paper: #FAF8F4;
+  --jf-sand: #EDECE3;
+  --jf-surface: #FFFFFF;
+  --jf-line: #E6E1D8;
+  --jf-line-strong: #85817A;
+  --jf-accent: #FF6600;
+  --jf-on-accent: #14171C;
+  --jf-accent-strong: #B84800;
+  --jf-on-accent-strong: #FFFFFF;
+  --jf-success: #15803D;
+  --jf-warning: #A16207;
+  --jf-danger: #B91C1C;
+  --jf-info: #1D6FB8;
+  --jf-radius: 10px;
+  --jf-radius-pill: 999px;
+  --jf-shadow-overlay: 0 8px 24px rgb(20 23 28 / 0.12);
+  --jf-font-display: var(--font-funnel-display, "Funnel Display"), ui-sans-serif, system-ui, sans-serif;
+  --jf-font-text: var(--font-inter, "Inter"), ui-sans-serif, system-ui, sans-serif;
+  color-scheme: light;
+}
+
+/* Console uniquement : <html data-theme="dark">. */
+[data-theme="dark"] {
+  --jf-ink: #F2F0EB;
+  --jf-ink-muted: #A3A9B5;
+  --jf-paper: #111317;
+  --jf-sand: #20252D;
+  --jf-surface: #1B1F26;
+  --jf-line: #2E3440;
+  --jf-line-strong: #6B7280;
+  --jf-accent: #FF6600;
+  --jf-on-accent: #14171C;
+  --jf-accent-strong: #FF8A3D;
+  --jf-on-accent-strong: #14171C;
+  --jf-success: #4ADE80;
+  --jf-warning: #FACC15;
+  --jf-danger: #F87171;
+  --jf-info: #60A5FA;
+  color-scheme: dark;
+}
