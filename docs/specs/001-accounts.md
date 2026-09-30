@@ -360,6 +360,15 @@ Fournisseur à choisir (Q7). Pistes : Orange (API SMS), Infobip, Twilio, Vonage,
 - ses données ne sont jamais diffusées aux vrais pros ;
 - chaque usage écrit un `AuditEvent` et déclenche une alerte.
 
+Mise en œuvre (tâche 17) :
+
+- `create_review_account --phone … --operator … --second-operator … --reason store_submission|code_rotation [--token-file …]` : deux Admin, crée le compte marqué s'il n'existe pas (nom fictif, profil complet), **refuse de transformer un compte réel**, change le code (6 chiffres, HMAC dans `ReviewAccess`) et le remet une seule fois (terminal ou fichier 0600) ;
+- dans la fenêtre et pour `client`/`pro` : aucun SMS n'est envoyé ; le code de revue remplace le code SMS pour la connexion, le rejeu T1 et la suppression du compte ; le compte n'est jamais « dormant » ;
+- hors fenêtre, ou sur `web`/`console` : le numéro se comporte comme un autre (SMS vers la SIM Jeflink) et le compte de revue refuse la connexion (`account_not_allowed`) ;
+- **un numéro de revue ne crée jamais de compte** : si l'équipe de revue supprime le compte, la commande est relancée avant la soumission suivante. Prévoir **deux numéros de revue** par soumission (l'un pour tester la suppression) ;
+- vérifications Django : `accounts.E101`–`E104` (fenêtre ISO 8601 de 45 j au plus hors local/test, numéros valides et autorisés) et `accounts.E105` (tag `database` : numéro de revue sur un compte réel). **Le déploiement de production lance `manage.py check --database default --deploy` avant de démarrer** (à reprendre dans l'infra, tâche 4) ;
+- **contrainte pour `requests` et `bookings`** : les demandes d'un compte de revue ne sont jamais diffusées aux vrais pros (`User.is_review_account`).
+
 ### Sessions et jetons (ADR 0007)
 
 - **Access JWT** : PyJWT, HS256, clé choisie par `kid` parmi 2 clés en rotation (`JWT_SIGNING_KEYS`).
@@ -790,3 +799,5 @@ Chaque question porte la proposition de l’architecte et, quand il existe, l’
     - (a) réserver une part du plafond global aux numéros qui ont déjà un compte (les campagnes de pompage visent des numéros inconnus) ;
     - (b) inscrire dans la procédure d'alerte : à 50 %/80 % du plafond, activer `OTP_CHALLENGE_REQUIRED` (attestation d'appareil, CAPTCHA web).
 21. **Q21 — « Repartir de zéro » immédiat ou différé ?** ✅ _Tranché par Zay le 2026-09-30 : effacement immédiat, pas de quarantaine._ Question d'origine (revue sécurité de la tâche 14, M12) : Aujourd'hui, l'ancien compte est anonymisé **tout de suite** : quelqu'un qui a pris la SIM d'un client dormant peut effacer définitivement ce compte (l'argent et les réservations restent protégés par les bloqueurs de `wallet` et `bookings`). Proposition : une **quarantaine** — ancien compte gelé et numéro libéré tout de suite, anonymisation 30 j plus tard ; si le vrai titulaire se manifeste (« C'est bien mon compte »), l'Ops peut le restaurer sur son nouveau numéro. Coût : une tâche de plus (quarantaine, restauration Ops, purge différée).
+
+22. **Q22 — App Pro et compte de revue des stores** (tâche 17). S17 interdit tout rôle sur le compte de revue (`grant_role` refusé) : dans l'app Pro, l'équipe de revue ne voit que l'écran « Devenir pro ». Apple et Google peuvent refuser une app dont les fonctions principales sont inaccessibles aux testeurs. Options : (a) un **mode démonstration** de l'app Pro (données fictives, aucune action réelle), à cadrer dans la spec `providers` ; (b) un second compte de revue avec un rôle `owner` sur une **équipe de démonstration isolée** (exception encadrée à S17) ; (c) soumettre l'app Pro en test fermé (Play) et TestFlight externe d'abord, et trancher avant la publication publique.

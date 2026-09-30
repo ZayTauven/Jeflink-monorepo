@@ -30,6 +30,7 @@ from .models import (
     NoticeSms,
     OtpChallenge,
     PhoneChangeRequest,
+    ReviewAccess,
     Role,
     RoleInvitation,
     User,
@@ -152,6 +153,7 @@ def _anonymize(user: User, *, reason: str, session_public_id=None) -> None:
         # Retirer owner clôt aussi les invitations envoyées par ce pro.
         revoke_role(user=user, role=role, reason_code="account_deleted")
     clear_mfa(user)
+    ReviewAccess.objects.filter(user=user).delete()
     MfaChallenge.objects.filter(user=user).update(device_label="", install_id="")
     user.groups.clear()
     user.user_permissions.clear()

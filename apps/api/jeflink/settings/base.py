@@ -225,6 +225,11 @@ SMS_ANDROID_APP_HASH = {
     "pro": env("SMS_ANDROID_APP_HASH_PRO", default=""),
 }
 WEBOTP_DOMAIN = env("WEBOTP_DOMAIN", default="jeflink.sn")
+# Compte de revue des stores (S17) : numéros de SIM détenues par Jeflink, et fin de fenêtre
+# (ISO 8601). Vide = aucune revue en cours. 45 jours au plus en production (check au démarrage).
+OTP_REVIEW_ACCOUNTS = env.list("OTP_REVIEW_ACCOUNTS", default=[])
+OTP_REVIEW_ENABLED_UNTIL = env("OTP_REVIEW_ENABLED_UNTIL", default="")
+OTP_REVIEW_MAX_DAYS = 45
 
 # --- Invitations (spec 001, S19) ------------------------------------------------------------
 INVITATION_TTL_DAYS = 7

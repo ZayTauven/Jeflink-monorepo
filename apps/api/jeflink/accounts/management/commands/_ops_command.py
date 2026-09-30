@@ -143,15 +143,20 @@ class OpsCommand(BaseCommand):
         elif not self.stdout.isatty():
             raise CommandError("Hors terminal, --token-file est obligatoire (jeton d'enrôlement).")
 
-    def deliver_token(self, options: dict, token: str) -> None:
+    def deliver_token(
+        self,
+        options: dict,
+        token: str,
+        label: str = "Jeton d'enrôlement TOTP (24 h, usage unique)",
+    ) -> None:
         path = options.get("token_file")
         if path:
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 handle.write(f"{token}\n")
-            self.stdout.write(f"Jeton d'enrôlement TOTP écrit dans {path} (24 h, usage unique).")
+            self.stdout.write(f"{label} : écrit dans {path}.")
         else:
-            self.stdout.write(f"Jeton d'enrôlement TOTP (24 h, usage unique) : {token}")
+            self.stdout.write(f"{label} : {token}")
 
     @staticmethod
     def resolve_groups(names: list[str]) -> list[Group]:

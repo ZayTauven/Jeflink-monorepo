@@ -52,6 +52,12 @@ from .otp_limits import (
     reserve_sms,
 )
 from .phone import normalize_phone, phone_display, phone_region
+from .review_accounts import (
+    is_review_phone,
+    record_use,
+    review_code_matches,
+    review_user_for,
+)
 from .selectors import active_sessions_for, has_role
 from .sessions import (
     TokenPair,
@@ -273,14 +279,17 @@ def _request_challenge(
     if not _claim_in_flight(cache_key):
         raise DomainError("otp_request_in_progress", status=409)
     try:
-        # Budget SMS réservé avant toute écriture : un refus ne crée rien.
-        reserve_sms(
-            phone=phone,
-            region=region,
-            install_id=install_id,
-            new_challenge=True,
-            fallback=db_counts,
-        )
+        # Compte de revue des stores (S17) : aucun SMS, le code de revue fera foi.
+        review = review_user_for(phone, app)
+        if review is None:
+            # Budget SMS réservé avant toute écriture : un refus ne crée rien.
+            reserve_sms(
+                phone=phone,
+                region=region,
+                install_id=install_id,
+                new_challenge=True,
+                fallback=db_counts,
+            )
         now = timezone.now()
         secret = secrets.token_urlsafe(32)
         with transaction.atomic():
@@ -294,8 +303,8 @@ def _request_challenge(
                 language=language if language in {"fr", "wo"} else "fr",
                 expires_at=now + CHALLENGE_TTL,
             )
-            delivery = OtpDelivery.objects.create(challenge=challenge, attempt_no=1)
-            _enqueue(delivery)
+            if review is None:
+                _enqueue(OtpDelivery.objects.create(challenge=challenge, attempt_no=1))
         resend_at = now + timedelta(seconds=resend_delay(phone))
         body = _response_body(challenge, 1, resend_at, secret)
         _remember_response(cache_key, body, int((resend_at - now).total_seconds()))
@@ -331,10 +340,12 @@ def resend_otp(*, challenge_id, challenge_secret: str) -> dict:
         if blocked_until is not None:
             wait = max(1, int((blocked_until - now).total_seconds()))
             raise DomainError("otp_rate_limited", status=429, retry_after=wait)
+        delay = timedelta(seconds=resend_delay(challenge.phone))
+        if review_user_for(challenge.phone, challenge.app) is not None:
+            return _response_body(challenge, 1, now + delay, secret=None)
         deliveries = list(challenge.deliveries.order_by("attempt_no"))
         if len(deliveries) >= MAX_DELIVERIES:
             raise DomainError("otp_resend_exhausted", status=429)
-        delay = timedelta(seconds=resend_delay(challenge.phone))
         available = deliveries[-1].created_at + delay
         if now < available:
             wait = max(1, int((available - now).total_seconds()))
@@ -432,16 +443,12 @@ def verify_otp(
             status=OtpChallenge.Status.EXPIRED
         )
         raise DomainError("otp_expired")
-    # 3. Code. « Expiré » seulement si un code a réellement expiré : un envoi échoué (code
-    # effacé) répond comme un mauvais code, sans révéler la joignabilité du numéro (M7).
-    delivered = challenge.deliveries.exclude(code_hash="")
-    if delivered.exists() and not delivered.filter(expires_at__gt=now).exists():
-        raise DomainError("otp_expired")
-    if not _code_matches(challenge, code, now=now):
-        _register_failure(challenge)
+    # 3. Code (SMS ou code de revue des stores).
+    review = review_user_for(challenge.phone, app)
+    _check_code(challenge, code, now=now, review=review)
     # 4. État du compte : un refus consomme le challenge et laisse une trace (M12).
     user = User.objects.filter(phone=challenge.phone, deleted_at__isnull=True).first()
-    refusal = _refusal_reason(user, app)
+    refusal = _refusal_reason(user, app, phone=challenge.phone, review=review)
     if refusal is not None:
         _consume_refused(challenge, refusal, now=now, install_id=install_id)
     # 5. Validation, création éventuelle et session : tout ou rien (M5).
@@ -458,15 +465,38 @@ def verify_otp(
     return result
 
 
-def _refusal_reason(user: User | None, app: str) -> tuple[str, str, int] | None:
+def _check_code(challenge: OtpChallenge, code: str, *, now: datetime, review: User | None) -> None:
+    """Code du challenge, ou code de revue des stores. Un échec est compté (S8).
+
+    « Expiré » seulement si un code SMS a réellement expiré : un envoi échoué (code effacé)
+    répond comme un mauvais code, sans révéler la joignabilité du numéro (M7).
+    """
+    if review is not None:
+        if not review_code_matches(review, code):
+            _register_failure(challenge)
+        return
+    delivered = challenge.deliveries.exclude(code_hash="")
+    if delivered.exists() and not delivered.filter(expires_at__gt=now).exists():
+        raise DomainError("otp_expired")
+    if not _code_matches(challenge, code, now=now):
+        _register_failure(challenge)
+
+
+def _refusal_reason(
+    user: User | None, app: str, *, phone: str, review: User | None
+) -> tuple[str, str, int] | None:
     """(code d'erreur, motif d'audit, statut HTTP) si le compte ne peut pas se connecter."""
     if user is None:
+        # Un numéro de revue ne crée jamais de compte : seule la commande le fait (S17).
+        if is_review_phone(phone):
+            return ("account_not_allowed", "review_phone_without_account", 403)
         return None
     if not user.is_active:
         return ("account_disabled", "disabled", 403)
     if user.is_staff or user.is_superuser:
         return ("account_not_allowed", "technical_account", 403)
-    if user.is_review_account:
+    if user.is_review_account and (review is None or review.pk != user.pk):
+        # Hors fenêtre, hors app client ou pro : le compte de revue est fermé.
         return ("account_not_allowed", "review_account", 403)
     return None
 
@@ -546,7 +576,14 @@ def _open_session(
             return VerifyResult(
                 user=user, tokens=None, is_new_user=False, restricted=False, mfa=start
             )
-        restricted = not is_new and is_dormant_login(user=user, install_id=install_id)
+        # Le compte de revue sert d'une soumission à l'autre : jamais « dormant ».
+        restricted = (
+            not is_new
+            and not user.is_review_account
+            and is_dormant_login(user=user, install_id=install_id)
+        )
+        if user.is_review_account:
+            record_use(user, app=app, purpose="login", challenge_public_id=challenge.public_id)
         tokens = create_session(
             user=user,
             app=app,
@@ -597,7 +634,7 @@ def _replay(challenge: OtpChallenge, *, code: str, install_id: str, now: datetim
         and install_id
         and hmac.compare_digest(install_id, challenge.verified_install_id)
         and (challenge.session_id is not None or challenge.user_id is not None)
-        and _code_matches(challenge, code, now=now)
+        and _replay_code_ok(challenge, code, now=now)
     )
     if not eligible:
         raise DomainError("otp_already_used", status=409)
@@ -670,14 +707,24 @@ def consume_account_otp(
         raise DomainError("otp_locked", status=429)
     if challenge.status == OtpChallenge.Status.EXPIRED or now >= challenge.expires_at:
         raise DomainError("otp_expired")
-    delivered = challenge.deliveries.exclude(code_hash="")
-    if delivered.exists() and not delivered.filter(expires_at__gt=now).exists():
-        raise DomainError("otp_expired")
-    if not _code_matches(challenge, code, now=now):
-        _register_failure(challenge)
+    review = review_user_for(challenge.phone, challenge.app)
+    if review is not None and review.pk != user.pk:
+        review = None
+    _check_code(challenge, code, now=now, review=review)
+    if review is not None:
+        record_use(
+            user, app=challenge.app, purpose=purpose, challenge_public_id=challenge.public_id
+        )
     updated = OtpChallenge.objects.filter(
         pk=challenge.pk, status=OtpChallenge.Status.PENDING
     ).update(status=OtpChallenge.Status.VERIFIED, verified_at=now)
     if updated != 1:
         raise DomainError("otp_already_used", status=409)
     return challenge
+
+
+def _replay_code_ok(challenge: OtpChallenge, code: str, *, now: datetime) -> bool:
+    review = review_user_for(challenge.phone, challenge.app)
+    if review is not None and challenge.user_id == review.pk:
+        return review_code_matches(review, code)
+    return _code_matches(challenge, code, now=now)

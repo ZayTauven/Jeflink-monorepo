@@ -9,6 +9,8 @@ class AccountsConfig(AppConfig):
     def ready(self) -> None:
         from jeflink.trust.services import MaskedPhone, PhoneHmac, register_audit_schema
 
+        from . import checks  # noqa: F401  (vérifications du compte de revue, S17)
+
         role_fields: dict[str, type] = {
             "role": str,
             "reason_code": str,
@@ -42,6 +44,14 @@ class AccountsConfig(AppConfig):
         register_audit_schema("accounts.session.evicted_limit", {"app": str})
         register_audit_schema("accounts.dormant.cleared", {"reason_code": str, "note": str})
         register_audit_schema("ops.accounts.viewed", {})
+        review_fields: dict[str, type] = {
+            "operator": str,
+            "second_operator": str,
+            "reason_code": str,
+        }
+        register_audit_schema("accounts.review_account.created", review_fields)
+        register_audit_schema("accounts.review_account.code_rotated", review_fields)
+        register_audit_schema("accounts.review_account.used", {"app": str, "purpose": str})
         register_audit_schema(
             "accounts.phone_change.requested",
             {

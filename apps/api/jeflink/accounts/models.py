@@ -545,3 +545,15 @@ class PhoneChangeRequest(BaseModel):
 
     def __str__(self) -> str:
         return f"changement de numéro · {self.status}"
+
+
+class ReviewAccess(BaseModel):
+    """Code de connexion du compte de revue des stores (S17) : HMAC seulement, changé à chaque
+    soumission par ``create_review_account``."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="review_access")
+    code_hash = models.CharField(max_length=64)
+    rotated_by_operator = models.CharField(max_length=64)
+
+    def __str__(self) -> str:
+        return "accès de revue des stores"
