@@ -41,7 +41,7 @@ from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
 from .client_challenge import check_client_challenge
-from .models import DeviceSession, OtpChallenge, OtpDelivery, Role, User
+from .models import DeviceSession, NoticeSms, OtpChallenge, OtpDelivery, Role, User
 from .otp_limits import (
     FallbackCounts,
     phone_blocked_until,
@@ -93,16 +93,19 @@ def new_code() -> str:
 
 
 def db_counts(phone: str, region: str) -> FallbackCounts:
-    """SMS réellement tentés, comptés en base (S8)."""
+    """SMS réellement tentés, comptés en base (S8) : codes et SMS d'information."""
     now = timezone.now()
+    hour_ago = now - timedelta(hours=1)
     day = OtpDelivery.objects.filter(created_at__gte=now - timedelta(hours=24))
+    notices = NoticeSms.objects.filter(created_at__gte=now - timedelta(hours=24))
+    own_notices = notices.filter(phone_hmac=phone_hmac(phone))
     return FallbackCounts(
-        phone_last_hour=day.filter(
-            challenge__phone=phone, created_at__gte=now - timedelta(hours=1)
-        ).count(),
-        phone_last_day=day.filter(challenge__phone=phone).count(),
-        total_last_day=day.count(),
-        region_last_day=day.filter(challenge__region=region).count(),
+        phone_last_hour=day.filter(challenge__phone=phone, created_at__gte=hour_ago).count()
+        + own_notices.filter(created_at__gte=hour_ago).count(),
+        phone_last_day=day.filter(challenge__phone=phone).count() + own_notices.count(),
+        total_last_day=day.count() + notices.count(),
+        region_last_day=day.filter(challenge__region=region).count()
+        + notices.filter(region=region).count(),
     )
 
 

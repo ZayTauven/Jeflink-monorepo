@@ -214,6 +214,15 @@ SMS_ANDROID_APP_HASH = {
 }
 WEBOTP_DOMAIN = env("WEBOTP_DOMAIN", default="jeflink.sn")
 
+# --- Invitations (spec 001, S19) ------------------------------------------------------------
+INVITATION_TTL_DAYS = 7
+INVITATIONS_PER_INVITER_DAILY = 20
+# SMS d'invitation par numéro invité et par jour, tous pros confondus : un pro ne peut pas
+# épuiser le budget SMS de connexion d'un numéro (5/h, 8/24 h) avec des invitations.
+INVITATION_SMS_PER_PHONE_DAILY = 2
+# Lien de téléchargement de l'app Pro, cité dans le SMS d'invitation (domaine à confirmer).
+PRO_APP_LINK = env("PRO_APP_LINK", default="https://jeflink.sn/pro")
+
 # Schéma OpenAPI servi seulement en local/test ; `make openapi` le génère hors ligne (S24).
 SERVE_API_SCHEMA = DJANGO_ENV in {"local", "test"}
 

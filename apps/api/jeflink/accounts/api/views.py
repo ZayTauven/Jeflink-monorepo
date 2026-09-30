@@ -1,4 +1,4 @@
-"""Vues de sessions et de profil. Permissions + désérialisation + service, rien d'autre."""
+"""Vues de sessions, de profil et d'invitations : permissions, désérialisation, service."""
 
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiResponse, extend_schema
@@ -10,8 +10,12 @@ from rest_framework.views import APIView
 
 from jeflink.accounts.models import DeviceSession, User
 from jeflink.accounts.permissions import AllowRestrictedSession, IsClient, token_claims
-from jeflink.accounts.selectors import account_profile, active_sessions_for
-from jeflink.accounts.services import update_profile
+from jeflink.accounts.selectors import (
+    account_profile,
+    active_sessions_for,
+    pending_invitations_for,
+)
+from jeflink.accounts.services import accept_invitation, decline_invitation, update_profile
 from jeflink.accounts.sessions import (
     TokenPair,
     refresh_session,
@@ -21,6 +25,7 @@ from jeflink.accounts.sessions import (
 
 from .serializers import (
     DeviceSessionSerializer,
+    InvitationSerializer,
     MeSerializer,
     MeUpdateSerializer,
     RefreshRequestSerializer,
@@ -152,4 +157,50 @@ class RevokeOtherSessionsView(APIView):
             current_sid=token_claims(request)["sid"],
             reason=DeviceSession.RevokedReason.USER_REVOKED,
         )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MyInvitationsView(generics.ListAPIView):
+    """Invitations en attente pour le numéro du compte (S19)."""
+
+    permission_classes = [IsClient]
+    serializer_class = InvitationSerializer
+
+    def get_queryset(self):
+        return pending_invitations_for(self.request.user)
+
+    @extend_schema(tags=["me"], operation_id="me_invitations_list")
+    def get(self, request: Request, *args, **kwargs) -> Response:
+        return super().get(request, *args, **kwargs)
+
+
+class AcceptInvitationView(APIView):
+    permission_classes = [IsClient]
+
+    @extend_schema(
+        tags=["me"],
+        operation_id="me_invitations_accept",
+        request=None,
+        responses={
+            204: None,
+            403: OpenApiResponse(description="profile_incomplete, role_not_allowed"),
+            404: OpenApiResponse(description="not_found (autre numéro, close ou expirée)"),
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        accept_invitation(user=request.user, invitation_public_id=public_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DeclineInvitationView(APIView):
+    permission_classes = [IsClient]
+
+    @extend_schema(
+        tags=["me"],
+        operation_id="me_invitations_decline",
+        request=None,
+        responses={204: None, 404: OpenApiResponse(description="not_found")},
+    )
+    def post(self, request: Request, public_id) -> Response:
+        decline_invitation(user=request.user, invitation_public_id=public_id)
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -96,6 +96,17 @@ class AuthUserSerializer(serializers.Serializer):
     roles = serializers.ListField(child=serializers.CharField())
 
 
+class InvitationSerializer(serializers.Serializer):
+    public_id = serializers.UUIDField()
+    role = serializers.ChoiceField(choices=["owner", "technician"])
+    # Nom affiché du pro qui invite ; celui de son équipe viendra de providers (context_ref).
+    invited_by_name = serializers.CharField(source="invited_by.display_name")
+    # Nom proposé par le pro : s'il existe, l'écran « Comment doit-on vous appeler ? » est sauté.
+    display_name_hint = serializers.CharField()
+    context_ref = serializers.UUIDField()
+    expires_at = serializers.DateTimeField()
+
+
 class OtherSessionSerializer(serializers.Serializer):
     public_id = serializers.UUIDField()
     app = serializers.CharField()
@@ -112,7 +123,7 @@ class OtpVerifyResponseSerializer(serializers.Serializer):
     # titulaire du numéro (I2).
     restriction_kind = serializers.ChoiceField(choices=["client", "pro"], allow_null=True)
     other_sessions = OtherSessionSerializer(many=True)
-    pending_invitations = serializers.ListField(child=serializers.DictField())
+    pending_invitations = InvitationSerializer(many=True)
     tokens = TokenPairSerializer()
 
 

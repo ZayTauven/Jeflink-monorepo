@@ -6,4 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type OtpVerifyResponsePendingInvitationsItem = {[key: string]: unknown};
+export type MeInvitationsListParams = {
+/**
+ * La valeur du curseur de pagination.
+ */
+cursor?: string;
+};

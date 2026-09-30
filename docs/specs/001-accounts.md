@@ -137,13 +137,13 @@ Proposition : un invité peut créer une demande, recevoir des devis et discuter
 
 ### Domaines touchés
 
-| Domaine                   | Changement                                                                                                                                                                                                                                                   |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `accounts`                | `User` réécrit. Nouveaux modèles : `RoleGrant`, `RoleInvitation`, `OtpChallenge`, `OtpDelivery`, `OtpPhoneBlock`, `DeviceSession`, `TotpDevice`, `OpsEnrollmentToken`, `MfaChallenge`, `PhoneChangeRequest`. Services, sélecteurs, API, tâches, permissions. |
-| `trust` (nouveau)         | `AuditEvent` + service `audit()`, rien d'autre.                                                                                                                                                                                                              |
-| `notifications` (nouveau) | Paquet `notifications/sms/` : `SmsGateway` et adaptateur `fake`. Aucun modèle.                                                                                                                                                                               |
-| `common`                  | `pii.py` (masquage, HMAC des numéros), filtre de logs, `gsm7.py`, vérifications au démarrage.                                                                                                                                                                |
-| `providers` (futur)       | **Frontière seulement.** `providers` appelle `invite_to_role`, `revoke_role` et `register_invitation_handler`. `accounts` n'importe jamais `providers`.                                                                                                      |
+| Domaine                   | Changement                                                                                                                                                                                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `accounts`                | `User` réécrit. Nouveaux modèles : `RoleGrant`, `RoleInvitation`, `OtpChallenge`, `OtpDelivery`, `OtpPhoneBlock`, `DeviceSession`, `TotpDevice`, `OpsEnrollmentToken`, `MfaChallenge`, `PhoneChangeRequest`, `NoticeSms`. Services, sélecteurs, API, tâches, permissions. |
+| `trust` (nouveau)         | `AuditEvent` + service `audit()`, rien d'autre.                                                                                                                                                                                                                           |
+| `notifications` (nouveau) | Paquet `notifications/sms/` : `SmsGateway` et adaptateur `fake`. Aucun modèle.                                                                                                                                                                                            |
+| `common`                  | `pii.py` (masquage, HMAC des numéros), filtre de logs, `gsm7.py`, vérifications au démarrage.                                                                                                                                                                             |
+| `providers` (futur)       | **Frontière seulement.** `providers` appelle `invite_to_role`, `revoke_role` et `register_invitation_handler`. `accounts` n'importe jamais `providers`.                                                                                                                   |
 
 ### Modèles
 
@@ -173,11 +173,13 @@ Autres règles :
 
 **`accounts.RoleInvitation`** (S19) :
 
-| Champ                                                                                       | Règle                                                                                         |
-| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `phone` (E.164), `role` (`owner` ou `technician`)                                           | Le numéro est gardé tant que l'invitation n'est pas acceptée, refusée ou expirée, puis purgé. |
-| `invited_by` FK, `display_name_hint`, `context_ref` (UUID opaque appartenant à `providers`) |                                                                                               |
-| `expires_at` (7 j), `accepted_at`, `accepted_by` FK null, `declined_at`                     |                                                                                               |
+| Champ                                                                                                                            | Règle                                                                                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `phone` (E.164), `role` (`owner` ou `technician`)                                                                                | Le numéro est gardé tant que l'invitation n'est pas acceptée, refusée ou expirée, puis purgé.                                  |
+| `invited_by` FK, `display_name_hint`, `context_ref` (UUID opaque appartenant à `providers`)                                      |                                                                                                                                |
+| `status` (`pending`, `accepted`, `declined`, `expired`), `expires_at` (7 j), `accepted_at`, `accepted_by` FK null, `declined_at` | Une seule invitation en attente par (numéro, rôle, `context_ref`) ; réinviter pendant sa validité la renvoie sans nouveau SMS. |
+
+**`accounts.NoticeSms`** (tâche 12) : SMS d'information sans code (invitation ; information à l'ancien numéro en tâche 16). `kind`, `phone` (effacé dès l'issue de l'envoi), `phone_hmac` et `region` (comptages de repli si Redis tombe), `language`, `status` (`queued`, `sending`, `sent`, `failed`, `unknown`), `gateway`, `provider_message_id`, `segments`, `error_code`, `sent_at`.
 
 **`accounts.OtpChallenge`** :
 
@@ -242,19 +244,19 @@ Autres règles :
 
 **Limites de débit** (réglages ; compteurs Redis atomiques `INCR+EXPIRE` en script Lua, clés en HMAC avec `PII_HMAC_KEY`, **évalués avant toute écriture**) :
 
-| Axe                                                                                                      | Limite                                                                                                                  | Au-delà                                                                                                                                     |
-| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Numéro : SMS envoyés, **tous motifs** (connexion, renvoi, suppression, changement de numéro, invitation) | 5/h et 8/24 h                                                                                                           | `429 otp_rate_limited` + `retry_after`                                                                                                      |
-| Numéro : échecs de vérification                                                                          | 10 sur 24 h glissantes                                                                                                  | Nouveaux challenges bloqués 1 h, puis 2 h, 4 h… jusqu'à 24 h (`OtpPhoneBlock`). Les **sessions existantes restent intactes**. `AuditEvent`. |
-| Challenge                                                                                                | 5 essais (puis `locked`), 3 envois, 60 s entre deux envois, 30 min de vie au plus                                       | `otp_locked`, `otp_resend_exhausted`, `otp_resend_too_early`                                                                                |
-| Code                                                                                                     | 10 min après sa génération                                                                                              | `otp_expired`                                                                                                                               |
-| IP (CGNAT, donc large)                                                                                   | `request` 30/10 min ; `verify` 60/10 min ; `token/refresh` 60/min ; `phone-change/confirm` 20/10 min ; `config` 120/min | `429`                                                                                                                                       |
-| `install_id` (mobile, signal faible)                                                                     | 10 `request`/h                                                                                                          | `429`                                                                                                                                       |
-| Préfixe opérateur (5 chiffres) et bloc de 1 000 numéros                                                  | Plafonds horaires (réglages)                                                                                            | `429`, puis alerte                                                                                                                          |
-| Invitations (S19)                                                                                        | 20/jour/pro, et comptées dans les limites « numéro »                                                                    | `429 invitation_rate_limited`                                                                                                               |
-| `mfa_token` / compte ops                                                                                 | 5 essais par jeton ; 10 échecs TOTP/24 h                                                                                | Verrou console jusqu'à `reset_ops_mfa`, `accounts.mfa.locked`, alerte                                                                       |
-| Global quotidien (`SMS_DAILY_CAP`, total et par région)                                                  | Alertes à 50 % et 80 %                                                                                                  | `503 otp_temporarily_unavailable` **au plafond dur seulement**, `system.sms_cap.reached`                                                    |
-| Taux de conversion (vérifiés/envoyés, 1 h glissante)                                                     | Moins de 20 %                                                                                                           | Ralentissement (délai de renvoi doublé, plafonds de préfixe divisés par 2) + alerte                                                         |
+| Axe                                                                                                      | Limite                                                                                                                       | Au-delà                                                                                                                                     |
+| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Numéro : SMS envoyés, **tous motifs** (connexion, renvoi, suppression, changement de numéro, invitation) | 5/h et 8/24 h                                                                                                                | `429 otp_rate_limited` + `retry_after`                                                                                                      |
+| Numéro : échecs de vérification                                                                          | 10 sur 24 h glissantes                                                                                                       | Nouveaux challenges bloqués 1 h, puis 2 h, 4 h… jusqu'à 24 h (`OtpPhoneBlock`). Les **sessions existantes restent intactes**. `AuditEvent`. |
+| Challenge                                                                                                | 5 essais (puis `locked`), 3 envois, 60 s entre deux envois, 30 min de vie au plus                                            | `otp_locked`, `otp_resend_exhausted`, `otp_resend_too_early`                                                                                |
+| Code                                                                                                     | 10 min après sa génération                                                                                                   | `otp_expired`                                                                                                                               |
+| IP (CGNAT, donc large)                                                                                   | `request` 30/10 min ; `verify` 60/10 min ; `token/refresh` 60/min ; `phone-change/confirm` 20/10 min ; `config` 120/min      | `429`                                                                                                                                       |
+| `install_id` (mobile, signal faible)                                                                     | 10 `request`/h                                                                                                               | `429`                                                                                                                                       |
+| Préfixe opérateur (5 chiffres) et bloc de 1 000 numéros                                                  | Plafonds horaires (réglages)                                                                                                 | `429`, puis alerte                                                                                                                          |
+| Invitations (S19)                                                                                        | 20/jour/pro (compté en base), et SMS comptés dans les limites « numéro » ; au plus 2 SMS d'invitation par numéro et par jour | `429 invitation_rate_limited`. Budget SMS épuisé ou Redis coupé : invitation créée **sans SMS**, sans rien signaler au pro (S19)            |
+| `mfa_token` / compte ops                                                                                 | 5 essais par jeton ; 10 échecs TOTP/24 h                                                                                     | Verrou console jusqu'à `reset_ops_mfa`, `accounts.mfa.locked`, alerte                                                                       |
+| Global quotidien (`SMS_DAILY_CAP`, total et par région)                                                  | Alertes à 50 % et 80 %                                                                                                       | `503 otp_temporarily_unavailable` **au plafond dur seulement**, `system.sms_cap.reached`                                                    |
+| Taux de conversion (vérifiés/envoyés, 1 h glissante)                                                     | Moins de 20 %                                                                                                                | Ralentissement (délai de renvoi doublé, plafonds de préfixe divisés par 2) + alerte                                                         |
 
 Si Redis ne répond pas, `reserve_sms` compte en base à partir de `OtpDelivery` (numéro, total du jour, région). À défaut, l'API répond `503 otp_temporarily_unavailable`. On ne tombe **jamais en mode ouvert** (S8). Conséquence assumée (revue sécurité du 2026-09-30) : la limite par IP de `otp/request` refuse elle aussi quand Redis tombe, donc **une panne Redis coupe les nouvelles connexions OTP** ; les sessions ouvertes continuent. Chaque vue `AllowAny` déclare sa limite et garde `IpRateThrottle`, un test le vérifie (S29). Les IPv6 sont comptées par /64.
 
@@ -482,11 +484,11 @@ Commandes de gestion : `grant_ops_role`, `revoke_ops_role`, `reset_ops_mfa`, `cr
 
 ### Tâches Celery
 
-| Tâche                                                                                                | Idempotence                                                              | Planification                                 |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------- |
-| `accounts.tasks.send_otp(delivery_public_id)`                                                        | Sort si `status = sent` ; nouvel essai sur `SmsTransientError` seulement | À la demande (en `on_commit`)                 |
-| `accounts.tasks.send_notice_sms(kind, target_public_id)` (invitation, information à l'ancien numéro) | Clé d'idempotence par événement                                          | À la demande                                  |
-| `accounts.tasks.purge_auth_data()`                                                                   | Suppression par lots, relançable                                         | Quotidienne (`CELERY_BEAT_SCHEDULE` statique) |
+| Tâche                                                                                          | Idempotence                                                              | Planification                                 |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------- |
+| `accounts.tasks.send_otp(delivery_public_id)`                                                  | Sort si `status = sent` ; nouvel essai sur `SmsTransientError` seulement | À la demande (en `on_commit`)                 |
+| `accounts.tasks.send_notice_sms(notice_public_id)` (invitation, information à l'ancien numéro) | État `NoticeSms` posé avant l'envoi (`sending`, relivraison → `unknown`) | À la demande (en `on_commit`)                 |
+| `accounts.tasks.purge_auth_data()`                                                             | Suppression par lots, relançable                                         | Quotidienne (`CELERY_BEAT_SCHEDULE` statique) |
 
 En test, `send_otp.apply_async` et `delay` sont interceptés (Celery en mode EAGER) pour vérifier que le code ne figure dans aucun argument (S28).
 
@@ -502,13 +504,13 @@ En test, `send_otp.apply_async` et `delay` sont interceptés (Celery en mode EAG
 - **Minimisation.** L'IP n'est jamais stockée en base, sauf décision contraire sur la trace optionnelle (S31, Q16). « Me prévenir » ne stocke aucun numéro.
 - **Rétention proposée, à valider par le consultant juridique de Jeflink** (Q8) :
 
-| Donnée                        | Durée                                 |
-| ----------------------------- | ------------------------------------- |
-| `OtpChallenge`, `OtpDelivery` | 7 j                                   |
-| `RoleInvitation` close        | 30 j                                  |
-| `PhoneChangeRequest` close    | 30 j (`new_phone` purgé à la clôture) |
-| `DeviceSession` révoquée      | 90 j                                  |
-| `AuditEvent`                  | 5 ans                                 |
+| Donnée                                     | Durée                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| `OtpChallenge`, `OtpDelivery`, `NoticeSms` | 7 j (le numéro de `NoticeSms` est effacé dès l'issue de l'envoi) |
+| `RoleInvitation` close                     | 30 j                                                             |
+| `PhoneChangeRequest` close                 | 30 j (`new_phone` purgé à la clôture)                            |
+| `DeviceSession` révoquée                   | 90 j                                                             |
+| `AuditEvent`                               | 5 ans                                                            |
 
 Un registre des traitements documente finalités et durées. La déclaration CDP est faite avant la production, avec la formalité de transfert hors Sénégal si le fournisseur SMS ou l'hébergeur est étranger (S22).
 

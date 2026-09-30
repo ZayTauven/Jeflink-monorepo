@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 
 from jeflink.accounts.client_challenge import client_challenge_required
 from jeflink.accounts.otp import CODE_LENGTH, VerifyResult, request_otp, resend_otp, verify_otp
-from jeflink.accounts.selectors import account_profile
+from jeflink.accounts.selectors import account_profile, pending_invitations_for
 from jeflink.common.client_ip import is_trusted_bff_request
 from jeflink.common.errors import DomainError
 
@@ -148,7 +148,10 @@ def _verify_body(result: VerifyResult) -> dict:
             }
             for s in result.other_sessions
         ],
-        "pending_invitations": [],  # tâche 12
+        # Jamais montrées à une session restreinte : le numéro a peut-être changé de main.
+        "pending_invitations": (
+            [] if result.restricted else list(pending_invitations_for(result.user)[:10])
+        ),
         "tokens": {
             "access": result.tokens.access,
             "refresh": result.tokens.refresh,

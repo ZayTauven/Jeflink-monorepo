@@ -1,4 +1,4 @@
-"""Gabarits SMS de l'OTP (spec 001, « Gabarits SMS » ; ADR 0008 ; S13).
+"""Gabarits SMS de l'OTP et des SMS d'information (spec 001, « Gabarits SMS » ; ADR 0008 ; S13).
 
 - GSM-7, un seul SMS (160 caractères au plus), testés pour chaque app et chaque langue.
 - **Aucune donnée fournie par un utilisateur** : seulement le code, le hachage de l'app
@@ -52,6 +52,24 @@ def otp_sms_body(*, app: str, purpose: str, code: str, language: str = "fr") -> 
     if app in {"web", "console"}:
         lines.append(f"@{settings.WEBOTP_DOMAIN} #{code}")
     body = "\n".join(lines)
+    if not is_gsm7(body) or segments(body) != 1:
+        raise ValueError("gabarit SMS hors GSM-7 ou plus long qu'un SMS")
+    return body
+
+
+def notice_sms_body(*, kind: str, language: str = "fr") -> str:
+    """SMS d'information, sans code ni donnée d'un utilisateur (ni nom du pro qui invite).
+
+    Lève ValueError pour un type inconnu, ou si le résultat sort du GSM-7 ou d'un SMS.
+    """
+    with translation.override(language if language in {"fr", "wo"} else "fr"):
+        if kind == "invitation":
+            body = _(
+                "Jeflink Pro : une équipe vous invite à la rejoindre. Installez l'app et "
+                "connectez-vous avec ce numéro : %(link)s"
+            ) % {"link": settings.PRO_APP_LINK}
+        else:
+            raise ValueError(f"SMS d'information inconnu : {kind}")
     if not is_gsm7(body) or segments(body) != 1:
         raise ValueError("gabarit SMS hors GSM-7 ou plus long qu'un SMS")
     return body

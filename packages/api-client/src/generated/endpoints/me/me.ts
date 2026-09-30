@@ -26,8 +26,10 @@ import type {
 
 import type {
   Me,
+  MeInvitationsListParams,
   MeSessionsListParams,
   PaginatedDeviceSessionList,
+  PaginatedInvitationList,
   PatchedMeUpdateRequest
 } from '../../model';
 
@@ -274,6 +276,299 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getMeUpdateMutationOptions(options), queryClient);
+    }
+    export type meInvitationsListResponse200 = {
+  data: PaginatedInvitationList
+  status: 200
+}
+
+export type meInvitationsListResponseSuccess = (meInvitationsListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type meInvitationsListResponse = (meInvitationsListResponseSuccess)
+
+export const getMeInvitationsListUrl = (params?: MeInvitationsListParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/me/invitations/?${stringifiedParams}` : `/api/me/invitations/`
+}
+
+/**
+ * Invitations en attente pour le numéro du compte (S19).
+ */
+export const meInvitationsList = async (params?: MeInvitationsListParams, options?: Parameters<typeof jeflinkFetch>[1]): Promise<meInvitationsListResponse> => {
+
+  return jeflinkFetch<meInvitationsListResponse>(getMeInvitationsListUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getMeInvitationsListQueryKey = (params?: MeInvitationsListParams,) => {
+    return [
+    `/api/me/invitations/`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getMeInvitationsListQueryOptions = <TData = Awaited<ReturnType<typeof meInvitationsList>>, TError = ErrorType<unknown>>(params?: MeInvitationsListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof meInvitationsList>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getMeInvitationsListQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof meInvitationsList>>> = ({ signal }) => meInvitationsList(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof meInvitationsList>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type MeInvitationsListQueryResult = NonNullable<Awaited<ReturnType<typeof meInvitationsList>>>
+export type MeInvitationsListQueryError = ErrorType<unknown>
+
+
+export function useMeInvitationsList<TData = Awaited<ReturnType<typeof meInvitationsList>>, TError = ErrorType<unknown>>(
+ params: undefined |  MeInvitationsListParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof meInvitationsList>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof meInvitationsList>>,
+          TError,
+          Awaited<ReturnType<typeof meInvitationsList>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMeInvitationsList<TData = Awaited<ReturnType<typeof meInvitationsList>>, TError = ErrorType<unknown>>(
+ params?: MeInvitationsListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof meInvitationsList>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof meInvitationsList>>,
+          TError,
+          Awaited<ReturnType<typeof meInvitationsList>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useMeInvitationsList<TData = Awaited<ReturnType<typeof meInvitationsList>>, TError = ErrorType<unknown>>(
+ params?: MeInvitationsListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof meInvitationsList>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useMeInvitationsList<TData = Awaited<ReturnType<typeof meInvitationsList>>, TError = ErrorType<unknown>>(
+ params?: MeInvitationsListParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof meInvitationsList>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getMeInvitationsListQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type meInvitationsAcceptResponse204 = {
+  data: void
+  status: 204
+}
+
+export type meInvitationsAcceptResponse403 = {
+  data: void
+  status: 403
+}
+
+export type meInvitationsAcceptResponse404 = {
+  data: void
+  status: 404
+}
+
+export type meInvitationsAcceptResponseSuccess = (meInvitationsAcceptResponse204) & {
+  headers: Headers;
+};
+export type meInvitationsAcceptResponseError = (meInvitationsAcceptResponse403 | meInvitationsAcceptResponse404) & {
+  headers: Headers;
+};
+
+export type meInvitationsAcceptResponse = (meInvitationsAcceptResponseSuccess | meInvitationsAcceptResponseError)
+
+export const getMeInvitationsAcceptUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/me/invitations/${publicId}/accept/`
+}
+
+export const meInvitationsAccept = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<meInvitationsAcceptResponse> => {
+
+  return jeflinkFetch<meInvitationsAcceptResponse>(getMeInvitationsAcceptUrl(publicId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMeInvitationsAcceptMutationKey = () => ['meInvitationsAccept'] as const;
+
+export const getMeInvitationsAcceptMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meInvitationsAccept>>, TError,MeInvitationsAcceptMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof meInvitationsAccept>>, TError,MeInvitationsAcceptMutationVariables, TContext> => {
+
+const mutationKey = getMeInvitationsAcceptMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof meInvitationsAccept>>, MeInvitationsAcceptMutationVariables> = (props) => {
+          const {publicId} = props ?? {};
+
+          return  meInvitationsAccept(publicId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MeInvitationsAcceptMutationResult = NonNullable<Awaited<ReturnType<typeof meInvitationsAccept>>>
+
+    export type MeInvitationsAcceptMutationError = ErrorType<void>
+    export type MeInvitationsAcceptMutationVariables = {publicId: string}
+
+    export const useMeInvitationsAccept = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meInvitationsAccept>>, TError,MeInvitationsAcceptMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof meInvitationsAccept>>,
+        TError,
+        MeInvitationsAcceptMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMeInvitationsAcceptMutationOptions(options), queryClient);
+    }
+    export type meInvitationsDeclineResponse204 = {
+  data: void
+  status: 204
+}
+
+export type meInvitationsDeclineResponse404 = {
+  data: void
+  status: 404
+}
+
+export type meInvitationsDeclineResponseSuccess = (meInvitationsDeclineResponse204) & {
+  headers: Headers;
+};
+export type meInvitationsDeclineResponseError = (meInvitationsDeclineResponse404) & {
+  headers: Headers;
+};
+
+export type meInvitationsDeclineResponse = (meInvitationsDeclineResponseSuccess | meInvitationsDeclineResponseError)
+
+export const getMeInvitationsDeclineUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/me/invitations/${publicId}/decline/`
+}
+
+export const meInvitationsDecline = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<meInvitationsDeclineResponse> => {
+
+  return jeflinkFetch<meInvitationsDeclineResponse>(getMeInvitationsDeclineUrl(publicId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMeInvitationsDeclineMutationKey = () => ['meInvitationsDecline'] as const;
+
+export const getMeInvitationsDeclineMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meInvitationsDecline>>, TError,MeInvitationsDeclineMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof meInvitationsDecline>>, TError,MeInvitationsDeclineMutationVariables, TContext> => {
+
+const mutationKey = getMeInvitationsDeclineMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof meInvitationsDecline>>, MeInvitationsDeclineMutationVariables> = (props) => {
+          const {publicId} = props ?? {};
+
+          return  meInvitationsDecline(publicId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MeInvitationsDeclineMutationResult = NonNullable<Awaited<ReturnType<typeof meInvitationsDecline>>>
+
+    export type MeInvitationsDeclineMutationError = ErrorType<void>
+    export type MeInvitationsDeclineMutationVariables = {publicId: string}
+
+    export const useMeInvitationsDecline = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meInvitationsDecline>>, TError,MeInvitationsDeclineMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof meInvitationsDecline>>,
+        TError,
+        MeInvitationsDeclineMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMeInvitationsDeclineMutationOptions(options), queryClient);
     }
     export type meSessionsListResponse200 = {
   data: PaginatedDeviceSessionList

@@ -213,6 +213,62 @@ paths:
           description: display_name_length, display_name_invalid, display_name_reserved
         '403':
           description: session_restricted
+  /api/me/invitations/:
+    get:
+      operationId: me_invitations_list
+      description: Invitations en attente pour le numéro du compte (S19).
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - me
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvitationList'
+          description: ''
+  /api/me/invitations/{public_id}/accept/:
+    post:
+      operationId: me_invitations_accept
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - me
+      responses:
+        '204':
+          description: No response body
+        '403':
+          description: profile_incomplete, role_not_allowed
+        '404':
+          description: not_found (autre numéro, close ou expirée)
+  /api/me/invitations/{public_id}/decline/:
+    post:
+      operationId: me_invitations_decline
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - me
+      responses:
+        '204':
+          description: No response body
+        '404':
+          description: not_found
   /api/me/sessions/:
     get:
       operationId: me_sessions_list
@@ -399,6 +455,31 @@ components:
           type: string
       required:
       - status
+    Invitation:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        invited_by_name:
+          type: string
+        display_name_hint:
+          type: string
+        context_ref:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - context_ref
+      - display_name_hint
+      - expires_at
+      - invited_by_name
+      - public_id
+      - role
     Me:
       type: object
       properties:
@@ -572,8 +653,7 @@ components:
         pending_invitations:
           type: array
           items:
-            type: object
-            additionalProperties: {}
+            $ref: '#/components/schemas/Invitation'
         tokens:
           $ref: '#/components/schemas/TokenPair'
       required:
@@ -604,6 +684,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DeviceSession'
+    PaginatedInvitationList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invitation'
     PatchedMeUpdateRequest:
       type: object
       properties:
@@ -665,6 +764,14 @@ components:
       description: |-
         * `client` - client
         * `pro` - pro
+    RoleEnum:
+      enum:
+      - owner
+      - technician
+      type: string
+      description: |-
+        * `owner` - owner
+        * `technician` - technician
     TokenPair:
       type: object
       properties:

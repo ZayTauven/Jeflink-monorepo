@@ -3,7 +3,7 @@ from typing import Any
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from .models import DeviceSession, Role, RoleGrant, User
+from .models import DeviceSession, Role, RoleGrant, RoleInvitation, User
 from .phone import phone_display
 
 
@@ -60,6 +60,23 @@ def has_group_permission(user: User, app_label: str, codename: str) -> bool:
     return user.groups.filter(
         permissions__content_type__app_label=app_label, permissions__codename=codename
     ).exists()
+
+
+def pending_invitations_for(user: User) -> QuerySet[RoleInvitation]:
+    """Invitations en attente pour le numéro du compte, d'un pro toujours actif."""
+    if not user.phone:
+        return RoleInvitation.objects.none()
+    return (
+        RoleInvitation.objects.filter(
+            phone=user.phone,
+            status=RoleInvitation.Status.PENDING,
+            expires_at__gt=timezone.now(),
+            invited_by__is_active=True,
+            invited_by__deleted_at__isnull=True,
+        )
+        .select_related("invited_by")
+        .order_by("-created_at")
+    )
 
 
 def active_sessions_for(user: User) -> QuerySet[DeviceSession]:

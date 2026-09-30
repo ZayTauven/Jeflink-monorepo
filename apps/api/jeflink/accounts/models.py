@@ -317,3 +317,95 @@ class OtpDelivery(BaseModel):
 
     def __str__(self) -> str:
         return f"envoi {self.attempt_no} · {self.status}"
+
+
+class RoleInvitation(BaseModel):
+    """Invitation à un rôle pro, en attente de l'acceptation explicite du titulaire du numéro (S19).
+
+    Aucun ``User`` ni ``RoleGrant`` n'existe avant l'acceptation. Le numéro n'est gardé que tant
+    que l'invitation est en attente : il est effacé à sa clôture (acceptée, refusée, expirée).
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "En attente"
+        ACCEPTED = "accepted", "Acceptée"
+        DECLINED = "declined", "Refusée"
+        EXPIRED = "expired", "Expirée"
+
+    phone = models.CharField(max_length=16, blank=True)
+    role = models.CharField(max_length=16, choices=Role.choices)
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.PENDING)
+    invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
+    display_name_hint = models.CharField(max_length=80, blank=True)
+    # Référence opaque appartenant à providers (équipe) ; accounts ne l'interprète jamais.
+    context_ref = models.UUIDField()
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    accepted_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    declined_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["phone", "status"]),
+            # Quota quotidien par pro (compté en base, tient sans Redis).
+            models.Index(fields=["invited_by", "created_at"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["phone", "role", "context_ref"],
+                condition=Q(status="pending"),
+                name="roleinvitation_one_pending",
+            ),
+            models.CheckConstraint(
+                condition=Q(role__in=["owner", "technician"]), name="roleinvitation_pro_role"
+            ),
+            models.CheckConstraint(
+                condition=(Q(status="pending") & Q(phone__regex=E164_REGEX))
+                | (~Q(status="pending") & Q(phone="")),
+                name="roleinvitation_phone_only_while_pending",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"invitation {self.role} · {self.status}"
+
+
+class NoticeSms(BaseModel):
+    """SMS d'information sans code (invitation, information à l'ancien numéro).
+
+    État d'envoi idempotent comme ``OtpDelivery``. Le numéro en clair n'est gardé que jusqu'à
+    l'issue de l'envoi ; son HMAC reste pour le comptage de repli si Redis tombe (S8).
+    """
+
+    class Kind(models.TextChoices):
+        INVITATION = "invitation", "Invitation"
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", "En file"
+        SENDING = "sending", "Envoi en cours"
+        SENT = "sent", "Envoyé"
+        FAILED = "failed", "Échec"
+        UNKNOWN = "unknown", "Issue inconnue"
+
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    phone = models.CharField(max_length=16, blank=True)
+    phone_hmac = models.CharField(max_length=64)
+    region = models.CharField(max_length=2)
+    language = models.CharField(max_length=2, default="fr")
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.QUEUED)
+    gateway = models.CharField(max_length=32, blank=True)
+    provider_message_id = models.CharField(max_length=128, blank=True)
+    segments = models.PositiveSmallIntegerField(default=0)
+    error_code = models.CharField(max_length=64, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_at"]),
+            models.Index(fields=["phone_hmac", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"SMS {self.kind} · {self.status}"

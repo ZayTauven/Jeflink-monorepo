@@ -47,3 +47,6 @@ class AccountsConfig(AppConfig):
         )
         register_audit_schema("accounts.otp.login_refused", {"reason": str, "app": str})
         register_audit_schema("accounts.otp.locked", {"phone_hmac": PhoneHmac, "app": str})
+        register_audit_schema(
+            "accounts.invitation.accepted", {"role": str, "invitation": str, "invited_by": str}
+        )
