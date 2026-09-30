@@ -130,8 +130,8 @@ Proposition : un invité peut créer une demande, recevoir des devis et discuter
 - **Confiance et arnaque.** Le code de connexion ne doit jamais être confondu avec le **code de fin** de mission. Le SMS client dit « ni à un artisan », le SMS Pro « ni à un client ». La spec `bookings` doit prévoir un code de fin visuellement distinct.
 - **SMS en GSM-7.** Un caractère hors GSM-7 (ê, ç, î, ô, espace insécable…) fait passer le SMS en UCS-2 (70 caractères, donc 2 SMS facturés). Les gabarits sont testés. Le « ë » du wolof n'est pas en GSM-7 (Q12).
 - **Téléphone partagé en famille, changement d'appareil** : purge à la déconnexion, file d'actions liée au compte, écran « Autres appareils » (T2).
-- **Numéros recyclés** par les opérateurs : le délai réel est à vérifier (S18, Q18). La règle « compte dormant » doit être livrée avant ce délai.
-- **Diaspora.** Le modèle accepte tout mobile E.164 valide ; l'envoi d'OTP est limité par `OTP_ALLOWED_REGIONS` (Q1). L'écran dédié (T3) évite l'impasse sans la lever.
+- **Numéros recyclés** par les opérateurs (S18, Q18). Aucune règle sénégalaise publique ne fixe le délai de réattribution : ni l'ARTP (pages numérotation et FAQ), ni Orange, ni Yas n'en publient. Référence régionale : au Togo, l'ARTP-Togo tient un numéro pour inactif après 3 mois et autorise sa réattribution 3 mois après désactivation, soit environ 6 mois au total. Au Sénégal, plus de 1,5 million de numéros ont été désactivés en 2025 pour défaut d'identification : un recyclage massif est donc plausible dès aujourd'hui. **La règle « compte dormant » est livrée en V1**, sans attendre un délai qu'on ne connaît pas.
+- **Diaspora.** Le modèle accepte tout mobile E.164 valide. **Décision Q1 : en V1, l'OTP n'est envoyé qu'aux numéros du Sénégal** (`OTP_ALLOWED_REGIONS = ["SN"]`). L'écran dédié (T3) oriente Moussa (« un proche à Dakar peut commander pour vous ») ; l'ouverture à la diaspora est une question de configuration, sans code.
 
 ## Modèle de données et API
 
@@ -355,6 +355,12 @@ Fournisseur à choisir (Q7). Pistes : Orange (API SMS), Infobip, Twilio, Vonage,
 - **Redis de production** : authentification, TLS si le réseau n'est pas privé, **aucune éviction** des clés d'auth et de limites (base dédiée en `noeviction`) (S7).
 - `DEFAULT_AUTHENTICATION_CLASSES = [SessionJWTAuthentication]`. `SessionAuthentication` sort de l'API.
 - **Réauthentification récente** : `RequiresRecentAuth(max_age)` s'appuie sur `auth_time` (S18) ; `wallet` s'en servira.
+- **Compte dormant (S18, Q17 = 60 j, V1).** Si un `otp/verify` vise un compte sans activité depuis **plus de 60 j** (aucune `DeviceSession` du compte vue depuis 60 j ; une session purgée compte comme inactive) depuis un `install_id` absent des sessions conservées du compte, la session ouverte est **restreinte** (claim `restricted = true`, relu en base). Une session restreinte n'accède ni à l'historique, ni aux adresses, ni aux conversations, ni au portefeuille. Ce qu'on propose ensuite :
+  - **client** : écran « Ce numéro a peut-être changé de propriétaire » avec deux choix. [Repartir de zéro] anonymise l'ancien compte (`register_anonymizer`) et en crée un nouveau sur le numéro ; c'est l'option par défaut. [C'est bien mon compte] mène au support WhatsApp, et l'Ops lève la restriction après vérification (réservations récentes décrites ; action auditée `accounts.dormant.cleared`) ;
+  - **owner / technician** : restriction jusqu'à revue Ops (correspondance KYC dès que `trust` le permet), avec le message « Votre compte est en vérification » et le lien support ;
+  - **ops** : sans objet, la session console exige le TOTP.
+
+  Le compromis est assumé : une vraie cliente revenue après plus de 60 j sur un nouveau téléphone passe par cet écran. Elle garde toujours une issue humaine (T3).
 
 | Contexte (`app`)                | Access | Refresh : inactivité | Refresh : absolu | Autre                                            |
 | ------------------------------- | ------ | -------------------- | ---------------- | ------------------------------------------------ |
@@ -487,7 +493,7 @@ En test, `send_otp.apply_async` et `delay` sont interceptés (Celery en mode EAG
   Sentry : `send_default_pii=False`, aucun corps de requête envoyé sur `auth`, `me` et `ops`, `before_send` filtré.
 
 - **Minimisation.** L'IP n'est jamais stockée en base, sauf décision contraire sur la trace optionnelle (S31, Q16). « Me prévenir » ne stocke aucun numéro.
-- **Rétention proposée** (Q8) :
+- **Rétention proposée, à valider par le consultant juridique de Jeflink** (Q8) :
 
 | Donnée                        | Durée                                 |
 | ----------------------------- | ------------------------------------- |
@@ -570,7 +576,7 @@ Issus de la revue `security-reviewer`. Chaque ligne renvoie à la section où la
 - **S15** Schéma de `metadata` par action, `mask_phone` + `phone_hmac`, nouveaux événements, audit hors transaction → `AuditEvent`, Données personnelles.
 - **S16** `purpose` strict, `register_anonymizer()` obligatoire, effacements complets, rotation des sauvegardes → Endpoints, Données personnelles.
 - **S17** Compte de revue encadré (SIM Jeflink, marqueur, borne dans le temps, alertes) → OTP.
-- **S18** Délai de recyclage à vérifier, règle « compte dormant » avant ce délai, `auth_time` + `RequiresRecentAuth`, alerte « nouvelle connexion », script support → Sessions, Rôles, Parcours, Hors périmètre, Q17 et Q18.
+- **S18** Délai de recyclage non publié au Sénégal, donc règle « compte dormant » (60 j) livrée en V1, `auth_time` + `RequiresRecentAuth`, alerte « nouvelle connexion », script support → Sessions (compte dormant, V1), Rôles, Parcours, Q17 et Q18.
 - **S19** Invitation en attente plutôt que compte créé, réponse identique, 20 par jour et par pro → Parcours Pro, `RoleInvitation`, OTP (limites).
 - **S20** Stockage sécurisé `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, `allowBackup = false`, `next` validé → Sessions, BFF.
 - **S21** gitleaks, check des clés au démarrage, rotation (MultiFernet, `kid`, 2 secrets BFF) → Réglages, Tâches (infra).
@@ -591,7 +597,6 @@ Issus de la revue `security-reviewer`. Chaque ligne renvoie à la section où la
 - OTP par WhatsApp (V2, canal réservé) et par appel vocal (Q6).
 - Changement de numéro en libre-service.
 - Écrans console Ops de gestion des comptes : la spec console Ops consommera `ops-accounts`.
-- **Règle « compte dormant »** (S18) : session restreinte sur un nouvel appareil après N jours d'inactivité (Q17) ; pour un client, nouveau départ par défaut ; revue Ops pour un pro. **À livrer avant le délai réel de recyclage des numéros** (Q18).
 - **Push « nouvelle connexion »** pour `owner` et `technician` : au plus tard avec la spec `wallet`.
 - Accusés de réception SMS (DLR) : avec l'adaptateur réel.
 - Authentification WebSocket (spec temps réel) : jamais de jeton en query string.
@@ -667,7 +672,7 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
   5. [sécu] **Rôles et permissions** : `RoleGrant`, `grant_role`/`revoke_role`, classes de S5, `RequiresRecentAuth`, groupes Ops, commandes `grant_ops_role`/`revoke_ops_role` (`--operator`, `--reason`, `--second-operator`), tests.
   6. [sécu] **`notifications.sms`** : interface, exceptions, `fake` limité par `DJANGO_ENV`, aucun corps journalisé, tests.
   7. [sécu] **Socle de débit** : compteurs Lua, repli en base, `OtpPhoneBlock`, paliers et plafonds, `TrustedClientIpMiddleware`, tests.
-  8. [sécu] **Sessions** : simplejwt avec `kid`, `DeviceSession`, grâce une fois par rotation, cache des sessions actives, `SessionJWTAuthentication`, `token/refresh`, `logout`, `me/sessions*`, tests (dont refresh rejoué 10 min plus tard).
+  8. [sécu] **Sessions** : simplejwt avec `kid`, `DeviceSession`, grâce une fois par rotation, cache des sessions actives, `SessionJWTAuthentication`, `token/refresh`, `logout`, `me/sessions*`, tests (dont refresh rejoué 10 min plus tard). **Compte dormant** : détection via `DeviceSession.last_seen_at`, claim `restricted`, permission `IsNotRestricted` appliquée par défaut aux vues de données personnelles, `clear_dormant_restriction` (Ops, audité), « Repartir de zéro », tests.
   9. [sécu] **OTP** : `OtpChallenge`, `OtpDelivery`, `challenge_secret`, idempotence, `request`/`resend`/`verify` (ordre des contrôles, rejeu, `other_sessions`), `send_otp`, gabarits client et Pro, `auth/config`, tests (dont 20 vérifications concurrentes).
   10. [sécu] **Défi client** : drapeau `OTP_CHALLENGE_REQUIRED`, désactivé, et point d'extension de vérification, tests.
   11. **Profil** : `GET`/`PATCH /api/me/`, passage d'invité à complet, `RequiresCompleteProfile`, tests.
@@ -712,26 +717,26 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
 
 ## Questions à trancher (Zay)
 
-Chaque question porte la proposition de l'architecte et, quand il existe, l'avis sécurité ou terrain.
+Chaque question porte la proposition de l’architecte et, quand il existe, l’avis sécurité ou terrain. Les questions marquées ✅ sont tranchées ; les autres attendent une réponse avant que la spec passe en « validée ».
 
-1. **Q1 — Régions OTP en V1.** Sénégal seul (proposé), ou Sénégal plus diaspora (FR, IT, ES, US…) ? _Terrain_ : Moussa est bloqué à la première étape. L'écran dédié (T3) atténue l'impasse sans la lever.
+1. **Q1 — Régions OTP en V1.** ✅ _Tranché par Zay le 2026-09-30._ Sénégal seul (`OTP_ALLOWED_REGIONS = ["SN"]`). Pour la diaspora, l'écran dédié (T3) oriente vers un proche à Dakar ; l'ouverture plus tard ne sera qu'une question de configuration.
 2. **Q2 — Google.** Après la V1 (proposé), ou en fin de V1 pour le web seulement ?
 3. **Q3 — Second facteur Ops.** _Sécurité_ : TOTP obligatoire, avec l'enrôlement corrigé selon S1, et codes de secours livrés avant d'avoir 3 Ops. D'accord ?
 4. **Q4 — Durées de session.** Mobile 60 j d'inactivité et 180 j au maximum ; web 30 j et 90 j. _Sécurité_ : d'accord sous réserve de S18 (compte dormant, `RequiresRecentAuth`) ; Ops à 30 min d'inactivité et 12 h au maximum (S25).
 5. **Q5 — Porte invité → complet.** Nom exigé pour accepter un devis (proposé), ou dès la publication ?
 6. **Q6 — Repli si le SMS n'arrive pas.** Renvoi plus support WhatsApp (proposé), ou OTP par appel vocal dès la V1 ?
-7. **Q7 — Fournisseur SMS.** Qui compare les offres, avec quel budget mensuel et quel plafond quotidien ? Qui porte l'enregistrement de l'expéditeur « JEFLINK » ? Critères à inclure : lieu de traitement et DPA (S22).
-8. **Q8 — Rétention et suppression.** Anonymisation plutôt que suppression physique ; durées de 7 j, 30 j, 90 j et 5 ans. À valider avec le juridique et la déclaration CDP.
+7. **Q7 — Fournisseur SMS.** ✅ _Tranché par Zay le 2026-09-30._ La société partenaire de Zay compare les offres, choisit le fournisseur, le budget, le plafond quotidien (`SMS_DAILY_CAP`) et porte l'enregistrement de l'expéditeur « JEFLINK ». Critères à lui transmettre : couverture des 3 opérateurs, lieu de traitement et DPA (S22), DLR, tarif par segment GSM-7. La tâche api n° 20 reste bloquée jusqu'à ce choix.
+8. **Q8 — Rétention et suppression.** ✅ _Tranché par Zay le 2026-09-30._ Anonymisation et durées (7 j, 30 j, 90 j, 5 ans) soumises au consultant juridique de Jeflink, en même temps que la déclaration CDP. Les durées restent des réglages : les changer ne touche pas le code.
 9. **Q9 — Nom.** Un seul champ `display_name` (proposé), ou prénom et nom séparés ?
 10. **Q10 — Changement de numéro.** _Sécurité_ : par l'Ops seulement, avec la procédure S2 (deux temps, second Ops, 72 h de refroidissement). D'accord ?
 11. **Q11 — Longueur du code.** _Sécurité_ : 6 chiffres, 4 chiffres est inacceptable. À confirmer.
-12. **Q12 — Wolof.** Qui rédige et valide le SMS et l'audio d'aide `wo`, et avec quelle graphie sans « ë » (hors GSM-7) ? _Terrain_ : le wolof est absent du parcours de connexion V1, il faut produire ce contenu tôt.
+12. **Q12 — Wolof.** ✅ _Tranché par Zay le 2026-09-30._ La community manager et le commercial rédigent et valident le SMS `wo`, les textes des écrans de connexion et l'audio d'aide. Ils choisissent la graphie : le SMS doit rester en GSM-7 (pas de « ë », « ñ », « ŋ »), alors que les écrans et l'audio peuvent utiliser la graphie officielle. À produire tôt (terrain).
 13. **Q13 — Compte de revue des stores.** _Sécurité_ : acceptable seulement avec S17 complet. D'accord ?
 14. **Q14 — Pros sur la console web.** _Sécurité_ : OTP seul tant que la console Pro ne touche pas à l'argent. D'accord ?
 15. **Q15 — Fenêtre de grâce du refresh : 24 h (retenu) ou 60 s ?**
     - Risque à 24 h : un refresh ancien volé peut servir une fois, tant que le vrai client n'a pas encore utilisé le courant. La prise de contrôle est bornée et détectée au refresh suivant du vrai client, mais la fenêtre est longue.
     - Risque à 60 s : un utilisateur sur réseau instable qui perd la réponse et réessaie plus tard est déconnecté (nouvel OTP, coût SMS, abandon).
 16. **Q16 — Trace IP optionnelle (S31).** Conserver un HMAC du /24 (IPv4) ou du /48 (IPv6) plus l'ASN pendant 90 j, pour enquêter sur la fraude ? Ou ne rien conserver (proposé tant qu'il n'y a pas de fraude) ?
-17. **Q17 — Compte dormant.** Au bout de combien de jours d'inactivité (N) une connexion sur un nouvel appareil ouvre-t-elle une session restreinte ?
-18. **Q18 — Délai de recyclage des numéros.** Qui vérifie le délai réel auprès d'Orange, Free/Yas, Expresso et de l'ARTP ? Il fixe l'échéance de la règle « compte dormant ».
+17. **Q17 — Compte dormant.** ✅ _Tranché par Zay le 2026-09-30._ **60 jours** d'inactivité. Règle livrée en V1 (voir « Sessions et jetons »).
+18. **Q18 — Délai de recyclage des numéros.** ✅ _Recherche faite le 2026-09-30 (sources publiques)._ Aucune règle sénégalaise publique n'a été trouvée (ARTP, Orange, Yas). Référence régionale : ARTP-Togo, 3 mois d'inactivité puis réattribution 3 mois après désactivation. Au Sénégal, plus de 1,5 million de numéros ont été désactivés en 2025. Conséquence : la règle « compte dormant » passe en V1. Reste ouvert, sans bloquer : une confirmation écrite de l'ARTP ou d'un opérateur, que seule l'entreprise peut demander.
 19. **Q19 — Verrou local de l'app Pro** (code ou biométrie de l'appareil, `expo-local-authentication`) : oui ou non en V1 ?

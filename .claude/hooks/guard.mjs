@@ -11,13 +11,12 @@ function refuse(message) {
   process.exit(2);
 }
 
-if (name.startsWith(".env") && name !== ".env.example") {
-  refuse("les fichiers .env ne sont pas édités par Claude. Modifie .env.example et signale-le.");
-}
+// Les .env* sont lisibles et modifiables par Claude (décision Zay, 2026-09-30) ; leur contenu
+// n'est jamais exposé ni recopié ailleurs : voir « Secrets » dans CLAUDE.md.
 if (rel.startsWith("packages/api-client/src/generated/")) {
   refuse("client généré. Modifie l'API Django puis lance 'make openapi'.");
 }
-if (rel.startsWith("references/") || rel.startsWith("Crafto - The Multipurpose HTML5 Template/")) {
+if (rel.startsWith("references/")) {
   refuse(
     "references/ est du matériel de référence en lecture seule (templates, originaux). Reconstruis dans apps/ ou packages/.",
   );

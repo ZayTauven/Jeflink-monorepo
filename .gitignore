@@ -11,7 +11,6 @@ __pycache__/
 
 # Matériel de référence local (templates sous licence Envato, originaux lourds) — jamais versionné
 references/
-Crafto - The Multipurpose HTML5 Template/
 
 # Python / outils
 .pytest_cache/

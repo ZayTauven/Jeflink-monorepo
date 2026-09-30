@@ -52,6 +52,7 @@ Poste de dev : Windows 11 (PowerShell + Git Bash). Les hooks `.claude/hooks/*.mj
 8. **Données personnelles** : minimisation. Jamais de pièce d'identité, selfie KYC, numéro complet ou position GPS dans les logs. Conformité à la loi sénégalaise sur les données personnelles (déclarations CDP).
 9. **Réseau faible, téléphones modestes** : images redimensionnées (WebP/AVIF), listes paginées, pas de dépendance lourde sans justification écrite dans la PR.
 10. **Machine à états des réservations** : aucune transition hors `bookings.services.transition()`. Chaque transition est journalisée.
+11. **Secrets** : Claude peut lire et modifier les fichiers `.env*`, mais n'en expose ni n'en sauvegarde jamais le contenu. Les valeurs n'apparaissent pas dans les réponses, résumés, commits, PR, specs, ADR, journaux, mémoire, artifacts ou messages aux sous-agents. Pour vérifier une clé, on se limite à sa présence, sa longueur ou un ✓ ; pour en citer une, on donne son nom (`ANTHROPIC_API_KEY`), jamais sa valeur. Aucune commande ne l'affiche (`cat .env`, `env`, `printenv`, `docker compose config`…). Les `.env*` restent ignorés par git, sauf `.env.example`, qui ne contient que des valeurs vides ou factices.
 
 ## Workflow attendu
 

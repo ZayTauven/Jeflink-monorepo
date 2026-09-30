@@ -10,7 +10,7 @@
       "Bash(git log:*)",
       "Bash(git branch:*)"
     ],
-    "deny": ["Read(./.env)", "Read(./apps/api/.env)", "Bash(git push:*)", "Bash(rm -rf:*)"]
+    "deny": ["Bash(git push:*)", "Bash(rm -rf:*)"]
   },
   "hooks": {
     "PreToolUse": [
