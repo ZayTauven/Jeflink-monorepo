@@ -8,6 +8,9 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 
 env = environ.Env()
 
+# local | test | staging | production. Par défaut le plus strict.
+DJANGO_ENV = env("DJANGO_ENV", default="production")
+
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
@@ -24,10 +27,12 @@ INSTALLED_APPS = [
     "drf_spectacular",
     # Domaines Jeflink (un par app, voir apps/api/CLAUDE.md)
     "jeflink.common",
+    "jeflink.trust",
     "jeflink.accounts",
 ]
 
 MIDDLEWARE = [
+    "jeflink.common.request_context.RequestIdMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -61,6 +66,9 @@ TEMPLATES = [
 DATABASES = {"default": env.db("DATABASE_URL")}
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+# Seconde connexion vers la même base : les AuditEvent d'un chemin d'erreur y sont écrits
+# hors de la transaction appelante, pour survivre à son rollback (spec 001 S15).
+DATABASES["audit"] = {**DATABASES["default"], "TEST": {"MIRROR": "default"}}
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"
@@ -99,7 +107,45 @@ SPECTACULAR_SETTINGS = {
     "COMPONENT_SPLIT_REQUEST": True,
 }
 
-CELERY_BROKER_URL = env("REDIS_URL")
+REDIS_URL = env("REDIS_URL")
+
+# Cache partagé entre workers : indispensable aux limites de débit (spec 001).
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_CACHE_URL", default=REDIS_URL),
+        "KEY_PREFIX": "jf",
+    }
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {"pii": {"()": "jeflink.common.log_filters.PiiRedactingFilter"}},
+    "formatters": {
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "filters": ["pii"], "formatter": "plain"},
+    },
+    "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
+}
+
+# Secrets applicatifs (spec 001 S21) : présents, ≥ 32 octets, distincts entre eux et de SECRET_KEY.
+# Vérifiés au démarrage par jeflink.common.secrets. Rotation : plusieurs valeurs acceptées.
+# JWT_SIGNING_KEYS = "kid1:clé1,kid2:clé2" ; la première est la clé active.
+JWT_SIGNING_KEYS = dict(
+    item.split(":", 1) for item in env.list("JWT_SIGNING_KEYS", default=[]) if ":" in item
+)
+OTP_HMAC_KEY = env("OTP_HMAC_KEY", default="")
+MFA_ENCRYPTION_KEYS = env.list("MFA_ENCRYPTION_KEYS", default=[])
+BFF_SHARED_SECRETS = env.list("BFF_SHARED_SECRETS", default=[])
+PII_HMAC_KEY = env("PII_HMAC_KEY", default="")
+
+# Schéma OpenAPI servi seulement en local/test ; `make openapi` le génère hors ligne (S24).
+SERVE_API_SCHEMA = DJANGO_ENV in {"local", "test"}
+
+CELERY_BROKER_URL = REDIS_URL
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_TIMEZONE = "UTC"

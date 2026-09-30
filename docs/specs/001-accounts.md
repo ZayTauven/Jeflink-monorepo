@@ -241,7 +241,7 @@ Autres règles :
 
 ### OTP
 
-**Limites de débit** (réglages ; compteurs Redis atomiques `INCR+EXPIRE` en script Lua, clés en HMAC avec `RATELIMIT_HMAC_KEY`, **évalués avant toute écriture**) :
+**Limites de débit** (réglages ; compteurs Redis atomiques `INCR+EXPIRE` en script Lua, clés en HMAC avec `PII_HMAC_KEY`, **évalués avant toute écriture**) :
 
 | Axe                                                                                                      | Limite                                                                                                                  | Au-delà                                                                                                                                     |
 | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -535,7 +535,7 @@ Les demandes d'OTP sont comptées en métriques, sans audit.
   - `expo-local-authentication` (retenu, Q19 ; dépendance à justifier dans la PR).
 - **Réglages** :
   - environnement : `DJANGO_ENV` ;
-  - clés : `JWT_SIGNING_KEY` (2 clés, `kid`), `OTP_HMAC_KEY`, `MFA_ENCRYPTION_KEY` (MultiFernet), `BFF_SHARED_SECRET` (2 valeurs), `RATELIMIT_HMAC_KEY` ;
+  - clés (noms réels des variables) : `JWT_SIGNING_KEYS` (`kid:clé`, 2 en rotation, la première active), `OTP_HMAC_KEY`, `MFA_ENCRYPTION_KEYS` (MultiFernet), `BFF_SHARED_SECRETS` (2 valeurs), `PII_HMAC_KEY` (pseudonymisation des numéros et IP : compteurs, `OtpPhoneBlock`, `phone_hmac` d’audit) ;
   - SMS : `SMS_GATEWAY`, `SMS_SENDER_ID`, `SMS_DAILY_CAP` et paliers, `SMS_ANDROID_APP_HASH` (par app) ;
   - OTP : `OTP_ALLOWED_REGIONS`, `OTP_CHALLENGE_REQUIRED` ;
   - revue des stores : `OTP_REVIEW_ACCOUNTS`, `OTP_REVIEW_ENABLED_UNTIL` ;

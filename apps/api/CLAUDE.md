@@ -29,7 +29,9 @@ Le skill `jeflink-django-domain` contient les gabarits. `/domain <nom>` génère
 - Géo : `PointField(srid=4326)` ; zones en `MultiPolygonField`. Distances en `geography=True`.
 - Réservations : transitions uniquement via `bookings.services.transition(booking, to, actor, reason)`.
 - Permissions : classes DRF par rôle (`IsClient`, `IsProOwner`, `IsTechnicianAssigned`, `HasOpsPerm("…")`).
-- Toute action sensible (argent, statut, KYC) écrit un `AuditEvent`.
+- Toute action sensible (argent, statut, KYC, auth) écrit un `AuditEvent` via `jeflink.trust.services.audit()`. Chaque action déclare d'abord le schéma fermé de ses métadonnées (`register_audit_schema`, dans le `ready()` du domaine). Sur un chemin d'erreur qui sera annulé (rollback), on passe `durable=True`.
+- Données personnelles : `jeflink.common.pii` (`mask_phone`, `phone_hmac`, `redact`). Jamais de numéro en clair dans un log, une métadonnée d'audit, une URL ou un message d'erreur. Les logs passent par `PiiRedactingFilter`.
+- Environnement : `DJANGO_ENV` (`local`, `test`, `staging`, `production`) décide de ce qui est permis (adaptateurs `fake`, schéma OpenAPI) ; `DEBUG` n'en décide jamais. Les secrets sont vérifiés au démarrage (`jeflink.common.secrets`).
 - Pagination par curseur sur les listes consommées par le mobile.
 - Fichiers : stockage S3-compatible (SeaweedFS en dev) ; miniatures générées en tâche Celery.
 

@@ -3,7 +3,15 @@ name: jeflink
 # Câblage de dev (non secret) déclaré ici ; les secrets vont dans apps/api/.env (optionnel en local).
 x-api-env: &api-env
   DJANGO_SETTINGS_MODULE: jeflink.settings.local
-  SECRET_KEY: local-dev-only-not-secret
+  DJANGO_ENV: local
+  # Clés de DÉVELOPPEMENT uniquement, publiques et sans valeur : jamais réutilisées ailleurs.
+  SECRET_KEY: local-dev-only-secret-key-not-secret-000
+  JWT_SIGNING_KEYS: dev1:local-dev-jwt-key-one-not-secret-1111111,dev2:local-dev-jwt-key-two-not-secret-2222222
+  OTP_HMAC_KEY: local-dev-otp-hmac-key-not-secret-3333333
+  MFA_ENCRYPTION_KEYS: bG9jYWwtZGV2LW1mYS1rZXktbm90LXNlY3JldC00NDQ=
+  BFF_SHARED_SECRETS: local-dev-bff-secret-not-secret-5555555555
+  PII_HMAC_KEY: local-dev-pii-hmac-key-not-secret-6666666
+  REDIS_CACHE_URL: redis://redis:6379/1
   DATABASE_URL: postgis://jeflink:jeflink@db:5432/jeflink
   REDIS_URL: redis://redis:6379/0
   S3_ENDPOINT: http://s3:8333
