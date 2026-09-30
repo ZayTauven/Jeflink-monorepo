@@ -1,4 +1,7 @@
-from .models import RoleGrant, User
+from django.db.models import QuerySet
+from django.utils import timezone
+
+from .models import DeviceSession, RoleGrant, User
 
 
 def active_roles(user: User) -> set[str]:
@@ -17,3 +20,13 @@ def has_group_permission(user: User, app_label: str, codename: str) -> bool:
     return user.groups.filter(
         permissions__content_type__app_label=app_label, permissions__codename=codename
     ).exists()
+
+
+def active_sessions_for(user: User) -> QuerySet[DeviceSession]:
+    now = timezone.now()
+    return DeviceSession.objects.filter(
+        user=user,
+        revoked_at__isnull=True,
+        idle_expires_at__gt=now,
+        absolute_expires_at__gt=now,
+    ).order_by("-last_seen_at")

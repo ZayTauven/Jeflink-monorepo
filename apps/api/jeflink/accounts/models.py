@@ -151,3 +151,75 @@ class OtpPhoneBlock(models.Model):
 
     def __str__(self) -> str:
         return f"blocage niveau {self.level}"
+
+
+class DeviceSession(BaseModel):
+    """Une session par appareil (ADR 0007). Son ``public_id`` est le claim ``sid`` du JWT.
+
+    Le refresh n'est jamais stocké en clair : seul son SHA-256.
+    """
+
+    class App(models.TextChoices):
+        CLIENT = "client", "App client"
+        PRO = "pro", "App Pro"
+        WEB = "web", "Web"
+        CONSOLE = "console", "Console"
+
+    class Platform(models.TextChoices):
+        ANDROID = "android", "Android"
+        IOS = "ios", "iOS"
+        WEB = "web", "Web"
+
+    class RevokedReason(models.TextChoices):
+        LOGOUT = "logout", "Déconnexion"
+        USER_REVOKED = "user_revoked", "Révoquée par l'utilisateur"
+        OPS_REVOKED = "ops_revoked", "Révoquée par l'Ops"
+        REUSE_DETECTED = "reuse_detected", "Réutilisation de refresh"
+        LIMIT = "limit", "Trop de sessions"
+        REPLACED = "replaced", "Remplacée sur le même appareil"
+        PHONE_CHANGED = "phone_changed", "Numéro changé"
+        ACCOUNT_DELETED = "account_deleted", "Compte supprimé"
+        ACCOUNT_DISABLED = "account_disabled", "Compte désactivé"
+        OPS_ROLE_CHANGED = "ops_role_changed", "Rôle ops modifié"
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="device_sessions")
+    app = models.CharField(max_length=8, choices=App.choices)
+    platform = models.CharField(max_length=8, choices=Platform.choices)
+    device_label = models.CharField(max_length=60, blank=True)
+    install_id = models.CharField(max_length=64, blank=True)
+    refresh_hash = models.CharField(max_length=64, unique=True)
+    previous_refresh_hash = models.CharField(max_length=64, blank=True, db_index=True)
+    rotated_at = models.DateTimeField(null=True, blank=True)
+    grace_used_at = models.DateTimeField(null=True, blank=True)
+    auth_time = models.DateTimeField()
+    mfa_verified_at = models.DateTimeField(null=True, blank=True)
+    # Compte dormant (S18) : aucune donnée personnelle tant que la restriction n'est pas levée.
+    restricted = models.BooleanField(default=False)
+    last_seen_at = models.DateTimeField()
+    idle_expires_at = models.DateTimeField()
+    absolute_expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    revoked_reason = models.CharField(max_length=20, choices=RevokedReason.choices, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "revoked_at"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(revoked_at__isnull=True) | ~Q(revoked_reason=""),
+                name="devicesession_revoked_has_reason",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.app} · {self.platform}"
+
+
+class RetiredRefreshToken(models.Model):
+    """Refresh déjà remplacés : les présenter à nouveau révèle une réutilisation (ADR 0007)."""
+
+    session = models.ForeignKey(DeviceSession, on_delete=models.CASCADE, related_name="+")
+    refresh_hash = models.CharField(max_length=64, unique=True)
+    retired_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"refresh retiré · {self.retired_at:%Y-%m-%d}"

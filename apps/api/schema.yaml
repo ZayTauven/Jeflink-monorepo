@@ -5,6 +5,42 @@ info:
   description: Contrat unique des fronts et apps Jeflink (client TS généré depuis
     ce schéma).
 paths:
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout
+      tags:
+      - auth
+      responses:
+        '204':
+          description: No response body
+  /api/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+          description: ''
+        '401':
+          description: refresh_invalid, session_revoked
   /api/health/:
     get:
       operationId: health
@@ -20,8 +56,99 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/me/sessions/:
+    get:
+      operationId: me_sessions_list
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - me
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDeviceSessionList'
+          description: ''
+  /api/me/sessions/{public_id}/:
+    delete:
+      operationId: me_sessions_revoke
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - me
+      responses:
+        '204':
+          description: No response body
+  /api/me/sessions/revoke-others/:
+    post:
+      operationId: me_sessions_revoke_others
+      tags:
+      - me
+      responses:
+        '204':
+          description: No response body
 components:
   schemas:
+    AppEnum:
+      enum:
+      - client
+      - pro
+      - web
+      - console
+      type: string
+      description: |-
+        * `client` - App client
+        * `pro` - App Pro
+        * `web` - Web
+        * `console` - Console
+    DeviceSession:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        app:
+          allOf:
+          - $ref: '#/components/schemas/AppEnum'
+          readOnly: true
+        platform:
+          allOf:
+          - $ref: '#/components/schemas/PlatformEnum'
+          readOnly: true
+        device_label:
+          type: string
+          readOnly: true
+        last_seen_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        is_current:
+          type: boolean
+          readOnly: true
+      required:
+      - app
+      - created_at
+      - device_label
+      - is_current
+      - last_seen_at
+      - platform
+      - public_id
     Health:
       type: object
       properties:
@@ -29,3 +156,55 @@ components:
           type: string
       required:
       - status
+    PaginatedDeviceSessionList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceSession'
+    PlatformEnum:
+      enum:
+      - android
+      - ios
+      - web
+      type: string
+      description: |-
+        * `android` - Android
+        * `ios` - iOS
+        * `web` - Web
+    RefreshRequestRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - refresh
+    TokenPair:
+      type: object
+      properties:
+        access:
+          type: string
+        refresh:
+          type: string
+        access_expires_at:
+          type: string
+          format: date-time
+      required:
+      - access
+      - access_expires_at
+      - refresh

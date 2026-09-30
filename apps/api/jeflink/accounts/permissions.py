@@ -159,3 +159,15 @@ class IsProOwner(_DenyByDefault):
 
 class IsTechnicianAssigned(_DenyByDefault):
     pass
+
+
+class IsNotRestricted(IsClient):
+    """Session non restreinte : une session de compte dormant n'accède à aucune donnée perso."""
+
+    code = "session_restricted"
+    message = "session_restricted"
+
+    def has_permission(self, request: Request, view: Any) -> bool:
+        return super().has_permission(request, view) and not token_claims(request).get(
+            "restricted", False
+        )

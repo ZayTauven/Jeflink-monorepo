@@ -102,7 +102,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 REST_FRAMEWORK = {
     # Sécurisé par défaut : chaque vue publique le déclare explicitement.
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+    # Bearer JWT seulement (ADR 0007) : ni session, ni CSRF côté API.
+    "DEFAULT_AUTHENTICATION_CLASSES": ["jeflink.accounts.authentication.SessionJWTAuthentication"],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "jeflink.common.pagination.CreatedCursorPagination",
     "PAGE_SIZE": 20,
@@ -180,6 +181,19 @@ SMS_PREFIX_HOURLY_CAP = env.int("SMS_PREFIX_HOURLY_CAP", default=600)
 SMS_BLOCK_HOURLY_CAP = env.int("SMS_BLOCK_HOURLY_CAP", default=30)
 SMS_CONVERSION_MIN_RATE = 0.2
 SMS_CONVERSION_MIN_VOLUME = 50
+
+# --- Sessions (ADR 0007, spec 001 « Sessions et jetons ») : durées en secondes -------------
+_DAY = 86400
+SESSION_POLICIES = {
+    "client": {"access": 900, "idle": 60 * _DAY, "absolute": 180 * _DAY},
+    "pro": {"access": 900, "idle": 60 * _DAY, "absolute": 180 * _DAY},
+    "web": {"access": 900, "idle": 30 * _DAY, "absolute": 90 * _DAY},
+    "console": {"access": 900, "idle": 30 * _DAY, "absolute": 90 * _DAY},
+    "console_ops": {"access": 600, "idle": 1800, "absolute": 12 * 3600},
+}
+MAX_ACTIVE_SESSIONS = 10
+REFRESH_GRACE_SECONDS = _DAY  # Q15 : 24 h, une seule fois par rotation
+DORMANT_AFTER_DAYS = 60  # Q17
 
 # Schéma OpenAPI servi seulement en local/test ; `make openapi` le génère hors ligne (S24).
 SERVE_API_SCHEMA = DJANGO_ENV in {"local", "test"}

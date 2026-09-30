@@ -36,3 +36,7 @@ class AccountsConfig(AppConfig):
             "ops.accounts.otp_unblocked", {"phone_hmac": PhoneHmac, "reason_code": str}
         )
         register_audit_schema("system.sms_cap.reached", {"cap": str, "region": str})
+        register_audit_schema("accounts.session.revoked", {"reason": str, "app": str})
+        register_audit_schema("accounts.session.refresh_reuse_detected", {"app": str})
+        register_audit_schema("accounts.session.evicted_limit", {"app": str})
+        register_audit_schema("accounts.dormant.cleared", {"reason_code": str})

@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from jeflink.common.api.views import HealthView
@@ -17,6 +17,7 @@ class DocsView(SpectacularSwaggerView):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", HealthView.as_view(), name="health"),
+    path("api/", include("jeflink.accounts.api.urls")),
 ]
 
 # Schéma et documentation seulement en local/test ; `make openapi` passe par la commande (S24).
