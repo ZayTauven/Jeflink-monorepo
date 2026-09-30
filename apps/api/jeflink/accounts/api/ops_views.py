@@ -28,6 +28,11 @@ CanManage = HasOpsPerm("ops.accounts.manage", step_up=True)
 
 COMMON_ERRORS = {
     400: OpenApiResponse(description="reason_invalid, note_invalid"),
+    409: OpenApiResponse(
+        description=(
+            "account_already_inactive, account_already_active, otp_not_blocked, account_not_dormant"
+        )
+    ),
     403: OpenApiResponse(description="ops_forbidden, ops_step_up_required, ops_target_forbidden"),
     404: OpenApiResponse(description="not_found"),
 }
@@ -73,7 +78,7 @@ class OpsAccountDetailView(APIView):
         responses={200: OpsAccountDetailSerializer, **COMMON_ERRORS},
     )
     def get(self, request: Request, public_id) -> Response:
-        user = ops.account_for_ops(actor=request.user, public_id=public_id)
+        user = ops.account_for_ops(actor=request.user, public_id=public_id, audited=True)
         body = {
             **_summary(user),
             "preferred_language": user.preferred_language,

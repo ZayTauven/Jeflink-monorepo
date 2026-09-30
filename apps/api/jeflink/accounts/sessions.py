@@ -504,7 +504,7 @@ def is_dormant_login(*, user: User, install_id: str) -> bool:
 
 
 @transaction.atomic
-def clear_dormant_restriction(*, user: User, actor: User, reason_code: str) -> int:
+def clear_dormant_restriction(*, user: User, actor: User, reason_code: str, note: str = "") -> int:
     """Levée par l'Ops après vérification (tâche 15). Auditée."""
     User.objects.filter(pk=user.pk).update(dormant_restricted_since=None, updated_at=timezone.now())
     sessions = list(
@@ -522,7 +522,7 @@ def clear_dormant_restriction(*, user: User, actor: User, reason_code: str) -> i
         actor=actor,
         actor_kind=AuditEvent.ActorKind.OPS,
         target=user,
-        metadata={"reason_code": reason_code},
+        metadata={"reason_code": reason_code, **({"note": note} if note else {})},
     )
     return len(sessions)
 

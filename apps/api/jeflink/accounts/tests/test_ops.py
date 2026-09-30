@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from jeflink.accounts.models import DeviceSession, Role
+from jeflink.accounts.models import DeviceSession, Role, User
 from jeflink.accounts.otp_limits import block_phone, phone_blocked_until
 from jeflink.accounts.services import grant_role
 from jeflink.accounts.sessions import create_session
@@ -20,6 +20,8 @@ from .mfa_helpers import enroll
 pytestmark = pytest.mark.django_db(transaction=True, databases="__all__", serialized_rollback=True)
 
 PHONE = "+221771234567"
+# « 77 123 45 67 » en chiffres pleine chasse (U+FF10…) : contournement classique des filtres.
+FULLWIDTH_PHONE = "".join(chr(0xFF10 + int(c)) if c.isdigit() else c for c in "77 123 45 67")
 
 
 def make_ops(user_factory, group="Support"):
@@ -253,3 +255,110 @@ def test_aucune_donnee_personnelle_dans_les_urls():
     assert len(ops_routes) == 8
     assert all("<" not in r or "<uuid:public_id>" in r for r in ops_routes)
     assert not [r for r in ops_routes if "phone>" in r or "<str:" in r]
+
+
+# --- Corrections de la revue sécurité (tâche 15) -----------------------------------------------
+
+
+def test_fraude_decouverte_apres_une_autre_desactivation(agent, awa, user_factory):
+    """I3 : A désactive (ops_other), B découvre la fraude ; A ne peut plus réactiver seul."""
+    other = make_ops(user_factory)
+    assert act(console(agent), "deactivate", awa, "ops_other").status_code == 204
+    assert act(console(other), "deactivate", awa, "fraud").status_code == 204
+    awa.refresh_from_db()
+    assert (awa.deactivation_reason, awa.deactivated_by) == ("fraud", other)
+    event = AuditEvent.objects.filter(action="accounts.user.deactivated").latest("created_at")
+    assert event.metadata["previous_reason"] == "ops_other"
+    assert act(console(other), "reactivate", awa, "user_verified").json() == {
+        "code": "ops_second_operator_required"
+    }
+    assert act(console(agent), "reactivate", awa, "user_verified").status_code == 204
+
+
+def test_actions_sans_effet_explicites(agent, awa):
+    """I3, M2 : plus de succès muet."""
+    client = console(agent)
+    assert act(client, "reactivate", awa, "user_verified").json() == {
+        "code": "account_already_active"
+    }
+    assert act(client, "unblock-otp", awa, "user_verified").json() == {"code": "otp_not_blocked"}
+    assert act(client, "clear-dormant", awa, "owner_verified").json() == {
+        "code": "account_not_dormant"
+    }
+    act(client, "deactivate", awa, "fraud")
+    response = act(client, "deactivate", awa, "fraud")
+    assert response.status_code == 409
+    assert response.json() == {"code": "account_already_inactive"}
+
+
+def test_note_conservee_dans_l_audit(agent, awa):
+    """M1 : la note saisie n'est jamais jetée."""
+    block_phone(PHONE)
+    client = console(agent)
+    act(client, "unblock-otp", awa, "user_verified", "pièce vérifiée au guichet")
+    create_session(user=awa, app="client", platform="android", restricted=True)
+    act(client, "clear-dormant", awa, "owner_verified", "réservations décrites")
+    unblocked = AuditEvent.objects.get(action="ops.accounts.otp_unblocked")
+    cleared = AuditEvent.objects.get(action="accounts.dormant.cleared")
+    assert unblocked.metadata["note"] == "pièce vérifiée au guichet"
+    assert cleared.metadata["note"] == "réservations décrites"
+
+
+@pytest.mark.parametrize(
+    "note",
+    [
+        "rappeler au " + FULLWIDTH_PHONE,
+        "numéro 77 / 123 45 67",
+        "CNI 1234567890123",
+        "écrire à awa@exemple.sn",
+        "portable français 06 12 34 56 78",
+    ],
+)
+def test_note_avec_donnee_personnelle_refusee(agent, awa, note):
+    """M3 : chiffres pleine chasse, séparateurs, pièce d'identité, e-mail."""
+    response = act(console(agent), "reveal-phone", awa, "support_call", note)
+    assert response.json() == {"code": "note_invalid"}
+
+
+def test_compte_de_revue_protege(agent, complete_user_factory):
+    """M4 : ni révélation, ni déblocage, ni levée de restriction ; la désactivation reste."""
+    review = complete_user_factory(is_review_account=True)
+    client = console(agent)
+    for slug, reason in (
+        ("reveal-phone", "support_call"),
+        ("unblock-otp", "user_verified"),
+        ("clear-dormant", "owner_verified"),
+    ):
+        assert act(client, slug, review, reason).json() == {"code": "ops_target_forbidden"}
+    assert act(client, "deactivate", review, "ops_other").status_code == 204
+
+
+def test_fiche_auditee(agent, awa):
+    """M5 : la consultation de la fiche est tracée, sans donnée personnelle."""
+    console(agent).get(reverse("ops-account", args=[awa.public_id]))
+    event = AuditEvent.objects.get(action="ops.accounts.viewed")
+    assert (event.actor, event.target_public_id, event.metadata) == (agent, awa.public_id, {})
+
+
+def test_recherche_ne_trouve_ni_staff_ni_compte_supprime(agent, user_factory):
+    client = console(agent)
+    staff = user_factory(is_staff=True)
+    deleted = user_factory()
+    phone = deleted.phone
+    User.objects.filter(pk=deleted.pk).update(
+        phone=None, deleted_at=timezone.now(), is_active=False
+    )
+    for number in (staff.phone, phone):
+        response = client.post(reverse("ops-search"), {"phone": number}, format="json")
+        assert response.json() == {"results": []}
+
+
+def test_compte_supprime(agent, user_factory):
+    deleted = user_factory()
+    User.objects.filter(pk=deleted.pk).update(
+        phone=None, deleted_at=timezone.now(), is_active=False
+    )
+    client = console(agent)
+    assert client.get(reverse("ops-account", args=[deleted.public_id])).json()["deleted"] is True
+    assert act(client, "reveal-phone", deleted, "support_call").status_code == 404
+    assert act(client, "deactivate", deleted, "fraud").status_code == 404

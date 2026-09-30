@@ -8,6 +8,7 @@ Règles communes :
 - chaque action est auditée, sans numéro en clair.
 """
 
+import re
 import unicodedata
 
 from django.db import transaction
@@ -35,13 +36,21 @@ REASONS: dict[str, tuple[str, ...]] = {
 }
 
 
+_DIGIT_RUN = re.compile(r"\d(?:[\s./()+-]*\d){6,}")
+_EMAIL = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
+
+
 def clean_note(raw: str) -> str:
-    """Note libre de l'Ops : courte, sans contrôle ni bidi, sans numéro ni jeton (S14)."""
-    note = "".join(
-        ch for ch in (raw or "") if unicodedata.category(ch) not in {"Cc", "Cf", "Co", "Cn"}
-    )
+    """Note libre de l'Ops : courte, sans contrôle ni bidi, sans donnée personnelle (S14).
+
+    Normalisée (NFKC : les chiffres pleine chasse deviennent ASCII), puis refusée si elle
+    contient une suite d'au moins 7 chiffres (numéro, pièce d'identité), un e-mail ou un jeton.
+    Elle reste 5 ans dans l'audit (revue tâche 15, M3).
+    """
+    note = unicodedata.normalize("NFKC", raw or "")
+    note = "".join(ch for ch in note if unicodedata.category(ch) not in {"Cc", "Cf", "Co", "Cn"})
     note = " ".join(note.split())
-    if len(note) > NOTE_MAX or contains_pii(note):
+    if len(note) > NOTE_MAX or contains_pii(note) or _DIGIT_RUN.search(note) or _EMAIL.search(note):
         raise DomainError("note_invalid")
     return note
 
@@ -51,12 +60,15 @@ def _check_reason(action: str, reason_code: str) -> None:
         raise DomainError("reason_invalid")
 
 
-def _check_target(actor: User, target: User) -> None:
+def _check_target(actor: User, target: User, *, allow_review_account: bool = True) -> None:
+    """Jamais soi-même, un Ops ou un compte technique. Le compte de revue des stores (S17) n'est
+    ouvert qu'à la lecture et à la désactivation, coupe-circuit (revue tâche 15, M4)."""
     if (
         target.pk == actor.pk
         or target.is_staff
         or target.is_superuser
         or has_role(target, Role.OPS)
+        or (target.is_review_account and not allow_review_account)
     ):
         raise DomainError("ops_target_forbidden", status=403)
 
@@ -68,11 +80,11 @@ def _metadata(reason_code: str, note: str, **extra) -> dict:
     return metadata
 
 
-def _locked_target(actor: User, public_id) -> User:
+def _locked_target(actor: User, public_id, *, allow_review_account: bool = False) -> User:
     target = User.objects.select_for_update(no_key=True).filter(public_id=public_id).first()
     if target is None:
         raise DomainError("not_found", status=404)
-    _check_target(actor, target)
+    _check_target(actor, target, allow_review_account=allow_review_account)
     return target
 
 
@@ -100,11 +112,20 @@ def search_account(*, actor: User, raw_phone: str) -> User | None:
     return user
 
 
-def account_for_ops(*, actor: User, public_id) -> User:
+def account_for_ops(*, actor: User, public_id, audited: bool = False) -> User:
     target = User.objects.filter(public_id=public_id).first()
     if target is None:
         raise DomainError("not_found", status=404)
     _check_target(actor, target)
+    if audited:
+        # Consultation de la fiche tracée, sans métadonnée personnelle (revue tâche 15, M5).
+        audit(
+            action="ops.accounts.viewed",
+            actor=actor,
+            actor_kind=AuditEvent.ActorKind.OPS,
+            target=target,
+            metadata={},
+        )
     return target
 
 
@@ -112,6 +133,7 @@ def reveal_phone(*, actor: User, public_id, reason_code: str, note: str = "") ->
     _check_reason("reveal_phone", reason_code)
     note = clean_note(note)
     target = account_for_ops(actor=actor, public_id=public_id)
+    _check_target(actor, target, allow_review_account=False)
     if not target.phone:
         raise DomainError("not_found", status=404)
     audit(
@@ -154,22 +176,32 @@ def ops_revoke_sessions(*, actor: User, public_id, reason_code: str, note: str =
 def ops_unblock_otp(*, actor: User, public_id, reason_code: str, note: str = "") -> bool:
     """Lève le blocage OTP du numéro (risque résiduel S12 : blocage déclenché par un tiers)."""
     _check_reason("unblock_otp", reason_code)
-    clean_note(note)
+    note = clean_note(note)
     target = _locked_target(actor, public_id)
     if not target.phone:
         raise DomainError("not_found", status=404)
-    return unblock_phone(target.phone, actor=actor, reason_code=reason_code, target=target)
+    if not unblock_phone(
+        target.phone, actor=actor, reason_code=reason_code, target=target, note=note
+    ):
+        # Rien à lever : réponse explicite plutôt qu'un succès muet (revue tâche 15, M2).
+        raise DomainError("otp_not_blocked", status=409)
+    return True
 
 
 @transaction.atomic
 def ops_deactivate(*, actor: User, public_id, reason_code: str, note: str = "") -> None:
     _check_reason("deactivate", reason_code)
     note = clean_note(note)
-    target = _locked_target(actor, public_id)
+    target = _locked_target(actor, public_id, allow_review_account=True)
     if target.is_deleted:
         raise DomainError("not_found", status=404)
-    if not target.is_active:
-        return  # idempotent
+    previous = target.deactivation_reason
+    if not target.is_active and (
+        reason_code != "fraud" or previous == User.DeactivationReason.FRAUD
+    ):
+        # Une fraude découverte après une autre désactivation est enregistrée avec son auteur :
+        # sinon l'Ops qui avait désactivé pour un autre motif réactiverait seul (S30, I3).
+        raise DomainError("account_already_inactive", status=409)
     target.is_active = False
     target.deactivation_reason = (
         User.DeactivationReason.FRAUD
@@ -186,7 +218,9 @@ def ops_deactivate(*, actor: User, public_id, reason_code: str, note: str = "") 
         actor=actor,
         actor_kind=AuditEvent.ActorKind.OPS,
         target=target,
-        metadata=_metadata(reason_code, note),
+        metadata=_metadata(
+            reason_code, note, **({"previous_reason": previous} if previous else {})
+        ),
     )
 
 
@@ -195,11 +229,11 @@ def ops_reactivate(*, actor: User, public_id, reason_code: str, note: str = "") 
     """Après ``fraud``, seul un Ops différent de celui qui a désactivé peut réactiver (S30)."""
     _check_reason("reactivate", reason_code)
     note = clean_note(note)
-    target = _locked_target(actor, public_id)
+    target = _locked_target(actor, public_id, allow_review_account=True)
     if target.is_deleted:
         raise DomainError("not_found", status=404)
     if target.is_active:
-        return  # idempotent
+        raise DomainError("account_already_active", status=409)
     if (
         target.deactivation_reason == User.DeactivationReason.FRAUD
         and target.deactivated_by_id == actor.pk
@@ -223,8 +257,8 @@ def ops_reactivate(*, actor: User, public_id, reason_code: str, note: str = "") 
 def ops_clear_dormant(*, actor: User, public_id, reason_code: str, note: str = "") -> int:
     """« C'est bien mon compte » vérifié par le support (réservations récentes, KYC) (S18)."""
     _check_reason("clear_dormant", reason_code)
-    clean_note(note)
+    note = clean_note(note)
     target = _locked_target(actor, public_id)
     if target.dormant_restricted_since is None:
-        return 0
-    return clear_dormant_restriction(user=target, actor=actor, reason_code=reason_code)
+        raise DomainError("account_not_dormant", status=409)
+    return clear_dormant_restriction(user=target, actor=actor, reason_code=reason_code, note=note)

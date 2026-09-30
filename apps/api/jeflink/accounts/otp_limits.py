@@ -134,7 +134,7 @@ def block_phone(phone: str) -> OtpPhoneBlock:
     return block
 
 
-def unblock_phone(phone: str, *, actor, reason_code: str, target=None) -> bool:
+def unblock_phone(phone: str, *, actor, reason_code: str, target=None, note: str = "") -> bool:
     """Levée par l'Ops (``ops/accounts/{id}/unblock-otp``, tâche 15). Auditée, liée au compte."""
     updated = OtpPhoneBlock.objects.filter(
         phone_hmac=phone_hmac(phone), blocked_until__gt=timezone.now()
@@ -148,7 +148,11 @@ def unblock_phone(phone: str, *, actor, reason_code: str, target=None) -> bool:
             actor=actor,
             actor_kind=AuditEvent.ActorKind.OPS,
             target=target,
-            metadata={"phone_hmac": phone_hmac(phone), "reason_code": reason_code},
+            metadata={
+                "phone_hmac": phone_hmac(phone),
+                "reason_code": reason_code,
+                **({"note": note} if note else {}),
+            },
         )
     return bool(updated)
 

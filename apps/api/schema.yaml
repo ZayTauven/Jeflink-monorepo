@@ -547,6 +547,9 @@ paths:
           description: ''
         '400':
           description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
         '403':
           description: ops_forbidden, ops_step_up_required, ops_target_forbidden
         '404':
@@ -580,6 +583,9 @@ paths:
           description: No response body
         '400':
           description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
         '403':
           description: ops_forbidden, ops_step_up_required, ops_target_forbidden
         '404':
@@ -613,6 +619,9 @@ paths:
           description: No response body
         '400':
           description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
         '403':
           description: ops_forbidden, ops_step_up_required, ops_target_forbidden
         '404':
@@ -646,6 +655,9 @@ paths:
           description: No response body
         '400':
           description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
         '403':
           description: ops_forbidden, ops_step_up_required, ops_target_forbidden
         '404':
@@ -683,6 +695,9 @@ paths:
           description: ''
         '400':
           description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
         '403':
           description: ops_forbidden, ops_step_up_required, ops_target_forbidden
         '404':
@@ -716,6 +731,9 @@ paths:
           description: No response body
         '400':
           description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
         '403':
           description: ops_forbidden, ops_step_up_required, ops_target_forbidden
         '404':
@@ -749,6 +767,9 @@ paths:
           description: No response body
         '400':
           description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
         '403':
           description: ops_forbidden, ops_step_up_required, ops_target_forbidden
         '404':

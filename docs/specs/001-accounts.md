@@ -511,7 +511,7 @@ En test, `send_otp.apply_async` et `delay` sont interceptés (Celery en mode EAG
   - les formats nationaux, motif `(?:00221|\+?221)?\s*7[05-8](?:[\s.-]?\d){7}` ;
   - les clés sensibles : `phone`, `new_phone`, `code`, `refresh`, `access`, `mfa_token`, `challenge_secret`, `secret`, `otpauth_uri`, `enrollment_token`, `Authorization`, `Cookie`.
 
-  Sentry : `send_default_pii=False`, aucun corps de requête envoyé sur `auth`, `me` et `ops`, `before_send` filtré.
+  Sentry : `send_default_pii=False`, aucun corps de requête **ni de réponse** envoyé sur `auth`, `me` et `ops` (`reveal-phone` renvoie le numéro en clair), `before_send` filtré.
 
 - **Minimisation.** L'IP n'est jamais stockée en base, sauf décision contraire sur la trace optionnelle (S31, Q16). « Me prévenir » ne stocke aucun numéro.
 - **Rétention proposée, à valider par le consultant juridique de Jeflink** (Q8) :

@@ -33,18 +33,20 @@ class AccountsConfig(AppConfig):
             {"phone_masked": MaskedPhone, "phone_hmac": PhoneHmac, "level": int, "hours": int},
         )
         register_audit_schema(
-            "ops.accounts.otp_unblocked", {"phone_hmac": PhoneHmac, "reason_code": str}
+            "ops.accounts.otp_unblocked",
+            {"phone_hmac": PhoneHmac, "reason_code": str, "note": str},
         )
         register_audit_schema("system.sms_cap.reached", {"cap": str, "region": str})
         register_audit_schema("accounts.session.revoked", {"reason": str, "app": str})
         register_audit_schema("accounts.session.refresh_reuse_detected", {"app": str})
         register_audit_schema("accounts.session.evicted_limit", {"app": str})
-        register_audit_schema("accounts.dormant.cleared", {"reason_code": str})
+        register_audit_schema("accounts.dormant.cleared", {"reason_code": str, "note": str})
+        register_audit_schema("ops.accounts.viewed", {})
         ops_fields: dict[str, type] = {"reason_code": str, "note": str}
         register_audit_schema("ops.accounts.searched", {"phone_hmac": PhoneHmac, "found": bool})
         register_audit_schema("ops.accounts.phone_revealed", ops_fields)
         register_audit_schema("ops.accounts.sessions_revoked", {**ops_fields, "count": int})
-        register_audit_schema("accounts.user.deactivated", ops_fields)
+        register_audit_schema("accounts.user.deactivated", {**ops_fields, "previous_reason": str})
         register_audit_schema("accounts.user.reactivated", {**ops_fields, "previous_reason": str})
         register_audit_schema("accounts.user.created", {"app": str})
         register_audit_schema(

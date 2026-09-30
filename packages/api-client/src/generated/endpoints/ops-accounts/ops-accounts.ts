@@ -84,10 +84,15 @@ export type opsAccountsRetrieveResponse404 = {
   status: 404
 }
 
+export type opsAccountsRetrieveResponse409 = {
+  data: void
+  status: 409
+}
+
 export type opsAccountsRetrieveResponseSuccess = (opsAccountsRetrieveResponse200) & {
   headers: Headers;
 };
-export type opsAccountsRetrieveResponseError = (opsAccountsRetrieveResponse400 | opsAccountsRetrieveResponse403 | opsAccountsRetrieveResponse404) & {
+export type opsAccountsRetrieveResponseError = (opsAccountsRetrieveResponse400 | opsAccountsRetrieveResponse403 | opsAccountsRetrieveResponse404 | opsAccountsRetrieveResponse409) & {
   headers: Headers;
 };
 
@@ -207,10 +212,15 @@ export type opsAccountsClearDormantResponse404 = {
   status: 404
 }
 
+export type opsAccountsClearDormantResponse409 = {
+  data: void
+  status: 409
+}
+
 export type opsAccountsClearDormantResponseSuccess = (opsAccountsClearDormantResponse204) & {
   headers: Headers;
 };
-export type opsAccountsClearDormantResponseError = (opsAccountsClearDormantResponse400 | opsAccountsClearDormantResponse403 | opsAccountsClearDormantResponse404) & {
+export type opsAccountsClearDormantResponseError = (opsAccountsClearDormantResponse400 | opsAccountsClearDormantResponse403 | opsAccountsClearDormantResponse404 | opsAccountsClearDormantResponse409) & {
   headers: Headers;
 };
 
@@ -318,10 +328,15 @@ export type opsAccountsDeactivateResponse404 = {
   status: 404
 }
 
+export type opsAccountsDeactivateResponse409 = {
+  data: void
+  status: 409
+}
+
 export type opsAccountsDeactivateResponseSuccess = (opsAccountsDeactivateResponse204) & {
   headers: Headers;
 };
-export type opsAccountsDeactivateResponseError = (opsAccountsDeactivateResponse400 | opsAccountsDeactivateResponse403 | opsAccountsDeactivateResponse404) & {
+export type opsAccountsDeactivateResponseError = (opsAccountsDeactivateResponse400 | opsAccountsDeactivateResponse403 | opsAccountsDeactivateResponse404 | opsAccountsDeactivateResponse409) & {
   headers: Headers;
 };
 
@@ -429,10 +444,15 @@ export type opsAccountsReactivateResponse404 = {
   status: 404
 }
 
+export type opsAccountsReactivateResponse409 = {
+  data: void
+  status: 409
+}
+
 export type opsAccountsReactivateResponseSuccess = (opsAccountsReactivateResponse204) & {
   headers: Headers;
 };
-export type opsAccountsReactivateResponseError = (opsAccountsReactivateResponse400 | opsAccountsReactivateResponse403 | opsAccountsReactivateResponse404) & {
+export type opsAccountsReactivateResponseError = (opsAccountsReactivateResponse400 | opsAccountsReactivateResponse403 | opsAccountsReactivateResponse404 | opsAccountsReactivateResponse409) & {
   headers: Headers;
 };
 
@@ -540,10 +560,15 @@ export type opsAccountsRevealPhoneResponse404 = {
   status: 404
 }
 
+export type opsAccountsRevealPhoneResponse409 = {
+  data: void
+  status: 409
+}
+
 export type opsAccountsRevealPhoneResponseSuccess = (opsAccountsRevealPhoneResponse200) & {
   headers: Headers;
 };
-export type opsAccountsRevealPhoneResponseError = (opsAccountsRevealPhoneResponse400 | opsAccountsRevealPhoneResponse403 | opsAccountsRevealPhoneResponse404) & {
+export type opsAccountsRevealPhoneResponseError = (opsAccountsRevealPhoneResponse400 | opsAccountsRevealPhoneResponse403 | opsAccountsRevealPhoneResponse404 | opsAccountsRevealPhoneResponse409) & {
   headers: Headers;
 };
 
@@ -651,10 +676,15 @@ export type opsAccountsRevokeSessionsResponse404 = {
   status: 404
 }
 
+export type opsAccountsRevokeSessionsResponse409 = {
+  data: void
+  status: 409
+}
+
 export type opsAccountsRevokeSessionsResponseSuccess = (opsAccountsRevokeSessionsResponse204) & {
   headers: Headers;
 };
-export type opsAccountsRevokeSessionsResponseError = (opsAccountsRevokeSessionsResponse400 | opsAccountsRevokeSessionsResponse403 | opsAccountsRevokeSessionsResponse404) & {
+export type opsAccountsRevokeSessionsResponseError = (opsAccountsRevokeSessionsResponse400 | opsAccountsRevokeSessionsResponse403 | opsAccountsRevokeSessionsResponse404 | opsAccountsRevokeSessionsResponse409) & {
   headers: Headers;
 };
 
@@ -762,10 +792,15 @@ export type opsAccountsUnblockOtpResponse404 = {
   status: 404
 }
 
+export type opsAccountsUnblockOtpResponse409 = {
+  data: void
+  status: 409
+}
+
 export type opsAccountsUnblockOtpResponseSuccess = (opsAccountsUnblockOtpResponse204) & {
   headers: Headers;
 };
-export type opsAccountsUnblockOtpResponseError = (opsAccountsUnblockOtpResponse400 | opsAccountsUnblockOtpResponse403 | opsAccountsUnblockOtpResponse404) & {
+export type opsAccountsUnblockOtpResponseError = (opsAccountsUnblockOtpResponse400 | opsAccountsUnblockOtpResponse403 | opsAccountsUnblockOtpResponse404 | opsAccountsUnblockOtpResponse409) & {
   headers: Headers;
 };
 
