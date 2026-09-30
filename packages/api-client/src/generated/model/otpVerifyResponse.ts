@@ -6,8 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AuthUser } from './authUser.ts';
+import type { NullEnum } from './nullEnum.ts';
 import type { OtherSession } from './otherSession.ts';
 import type { OtpVerifyResponsePendingInvitationsItem } from './otpVerifyResponsePendingInvitationsItem.ts';
+import type { RestrictionKindEnum } from './restrictionKindEnum.ts';
 import type { TokenPair } from './tokenPair.ts';
 
 export interface OtpVerifyResponse {
@@ -15,6 +17,7 @@ export interface OtpVerifyResponse {
   user: AuthUser;
   is_new_user: boolean;
   restricted: boolean;
+  restriction_kind: RestrictionKindEnum | NullEnum | null;
   other_sessions: OtherSession[];
   pending_invitations: OtpVerifyResponsePendingInvitationsItem[];
   tokens: TokenPair;

@@ -11,6 +11,7 @@
 
 import hashlib
 import hmac
+import time
 import uuid
 from dataclasses import dataclass
 from functools import cache
@@ -172,5 +173,30 @@ def count(limit: Limit, identity: str) -> int:
 def reset(limit: Limit, identity: str) -> None:
     try:
         client().delete(_key(limit, identity))
+    except redis.RedisError as exc:
+        raise RateLimitUnavailable from exc
+
+
+def _bucket_key(name: str, identity: str, window: int) -> str:
+    bucket = int(time.time()) // window
+    return f"jf:ctr:{name}:{pseudonymize(identity)}:{bucket}"
+
+
+def incr_counter(name: str, identity: str, window: int) -> int:
+    """Compteur à fenêtre fixe (INCR + EXPIRE) : mémoire bornée, pour métriques et ratios."""
+    key = _bucket_key(name, identity, window)
+    try:
+        pipe = client().pipeline()
+        pipe.incr(key)
+        pipe.expire(key, window * 2)
+        value, _ = pipe.execute()
+    except redis.RedisError as exc:
+        raise RateLimitUnavailable from exc
+    return int(value)
+
+
+def get_counter(name: str, identity: str, window: int) -> int:
+    try:
+        return int(client().get(_bucket_key(name, identity, window)) or 0)
     except redis.RedisError as exc:
         raise RateLimitUnavailable from exc

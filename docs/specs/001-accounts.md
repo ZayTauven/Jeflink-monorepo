@@ -185,7 +185,6 @@ Autres règles :
 | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | `phone`, `purpose` (`login`, `delete_account`, `change_phone` ; `sensitive_action` réservé à `wallet`), `user` FK null |                                                               |
 | `challenge_secret_hash`                                                                                                | Secret de 32 octets remis au client, stocké en SHA-256 (S12). |
-| `idempotency_key_hash`                                                                                                 | HMAC de l'`Idempotency-Key` (T1).                             |
 | `app` (imposé par le BFF pour `web` et `console`), `language`                                                          |                                                               |
 | `status` (`pending`, `verified`, `locked`, `expired`), `failed_attempts`, `expires_at`                                 | `expires_at` vaut au plus création + 30 min (S8).             |
 | `verified_at`, `verified_install_id`, `session` FK null                                                                | Servent au rejeu de `verify` pendant 2 min (T1).              |
@@ -262,9 +261,13 @@ Si Redis ne répond pas, `reserve_sms` compte en base à partir de `OtpDelivery`
 **Demande (`otp/request`) :**
 
 - Crée **toujours un nouveau challenge** et un `challenge_secret` (S12). La réponse ne dépend ni des challenges existants ni de l'existence du compte.
-- Rejouer la même `Idempotency-Key` avant `resend_available_at` renvoie `202` avec **le même corps** (même `challenge_id`, même `challenge_secret`), sans SMS (T1). La réponse est gardée dans Redis, chiffrée, jusqu'à `resend_available_at`, sous une clé HMAC(clé d'idempotence + numéro).
+- Rejouer la même `Idempotency-Key` avant `resend_available_at` renvoie `202` avec **le même corps** (même `challenge_id`, même `challenge_secret`), sans SMS (T1). La réponse est gardée dans Redis **seulement** (aucun champ en base), chiffrée, jusqu'à `resend_available_at`, sous une clé HMAC(clé d'idempotence + numéro + app + `install_id`). La clé fait 22 à 64 caractères (UUID v4 côté app). Deux demandes simultanées avec la même clé : la seconde reçoit `409 otp_request_in_progress`. Le rappel du cache passe avant le défi client (un jeton à usage unique ne casse pas le rejeu).
 
-**Renvoi** : `otp/resend` avec `{challenge_id, challenge_secret}`.
+**Renvoi** : `otp/resend` avec `{challenge_id, challenge_secret}`. Pas de défi client : la possession du secret et le plafond de 3 envois suffisent. Refusé (`429 otp_rate_limited`) si le numéro est bloqué.
+
+**Blocage d'un numéro** (10 échecs sur 24 h) : il verrouille aussi **tous les challenges déjà ouverts** du numéro, et `verify` comme `resend` le vérifient. Le nombre d'essais est ainsi réellement borné (revue sécurité des tâches 9 et 10, I1).
+
+**Joignabilité** : un envoi refusé définitivement par le fournisseur efface le code ; `verify` répond alors comme à un mauvais code, jamais `otp_expired`, pour ne pas révéler qu'un numéro est injoignable.
 
 **Anti-énumération.** Connexion et inscription forment un seul parcours. `request` répond `202` avec la même forme dans tous les cas. Le compte n'est créé qu'**après** la vérification. `account_disabled` n'apparaît qu'une fois le code validé.
 

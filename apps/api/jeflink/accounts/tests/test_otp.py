@@ -77,12 +77,12 @@ def test_demande_envoie_un_sms_et_ne_stocke_ni_code_ni_secret(ask):
 
 @pytest.mark.django_db
 def test_meme_cle_meme_reponse_sans_second_sms(ask):
-    first = ask(key="cle-idempotence-0001").json()
-    second = ask(key="cle-idempotence-0001").json()
+    first = ask(key="cle-idempotence-0001-abcdefgh").json()
+    second = ask(key="cle-idempotence-0001-abcdefgh").json()
     assert first == second
     assert len(FakeSmsGateway.outbox) == 1
     assert OtpChallenge.objects.count() == 1
-    ask(key="cle-idempotence-0002")
+    ask(key="cle-idempotence-0002-abcdefgh")
     assert OtpChallenge.objects.count() == 2
 
 
@@ -127,7 +127,7 @@ def test_web_et_console_reserves_au_bff(api_client, ask):
         reverse("auth-otp-request"),
         {"phone": PHONE},
         format="json",
-        HTTP_IDEMPOTENCY_KEY="cle-idempotence-0003",
+        HTTP_IDEMPOTENCY_KEY="cle-idempotence-0003-abcdefgh",
     )
     assert response.json() == {"code": "app_invalid"}
 
@@ -165,6 +165,9 @@ def test_le_code_ne_transite_jamais_par_le_broker(
 
     calls = []
     monkeypatch.setattr(tasks.send_otp, "delay", lambda *a, **kw: calls.append((a, kw)))
+    monkeypatch.setattr(
+        tasks.send_otp, "apply_async", lambda *a, **kw: calls.append(("apply_async", a, kw))
+    )
     with django_capture_on_commit_callbacks(execute=True):
         request_code(api_client)
     assert calls == [((str(OtpDelivery.objects.get().public_id),), {})]
@@ -279,7 +282,7 @@ def test_rejeu_avec_un_mauvais_code(ask, check):
     assert check(challenge, other_code(code)).json() == {"code": "otp_already_used"}
 
 
-@pytest.mark.django_db
+@durable_db
 @pytest.mark.parametrize(
     ("champs", "code"),
     [
@@ -295,13 +298,14 @@ def test_etat_du_compte_apres_le_code(ask, check, user_factory, champs, code):
     assert response.status_code == 403
     assert response.json() == {"code": code}
     assert not DeviceSession.objects.exists()
+    assert AuditEvent.objects.filter(action="accounts.otp.login_refused").count() == 1
 
 
 @pytest.mark.django_db
 def test_compte_dormant_restreint_sans_autres_appareils(ask, check, user_factory):
     from jeflink.accounts.sessions import create_session
 
-    user = user_factory(phone=PHONE)
+    user = user_factory(phone=PHONE, display_name="Ancien Titulaire")
     User.objects.filter(pk=user.pk).update(created_at=timezone.now() - timedelta(days=200))
     create_session(user=user, app="web", platform="web", install_id=INSTALL_B)
     DeviceSession.objects.update(last_seen_at=timezone.now() - timedelta(days=90))
@@ -309,9 +313,11 @@ def test_compte_dormant_restreint_sans_autres_appareils(ask, check, user_factory
     body = check(challenge, last_code(), install_id=INSTALL_A).json()
     assert body["restricted"] is True
     assert body["other_sessions"] == []
+    assert body["restriction_kind"] == "client"
+    assert body["user"]["display_name"] == "" and body["user"]["roles"] == []
 
 
-@pytest.mark.django_db
+@durable_db
 def test_ops_sur_la_console_attend_le_second_facteur(ask, check, user_factory, settings):
     user = user_factory(phone=PHONE)
     grant_role(user=user, role=Role.OPS, reason_code="t", operator="a", second_operator="b")
@@ -447,7 +453,7 @@ def test_vingt_verifications_concurrentes_au_plus_cinq_echecs(api_client):
     from rest_framework.test import APIClient
 
     codes = _parallel(lambda: verify(APIClient(), challenge, wrong).json()["code"], 20)
-    assert OtpChallenge.objects.get().failed_attempts <= 5
+    assert OtpChallenge.objects.get().failed_attempts == 5
     assert OtpChallenge.objects.get().status == "locked"
     assert set(codes) <= {"otp_invalid", "otp_locked"}
 
@@ -470,3 +476,153 @@ def test_vingt_verifications_concurrentes_une_seule_session(api_client):
     assert statuses.count(200) == 1
     assert DeviceSession.objects.count() == 1
     assert User.objects.count() == 1
+
+
+# --- Revue sécurité des tâches 9 et 10 -------------------------------------------------------
+
+
+@durable_db
+def test_numero_bloque_ferme_les_challenges_deja_ouverts(api_client):
+    """I1 : au 10e échec, les autres challenges ouverts du numéro deviennent inutilisables."""
+    challenges = [request_code(api_client).json() for _ in range(3)]
+    codes = [last_code()]  # code du dernier challenge seulement
+    wrong = other_code(codes[0])
+    for challenge in challenges[:2]:
+        for _ in range(5):
+            verify(api_client, challenge, wrong)
+    spare = challenges[2]
+    assert verify(api_client, spare, codes[0]).json() == {"code": "otp_locked"}
+    assert OtpChallenge.objects.get(public_id=spare["challenge_id"]).status == "locked"
+    assert not DeviceSession.objects.exists()
+
+
+@pytest.mark.django_db
+def test_renvoi_refuse_sur_un_numero_bloque(ask, api_client):
+    from jeflink.accounts.models import OtpPhoneBlock
+    from jeflink.common.pii import phone_hmac
+
+    challenge = ask().json()
+    OtpPhoneBlock.objects.create(
+        phone_hmac=phone_hmac(PHONE), level=1, blocked_until=timezone.now() + timedelta(hours=1)
+    )
+    OtpDelivery.objects.update(created_at=timezone.now() - timedelta(minutes=2))
+    payload = {k: challenge[k] for k in ("challenge_id", "challenge_secret")}
+    response = api_client.post(reverse("auth-otp-resend"), payload, format="json")
+    assert response.status_code == 429
+    assert response.json()["code"] == "otp_rate_limited"
+
+
+@pytest.mark.django_db
+def test_relivraison_de_la_tache_ne_regenere_pas_le_code(ask):
+    """I3 : worker arrêté en plein envoi, tâche relivrée : code gardé, issue « inconnue »."""
+    from jeflink.accounts.tasks import send_otp
+
+    ask()
+    delivery = OtpDelivery.objects.get()
+    OtpDelivery.objects.filter(pk=delivery.pk).update(status="sending")
+    send_otp(str(delivery.public_id))
+    delivery.refresh_from_db()
+    assert delivery.status == "unknown"
+    assert delivery.code_hash == hash_code(delivery.public_id, last_code())
+    assert len(FakeSmsGateway.outbox) == 1
+
+
+@pytest.mark.django_db
+def test_demandes_simultanees_meme_cle(ask):
+    """M2 : une demande déjà en cours avec la même clé ne crée pas de second challenge."""
+    from jeflink.accounts.otp import _idempotency_cache_key
+    from jeflink.common.ratelimit import client
+
+    key = "cle-idempotence-simultanee-01"
+    cache_key = _idempotency_cache_key(key, PHONE, "client", "")
+    client().set(f"{cache_key}:lock", 1, ex=30)
+    response = ask(key=key)
+    assert response.status_code == 409
+    assert response.json() == {"code": "otp_request_in_progress"}
+    assert not OtpChallenge.objects.exists()
+
+
+@pytest.mark.django_db
+def test_cle_d_idempotence_trop_faible(ask):
+    assert ask(key="courte-cle-16car").json() == {"code": "idempotency_key_required"}
+
+
+@pytest.mark.django_db
+def test_envoi_echoue_ne_revele_pas_la_joignabilite(ask, check, monkeypatch):
+    """M7 : après un refus définitif du fournisseur, verify répond comme à un mauvais code."""
+    from jeflink.accounts import tasks
+    from jeflink.notifications.sms import SmsPermanentError
+
+    monkeypatch.setattr(tasks, "get_sms_gateway", lambda: ScriptedGateway(SmsPermanentError("x")))
+    challenge = ask().json()
+    assert check(challenge, "123456").json()["code"] == "otp_invalid"
+
+
+@pytest.mark.django_db
+def test_chiffres_non_ascii_refuses(ask, check):
+    challenge = ask().json()
+    arabic = "".join(chr(0x0660 + int(d)) for d in last_code())
+    assert check(challenge, arabic).json()["code"] == "invalid"
+    assert OtpChallenge.objects.get().failed_attempts == 0
+
+
+@pytest.mark.django_db
+def test_gabarit_invalide_repli_sur_le_francais(ask, monkeypatch):
+    """M9 : un gabarit wolof hors GSM-7 retombe sur le français, sans bloquer l'envoi."""
+    from jeflink.accounts import tasks
+
+    original = tasks.otp_sms_body
+
+    def fragile(*, language, **kwargs):
+        if language == "wo":
+            raise ValueError("hors GSM-7")
+        return original(language=language, **kwargs)
+
+    monkeypatch.setattr(tasks, "otp_sms_body", fragile)
+    ask(HTTP_ACCEPT_LANGUAGE="wo")
+    assert OtpDelivery.objects.get().status == "sent"
+    assert "votre code" in FakeSmsGateway.outbox[-1].body
+
+
+@pytest.mark.django_db
+def test_rejeu_limite_a_trois(ask, check):
+    """M4 : trois rejeux au plus, chacun audité."""
+    challenge = ask().json()
+    code = last_code()
+    check(challenge, code)
+    assert [check(challenge, code).status_code for _ in range(4)] == [200, 200, 200, 409]
+    replays = AuditEvent.objects.filter(action="accounts.otp.verified", metadata__replay=True)
+    assert replays.count() == 3
+
+
+@pytest.mark.django_db
+def test_autres_appareils_sans_la_session_remplacee(ask, check, user_factory):
+    """M6 : l'appareil qui se reconnecte ne se voit pas dans « autres appareils »."""
+    from jeflink.accounts.sessions import create_session
+
+    user = user_factory(phone=PHONE)
+    create_session(user=user, app="client", platform="android", install_id=INSTALL_A)
+    challenge = ask().json()
+    body = check(challenge, last_code(), install_id=INSTALL_A).json()
+    assert body["other_sessions"] == []
+
+
+@durable_db
+def test_un_bon_code_parmi_dix_neuf_mauvais_en_parallele(api_client):
+    challenge = request_code(api_client).json()
+    code = last_code()
+    wrong = other_code(code)
+    from rest_framework.test import APIClient
+
+    attempts = iter([code] + [wrong] * 19)
+    lock = threading.Lock()
+
+    def one():
+        with lock:
+            value = next(attempts)
+        return verify(APIClient(), challenge, value).status_code
+
+    statuses = _parallel(one, 20)
+    assert DeviceSession.objects.count() <= 1
+    assert OtpChallenge.objects.get().failed_attempts <= 5
+    assert statuses.count(200) <= 1

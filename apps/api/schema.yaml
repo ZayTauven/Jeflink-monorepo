@@ -357,6 +357,9 @@ components:
           type: string
       required:
       - status
+    NullEnum:
+      enum:
+      - null
     OtherSession:
       type: object
       properties:
@@ -444,7 +447,7 @@ components:
         code:
           type: string
           minLength: 1
-          pattern: ^\d{6}$
+          pattern: ^[0-9]{6}$
         terms_version:
           type: string
           minLength: 1
@@ -470,6 +473,11 @@ components:
           type: boolean
         restricted:
           type: boolean
+        restriction_kind:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RestrictionKindEnum'
+          - $ref: '#/components/schemas/NullEnum'
         other_sessions:
           type: array
           items:
@@ -486,6 +494,7 @@ components:
       - other_sessions
       - pending_invitations
       - restricted
+      - restriction_kind
       - status
       - tokens
       - user
@@ -530,6 +539,14 @@ components:
       - dial_code
       - label
       - region
+    RestrictionKindEnum:
+      enum:
+      - client
+      - pro
+      type: string
+      description: |-
+        * `client` - client
+        * `pro` - pro
     TokenPair:
       type: object
       properties:

@@ -42,6 +42,8 @@ class AccountsConfig(AppConfig):
         register_audit_schema("accounts.dormant.cleared", {"reason_code": str})
         register_audit_schema("accounts.user.created", {"app": str})
         register_audit_schema(
-            "accounts.otp.verified", {"app": str, "is_new_user": bool, "restricted": bool}
+            "accounts.otp.verified",
+            {"app": str, "is_new_user": bool, "restricted": bool, "replay": bool},
         )
+        register_audit_schema("accounts.otp.login_refused", {"reason": str, "app": str})
         register_audit_schema("accounts.otp.locked", {"phone_hmac": PhoneHmac, "app": str})

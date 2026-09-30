@@ -285,6 +285,7 @@ class OtpDelivery(BaseModel):
 
     class Status(models.TextChoices):
         QUEUED = "queued", "En file"
+        SENDING = "sending", "Envoi en cours"
         SENT = "sent", "Envoyé"
         FAILED = "failed", "Échec"
         UNKNOWN = "unknown", "Issue inconnue"
@@ -302,6 +303,8 @@ class OtpDelivery(BaseModel):
     sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
+        # created_at : comptages de repli en base (db_counts) et purge.
+        indexes = [models.Index(fields=["created_at"])]
         constraints = [
             models.UniqueConstraint(
                 fields=["challenge", "attempt_no"], name="otpdelivery_unique_attempt"

@@ -17,7 +17,7 @@ export interface OtpVerifyRequest {
   challenge_secret: string;
   /**
      * @minLength 1
-     * @pattern ^\d{6}$
+     * @pattern ^[0-9]{6}$
      */
   code: string;
   /**

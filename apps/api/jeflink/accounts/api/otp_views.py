@@ -133,18 +133,30 @@ class OtpResendView(APIView):
 
 def _verify_body(result: VerifyResult) -> dict:
     user = result.user
+    roles = sorted(active_roles(user))
+    if result.restricted:
+        # Numéro peut-être recyclé : rien de l'ancien titulaire (nom, rôles, langue) (I2).
+        profile = {"display_name": "", "profile_status": "guest", "preferred_language": "fr"}
+        restriction_kind = "pro" if {"owner", "technician"} & set(roles) else "client"
+        roles = []
+    else:
+        profile = {
+            "display_name": user.display_name,
+            "profile_status": user.profile_status,
+            "preferred_language": user.preferred_language,
+        }
+        restriction_kind = None
     return {
         "status": "authenticated",
         "user": {
             "public_id": user.public_id,
             "phone_display": phone_display(user.phone),
-            "display_name": user.display_name,
-            "profile_status": user.profile_status,
-            "preferred_language": user.preferred_language,
-            "roles": sorted(active_roles(user)),
+            **profile,
+            "roles": roles,
         },
         "is_new_user": result.is_new_user,
         "restricted": result.restricted,
+        "restriction_kind": restriction_kind,
         "other_sessions": [
             {
                 "public_id": s.public_id,

@@ -80,7 +80,8 @@ class DeviceSerializer(serializers.Serializer):
 class OtpVerifySerializer(serializers.Serializer):
     challenge_id = serializers.UUIDField()
     challenge_secret = serializers.CharField(max_length=64)
-    code = serializers.RegexField(r"^\d{6}$")
+    # Chiffres ASCII seulement : \d accepterait des chiffres d'autres écritures (M8).
+    code = serializers.RegexField(r"^[0-9]{6}$")
     terms_version = serializers.CharField(max_length=16)
     device = DeviceSerializer()
     app = serializers.ChoiceField(choices=["client", "pro"], required=False)
@@ -107,6 +108,9 @@ class OtpVerifyResponseSerializer(serializers.Serializer):
     user = AuthUserSerializer()
     is_new_user = serializers.BooleanField()
     restricted = serializers.BooleanField()
+    # Session restreinte (compte dormant) : type d'écran à afficher, sans rien de l'ancien
+    # titulaire du numéro (I2).
+    restriction_kind = serializers.ChoiceField(choices=["client", "pro"], allow_null=True)
     other_sessions = OtherSessionSerializer(many=True)
     pending_invitations = serializers.ListField(child=serializers.DictField())
     tokens = TokenPairSerializer()

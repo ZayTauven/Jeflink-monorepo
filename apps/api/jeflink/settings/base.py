@@ -222,6 +222,8 @@ CELERY_BROKER_URL = REDIS_URL
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
+# Au-delà de la durée maximale d'une tâche : pas de relivraison d'une tâche encore en cours.
+CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
 CELERY_TIMEZONE = "UTC"
 
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.

@@ -22,13 +22,15 @@ from jeflink.common.ratelimit import (
     RateLimitUnavailable,
     consume,
     count,
+    get_counter,
     hit_threshold,
+    incr_counter,
     reset,
 )
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
-from .models import OtpPhoneBlock
+from .models import OtpChallenge, OtpPhoneBlock
 
 
 @dataclass(frozen=True)
@@ -50,7 +52,6 @@ REQUEST_PER_INSTALL = Limit("otp:install_request_1h", 10, 3600)
 VERIFY_FAILURES = Limit("otp:phone_verify_fail_24h", 10, 86400)
 BASE_RESEND_DELAY = 60
 MAX_BLOCK_LEVEL = 6  # 2^5 h dépasse déjà le plafond de 24 h
-_UNLIMITED = 10**9
 
 
 def operator_prefix(phone: str) -> str:
@@ -116,6 +117,10 @@ def block_phone(phone: str) -> OtpPhoneBlock:
         hours = min(2 ** (block.level - 1), settings.OTP_PHONE_BLOCK_MAX_HOURS)
         block.blocked_until = now + timedelta(hours=hours)
         block.save()
+        # Les challenges déjà ouverts ne servent plus : le blocage borne vraiment les essais (I1).
+        OtpChallenge.objects.filter(phone=phone, status=OtpChallenge.Status.PENDING).update(
+            status=OtpChallenge.Status.LOCKED
+        )
     audit(
         action="accounts.otp.phone_blocked",
         metadata={
@@ -149,29 +154,28 @@ def unblock_phone(phone: str, *, actor, reason_code: str, target=None) -> bool:
 
 
 # --- Taux de conversion (S13) -------------------------------------------------------
+# Compteurs horaires à fenêtre fixe (mémoire bornée, M11) ; la fenêtre courante suffit.
 
-
-def _conversion_limit(kind: str) -> Limit:
-    return Limit(f"otp:conv_{kind}_1h", _UNLIMITED, 3600)
+_CONVERSION_WINDOW = 3600
 
 
 def record_sms_sent(phone: str) -> None:
     with contextlib.suppress(RateLimitUnavailable):
-        consume([(_conversion_limit("sent"), operator_prefix(phone))])
+        incr_counter("otp:conv_sent", operator_prefix(phone), _CONVERSION_WINDOW)
 
 
 def record_verified(phone: str) -> None:
     """À n'appeler que pour une première vérification réussie (jamais pour un rejeu T1)."""
     with contextlib.suppress(RateLimitUnavailable):
-        consume([(_conversion_limit("verified"), operator_prefix(phone))])
+        incr_counter("otp:conv_verified", operator_prefix(phone), _CONVERSION_WINDOW)
 
 
 def is_prefix_slowed(phone: str) -> bool:
-    """Moins de 20 % de codes vérifiés sur 1 h, avec un volume suffisant : pompage probable."""
+    """Moins de 20 % de codes vérifiés sur l'heure, avec un volume suffisant : pompage probable."""
     prefix = operator_prefix(phone)
     try:
-        sent = count(_conversion_limit("sent"), prefix)
-        verified = count(_conversion_limit("verified"), prefix)
+        sent = get_counter("otp:conv_sent", prefix, _CONVERSION_WINDOW)
+        verified = get_counter("otp:conv_verified", prefix, _CONVERSION_WINDOW)
     except RateLimitUnavailable:
         return False
     min_volume = max(1, settings.SMS_CONVERSION_MIN_VOLUME)
