@@ -1,6 +1,6 @@
 # Spec 001 — accounts : comptes et connexion
 
-Statut : brouillon · 2026-09-30 · ADR liés : 0007 (sessions), 0008 (SmsGateway) · Revues intégrées : `terrain-reviewer` (T1 à T3), `security-reviewer` (S1 à S31)
+Statut : validée · 2026-09-30 (Zay) · ADR liés : 0007 (sessions), 0008 (SmsGateway) · Revues intégrées : `terrain-reviewer` (T1 à T3), `security-reviewer` (S1 à S31)
 
 ## Problème
 
@@ -532,7 +532,7 @@ Les demandes d'OTP sont comptées en métriques, sans audit.
 - **Dépendances Python** : `djangorestframework-simplejwt`, `phonenumbers`, `pyotp` ; `cryptography` est déjà tiré par simplejwt.
 - **Dépendances Expo** :
   - `expo-secure-store` ;
-  - `expo-local-authentication`, seulement si Q19 = oui (dépendance à justifier dans la PR).
+  - `expo-local-authentication` (retenu, Q19 ; dépendance à justifier dans la PR).
 - **Réglages** :
   - environnement : `DJANGO_ENV` ;
   - clés : `JWT_SIGNING_KEY` (2 clés, `kid`), `OTP_HMAC_KEY`, `MFA_ENCRYPTION_KEY` (MultiFernet), `BFF_SHARED_SECRET` (2 valeurs), `RATELIMIT_HMAC_KEY` ;
@@ -713,30 +713,30 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
   3. **client — Mon compte** : nom, langue, appareils (libellé et dernière activité), déconnexion, suppression avec OTP.
   4. [sécu] **pro — session + OTP** : mêmes briques, gabarit Pro (hachage Android de l'app Pro), boutons d'au moins 48 px, routage selon `roles`, écran « Devenir pro ».
   5. [sécu] **pro — file hors ligne et changement d'utilisateur** : actions marquées du `sub`, jamais rejouées sous un autre compte, choix « Envoyer d'abord / Supprimer », avertissement à la déconnexion.
-  6. **pro — Mon compte + invitations** : appareils, déconnexion, suppression, acceptation ou refus d'invitation. Verrou local optionnel si Q19 = oui.
+  6. **pro — Mon compte + invitations** : appareils, déconnexion, suppression, acceptation ou refus d’invitation, verrou local optionnel (Q19, `expo-local-authentication`, dépendance justifiée dans la PR).
 
 ## Questions à trancher (Zay)
 
 Chaque question porte la proposition de l’architecte et, quand il existe, l’avis sécurité ou terrain. Les questions marquées ✅ sont tranchées ; les autres attendent une réponse avant que la spec passe en « validée ».
 
 1. **Q1 — Régions OTP en V1.** ✅ _Tranché par Zay le 2026-09-30._ Sénégal seul (`OTP_ALLOWED_REGIONS = ["SN"]`). Pour la diaspora, l'écran dédié (T3) oriente vers un proche à Dakar ; l'ouverture plus tard ne sera qu'une question de configuration.
-2. **Q2 — Google.** Après la V1 (proposé), ou en fin de V1 pour le web seulement ?
-3. **Q3 — Second facteur Ops.** _Sécurité_ : TOTP obligatoire, avec l'enrôlement corrigé selon S1, et codes de secours livrés avant d'avoir 3 Ops. D'accord ?
-4. **Q4 — Durées de session.** Mobile 60 j d'inactivité et 180 j au maximum ; web 30 j et 90 j. _Sécurité_ : d'accord sous réserve de S18 (compte dormant, `RequiresRecentAuth`) ; Ops à 30 min d'inactivité et 12 h au maximum (S25).
-5. **Q5 — Porte invité → complet.** Nom exigé pour accepter un devis (proposé), ou dès la publication ?
-6. **Q6 — Repli si le SMS n'arrive pas.** Renvoi plus support WhatsApp (proposé), ou OTP par appel vocal dès la V1 ?
+2. **Q2 — Google.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : Google après la V1. Question d'origine : Après la V1 (proposé), ou en fin de V1 pour le web seulement ?
+3. **Q3 — Second facteur Ops.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : TOTP obligatoire pour les Ops, enrôlement selon S1, codes de secours avant le 3e Ops. Question d'origine : _Sécurité_ : TOTP obligatoire, avec l'enrôlement corrigé selon S1, et codes de secours livrés avant d'avoir 3 Ops. D'accord ?
+4. **Q4 — Durées de session.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : mobile 60 j / 180 j, web 30 j / 90 j, Ops 30 min / 12 h (S25). Question d'origine : Mobile 60 j d'inactivité et 180 j au maximum ; web 30 j et 90 j. _Sécurité_ : d'accord sous réserve de S18 (compte dormant, `RequiresRecentAuth`) ; Ops à 30 min d'inactivité et 12 h au maximum (S25).
+5. **Q5 — Porte invité → complet.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : nom exigé pour accepter un devis. Question d'origine : Nom exigé pour accepter un devis (proposé), ou dès la publication ?
+6. **Q6 — Repli si le SMS n'arrive pas.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : renvoi + support WhatsApp ; pas d'OTP vocal en V1. Question d'origine : Renvoi plus support WhatsApp (proposé), ou OTP par appel vocal dès la V1 ?
 7. **Q7 — Fournisseur SMS.** ✅ _Tranché par Zay le 2026-09-30._ La société partenaire de Zay compare les offres, choisit le fournisseur, le budget, le plafond quotidien (`SMS_DAILY_CAP`) et porte l'enregistrement de l'expéditeur « JEFLINK ». Critères à lui transmettre : couverture des 3 opérateurs, lieu de traitement et DPA (S22), DLR, tarif par segment GSM-7. La tâche api n° 20 reste bloquée jusqu'à ce choix.
 8. **Q8 — Rétention et suppression.** ✅ _Tranché par Zay le 2026-09-30._ Anonymisation et durées (7 j, 30 j, 90 j, 5 ans) soumises au consultant juridique de Jeflink, en même temps que la déclaration CDP. Les durées restent des réglages : les changer ne touche pas le code.
-9. **Q9 — Nom.** Un seul champ `display_name` (proposé), ou prénom et nom séparés ?
-10. **Q10 — Changement de numéro.** _Sécurité_ : par l'Ops seulement, avec la procédure S2 (deux temps, second Ops, 72 h de refroidissement). D'accord ?
-11. **Q11 — Longueur du code.** _Sécurité_ : 6 chiffres, 4 chiffres est inacceptable. À confirmer.
+9. **Q9 — Nom.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : un seul champ `display_name`. Question d'origine : Un seul champ `display_name` (proposé), ou prénom et nom séparés ?
+10. **Q10 — Changement de numéro.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : changement de numéro par l'Ops seulement, procédure S2. Question d'origine : _Sécurité_ : par l'Ops seulement, avec la procédure S2 (deux temps, second Ops, 72 h de refroidissement). D'accord ?
+11. **Q11 — Longueur du code.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : code à 6 chiffres. Question d'origine : _Sécurité_ : 6 chiffres, 4 chiffres est inacceptable. À confirmer.
 12. **Q12 — Wolof.** ✅ _Tranché par Zay le 2026-09-30._ La community manager et le commercial rédigent et valident le SMS `wo`, les textes des écrans de connexion et l'audio d'aide. Ils choisissent la graphie : le SMS doit rester en GSM-7 (pas de « ë », « ñ », « ŋ »), alors que les écrans et l'audio peuvent utiliser la graphie officielle. À produire tôt (terrain).
-13. **Q13 — Compte de revue des stores.** _Sécurité_ : acceptable seulement avec S17 complet. D'accord ?
-14. **Q14 — Pros sur la console web.** _Sécurité_ : OTP seul tant que la console Pro ne touche pas à l'argent. D'accord ?
-15. **Q15 — Fenêtre de grâce du refresh : 24 h (retenu) ou 60 s ?**
+13. **Q13 — Compte de revue des stores.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : compte de revue des stores, avec S17 complet. Question d'origine : _Sécurité_ : acceptable seulement avec S17 complet. D'accord ?
+14. **Q14 — Pros sur la console web.** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : pros sur la console web : OTP seul tant qu'il n'y a pas d'argent. Question d'origine : _Sécurité_ : OTP seul tant que la console Pro ne touche pas à l'argent. D'accord ?
+15. **Q15 — Fenêtre de grâce du refresh : 24 h (retenu) ou 60 s ?** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : grâce du refresh de 24 h, une seule fois par rotation. Question d'origine :
     - Risque à 24 h : un refresh ancien volé peut servir une fois, tant que le vrai client n'a pas encore utilisé le courant. La prise de contrôle est bornée et détectée au refresh suivant du vrai client, mais la fenêtre est longue.
     - Risque à 60 s : un utilisateur sur réseau instable qui perd la réponse et réessaie plus tard est déconnecté (nouvel OTP, coût SMS, abandon).
-16. **Q16 — Trace IP optionnelle (S31).** Conserver un HMAC du /24 (IPv4) ou du /48 (IPv6) plus l'ASN pendant 90 j, pour enquêter sur la fraude ? Ou ne rien conserver (proposé tant qu'il n'y a pas de fraude) ?
+16. **Q16 — Trace IP optionnelle (S31).** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : aucune trace IP conservée tant qu'aucune fraude n'apparaît. Question d'origine : Conserver un HMAC du /24 (IPv4) ou du /48 (IPv6) plus l'ASN pendant 90 j, pour enquêter sur la fraude ? Ou ne rien conserver (proposé tant qu'il n'y a pas de fraude) ?
 17. **Q17 — Compte dormant.** ✅ _Tranché par Zay le 2026-09-30._ **60 jours** d'inactivité. Règle livrée en V1 (voir « Sessions et jetons »).
 18. **Q18 — Délai de recyclage des numéros.** ✅ _Recherche faite le 2026-09-30 (sources publiques)._ Aucune règle sénégalaise publique n'a été trouvée (ARTP, Orange, Yas). Référence régionale : ARTP-Togo, 3 mois d'inactivité puis réattribution 3 mois après désactivation. Au Sénégal, plus de 1,5 million de numéros ont été désactivés en 2025. Conséquence : la règle « compte dormant » passe en V1. Reste ouvert, sans bloquer : une confirmation écrite de l'ARTP ou d'un opérateur, que seule l'entreprise peut demander.
-19. **Q19 — Verrou local de l'app Pro** (code ou biométrie de l'appareil, `expo-local-authentication`) : oui ou non en V1 ?
+19. **Q19 — Verrou local de l'app Pro** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : verrou local de l'app Pro livré en V1, **optionnel** (désactivé par défaut, activable dans « Mon compte »). Question d'origine : (code ou biométrie de l'appareil, `expo-local-authentication`) : oui ou non en V1 ?

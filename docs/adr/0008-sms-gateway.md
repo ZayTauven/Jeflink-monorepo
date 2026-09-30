@@ -1,6 +1,6 @@
 # ADR 0008 — SMS derrière une interface `SmsGateway`
 
-Statut : proposé · 2026-09-30 · Spec : `docs/specs/001-accounts.md`
+Statut : accepté · 2026-09-30 · Spec : `docs/specs/001-accounts.md`
 
 ## Contexte
 

@@ -1,6 +1,6 @@
 # ADR 0007 — Sessions : JWT court, refresh opaque en base, BFF Next à cookies
 
-Statut : proposé · 2026-09-30 · Spec : `docs/specs/001-accounts.md` · Amende ADR 0006
+Statut : accepté · 2026-09-30 · Spec : `docs/specs/001-accounts.md` · Amende ADR 0006
 
 ## Contexte
 
