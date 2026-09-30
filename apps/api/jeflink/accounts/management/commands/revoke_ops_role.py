@@ -1,6 +1,5 @@
-"""Retire le rôle ops et tous les groupes Ops d'un compte (audité, deux opérateurs)."""
+"""Retire le rôle ops et tous les groupes Ops d'un compte (audité, deux Admin)."""
 
-from django.contrib.auth.models import Group
 from django.db import transaction
 
 from jeflink.accounts.models import Role
@@ -11,19 +10,28 @@ from ._ops_command import OPS_GROUPS, OpsCommand
 
 
 class Command(OpsCommand):
-    help = "Retire le rôle ops (audité, deux opérateurs)."
+    help = "Retire le rôle ops (audité, deux Admin)."
+    reasons = ("departure", "role_change", "security_incident")
 
     def handle(self, *args, **options) -> None:
-        self.check_operators(options)
-        user = self.get_user(options["phone"])
+        target = self.get_target(options)
+        operators = self.get_operators(options, target)
         with transaction.atomic():
             revoked = revoke_role(
-                user=user,
+                user=target,
                 role=Role.OPS,
                 reason_code=options["reason"],
-                operator=options["operator"],
-                second_operator=options["second_operator"],
+                operator=operators[0],
+                second_operator=operators[1],
             )
-            user.groups.remove(*Group.objects.filter(name__in=OPS_GROUPS))
+            removed = list(target.groups.filter(name__in=OPS_GROUPS).values_list("name", flat=True))
+            target.groups.remove(*target.groups.filter(name__in=OPS_GROUPS))
+            self.audit_groups(
+                target=target,
+                added=[],
+                removed=removed,
+                operators=operators,
+                reason=options["reason"],
+            )
         state = "retiré" if revoked else "déjà absent"
-        self.stdout.write(f"Rôle ops {state} pour {mask_phone(user.phone)}.")
+        self.stdout.write(f"Rôle ops {state} pour {mask_phone(target.phone)}.")

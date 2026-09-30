@@ -16,6 +16,8 @@ from .models import Role
 from .selectors import has_group_permission, has_role
 
 STEP_UP_MAX_AGE = timedelta(minutes=5)
+# Tolérance d'horloge : un horodatage plus loin dans le futur est refusé (M5).
+CLOCK_SKEW = timedelta(seconds=60)
 
 
 def token_claims(request: Request) -> Mapping[str, Any]:
@@ -31,18 +33,33 @@ def _claim_age(request: Request, claim: str) -> timedelta | None:
     value = token_claims(request).get(claim)
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
-    return timezone.now() - datetime.fromtimestamp(value, tz=UTC)
+    try:
+        age = timezone.now() - datetime.fromtimestamp(value, tz=UTC)
+    except (OverflowError, OSError, ValueError):
+        return None
+    return None if age < -CLOCK_SKEW else age
 
 
 class IsClient(BasePermission):
-    """Authentifié, actif, non supprimé. Tout compte est client."""
+    """Authentifié, actif, non supprimé. Tout compte est client.
+
+    Les comptes techniques de l'admin Django (staff, superutilisateur) n'utilisent jamais
+    l'API (S3, défense en profondeur).
+    """
 
     code = "not_authenticated"
     message = "not_authenticated"
 
     def has_permission(self, request: Request, view: Any) -> bool:
         user = request.user
-        return bool(user and user.is_authenticated and user.is_active and user.deleted_at is None)
+        return bool(
+            user
+            and user.is_authenticated
+            and user.is_active
+            and user.deleted_at is None
+            and not user.is_staff
+            and not user.is_superuser
+        )
 
 
 class RequiresCompleteProfile(IsClient):
@@ -89,17 +106,17 @@ class HasTechnicianRole(IsClient):
         )
 
 
-def HasOpsPerm(perm: str) -> type[BasePermission]:
-    """``HasOpsPerm("ops.accounts.view")`` : rôle ops, second facteur, permission de groupe.
+def HasOpsPerm(perm: str, *, step_up: bool) -> type[BasePermission]:
+    """``HasOpsPerm("ops.accounts.view", step_up=False)`` : rôle ops, second facteur, groupe.
 
-    Les permissions ``manage`` et ``change_*`` exigent en plus un TOTP de moins de 5 min.
-    Ne s'appuie jamais sur ``is_superuser`` (S3).
+    ``step_up=True`` exige en plus un TOTP de moins de 5 min. Le choix est explicite à chaque
+    usage (M4). Ne s'appuie jamais sur ``is_superuser`` (S3).
     """
     prefix, app_label, action = perm.split(".", 2)
     if prefix != "ops":
         raise ValueError(f"permission Ops attendue : {perm}")
     codename = f"ops_{app_label}_{action}"
-    needs_step_up = action == "manage" or action.startswith("change")
+    needs_step_up = step_up
 
     class _HasOpsPerm(IsClient):
         code = "ops_forbidden"

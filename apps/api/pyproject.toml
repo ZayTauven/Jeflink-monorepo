@@ -13,6 +13,7 @@ dependencies = [
   "phonenumbers>=9.0",
   "pyotp>=2.9",
   "redis>=5.2",
+  "cryptography>=44",
 ]
 
 [dependency-groups]
@@ -43,6 +44,9 @@ select = ["E", "F", "W", "I", "UP", "B", "DJ", "S", "SIM", "RUF"]
 ignore = ["RUF012"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/*" = ["S101", "S106"]
+"**/tests/*" = ["S101", "S105", "S106"]
+# Homoglyphes volontaires : c'est ce que le validateur de noms doit reconnaître (S26).
+"jeflink/accounts/validators.py" = ["RUF001"]
+"jeflink/accounts/tests/test_phone.py" = ["RUF001"]
 "jeflink/settings/local.py" = ["S105"]
 "jeflink/settings/test.py" = ["S105"]

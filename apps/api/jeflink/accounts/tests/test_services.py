@@ -35,7 +35,9 @@ def test_roles_cumulables(user_factory):
     ("champs", "code"),
     [
         ({"is_review_account": True}, "role_not_allowed"),
-        ({"is_active": False}, "account_disabled"),
+        ({"is_staff": True}, "role_not_allowed"),
+        ({"is_superuser": True}, "role_not_allowed"),
+        ({"is_active": False, "deactivation_reason": "fraud"}, "account_disabled"),
     ],
 )
 def test_grant_role_refuse(user_factory, champs, code):
@@ -44,6 +46,14 @@ def test_grant_role_refuse(user_factory, champs, code):
         grant_role(user=user, role=Role.OWNER, reason_code="t")
     assert exc.value.code == code
     assert not RoleGrant.objects.exists()
+
+
+@pytest.mark.django_db
+def test_grant_role_lit_l_etat_en_base(user_factory):
+    user = user_factory()
+    type(user).objects.filter(pk=user.pk).update(is_review_account=True)
+    with pytest.raises(DomainError):
+        grant_role(user=user, role=Role.OWNER, reason_code="t")  # instance périmée
 
 
 @pytest.mark.django_db

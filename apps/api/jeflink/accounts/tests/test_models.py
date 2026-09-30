@@ -28,6 +28,7 @@ def test_numero_unique(user_factory):
         {"phone": "771234567"},  # pas en E.164
         {"phone": None},  # ni numéro ni suppression
         {"profile_status": "complete", "display_name": ""},
+        {"is_active": False},  # désactivation sans motif
     ],
 )
 def test_contraintes_en_base(user_factory, champs):
@@ -66,3 +67,15 @@ def test_groupes_ops_crees_avec_permissions():
         "Finance",
         "Admin",
     }
+
+
+@pytest.mark.django_db
+def test_groupes_en_lecture_seule_dans_l_admin(rf):
+    from django.contrib import admin
+    from django.contrib.auth.models import Group
+
+    group_admin = admin.site._registry[Group]
+    request = rf.get("/")
+    assert not group_admin.has_add_permission(request)
+    assert not group_admin.has_change_permission(request)
+    assert not group_admin.has_delete_permission(request)

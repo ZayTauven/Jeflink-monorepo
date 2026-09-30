@@ -1,6 +1,7 @@
 """Admin Django en lecture seule : les écritures passent par services ou commandes auditées (S3)."""
 
 from django.contrib import admin
+from django.contrib.auth.models import Group
 
 from jeflink.common.pii import mask_phone
 
@@ -34,3 +35,13 @@ class UserAdmin(ReadOnlyAdmin):
 class RoleGrantAdmin(ReadOnlyAdmin):
     list_display = ("public_id", "role", "reason_code", "created_at", "revoked_at")
     list_filter = ("role",)
+
+
+# Les groupes portent les permissions Ops : jamais modifiables depuis l'admin (I2).
+admin.site.unregister(Group)
+
+
+@admin.register(Group)
+class GroupAdmin(ReadOnlyAdmin):
+    list_display = ("name",)
+    filter_horizontal = ()

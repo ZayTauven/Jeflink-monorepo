@@ -15,6 +15,7 @@ from django.conf import settings
 REDACTED = "[filtré]"
 
 # Clés dont la valeur n'apparaît jamais dans un journal, une métadonnée d'audit ou Sentry.
+# Comparées après normalisation : minuscules, « - » → « _ », préfixe HTTP_ retiré.
 SENSITIVE_KEYS = frozenset(
     {
         "phone",
@@ -29,20 +30,51 @@ SENSITIVE_KEYS = frozenset(
         "enrollment_token",
         "authorization",
         "cookie",
+        "set_cookie",
         "password",
         "token",
         "jf_at",
         "jf_rt",
         "jf_mfa",
+        "sessionid",
+        "csrftoken",
+        "csrfmiddlewaretoken",
+        "idempotency_key",
+        "install_id",
     }
 )
+# Toute en-tête interne X-Jeflink-* (secret BFF, IP cliente…).
+_SENSITIVE_PREFIXES = ("x_jeflink_",)
+# Valeurs qui s'étendent jusqu'à la fin de la ligne (plusieurs cookies, schéma + jeton).
+_WHOLE_LINE_KEYS = ("authorization", "cookie", "set_cookie")
 
-_E164 = re.compile(r"\+[1-9]\d{7,14}")
-# Formats sénégalais tels que saisis : 77 123 45 67, 771234567, 00221 77…, +221 77…
-_SN_NATIONAL = re.compile(r"(?:(?:00221|\+?221)\s*|(?<!\d))7[05-8](?:[\s.-]?\d){7}(?!\d)")
-_KEYS_ALTERNATION = "|".join(sorted(SENSITIVE_KEYS, key=len, reverse=True))
+# Pas de chiffre ni de lettre collés avant/après : évite les faux positifs dans un HMAC ou un UUID.
+_EDGE_BEFORE = r"(?<![0-9A-Za-z])"
+_EDGE_AFTER = r"(?![0-9A-Za-z])"
+# International, avec ou sans séparateurs : +221771234567, +33 6 12 34 56 78.
+_INTERNATIONAL = re.compile(rf"\+[1-9](?:[\s.-]?\d){{7,14}}{_EDGE_AFTER}")
+# Sénégal tel que saisi : 77 123 45 67, 771234567, 00221 77…, 221 77…, plages 7x récentes.
+_SN_NATIONAL = re.compile(
+    rf"(?:{_EDGE_BEFORE}(?:00221|221)[\s.-]?|{_EDGE_BEFORE})7\d(?:[\s.-]?\d){{7}}{_EDGE_AFTER}"
+)
+_JWT = re.compile(r"eyJ[\w-]+\.[\w-]+\.[\w-]+")
+
+
+def _key_pattern(keys: tuple[str, ...]) -> str:
+    variants = sorted((k.replace("_", "[-_]") for k in keys), key=len, reverse=True)
+    return "|".join(variants)
+
+
+_KEY_PREFIX = r"""(?<![\w-])["']?(?:HTTP_)?"""
+_ALREADY = rf"(?!{re.escape(REDACTED)})"
+_WHOLE_LINE = re.compile(
+    rf"""(?P<key>{_KEY_PREFIX}(?:{_key_pattern(_WHOLE_LINE_KEYS)})["']?\s*[:=]\s*)"""
+    r"""(?P<value>"[^"]*"|'[^']*'|[^\r\n]+)""",
+    re.IGNORECASE,
+)
 _KEY_VALUE = re.compile(
-    rf"""(?P<key>(?<![\w-])["']?(?:{_KEYS_ALTERNATION})["']?\s*[:=]\s*)"""
+    rf"""(?P<key>{_KEY_PREFIX}(?:{_key_pattern(tuple(SENSITIVE_KEYS))}|x[-_]jeflink[-_][\w-]+)"""
+    rf"""["']?\s*[:=]\s*){_ALREADY}"""
     r"""(?P<value>"[^"]*"|'[^']*'|(?:Bearer|Basic|Token)\s+[^\s,&;}\]]+|[^\s,&;}\]]+)""",
     re.IGNORECASE,
 )
@@ -57,18 +89,28 @@ def mask_phone(e164: str) -> str:
     return f"{e164[:country_len]} {'•' * hidden}{e164[-2:]}"
 
 
+MASKED_PHONE_RE = re.compile(r"^\+\d{2,3} •{5,13}\d{2}$")
+PHONE_HMAC_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
 def phone_hmac(e164: str) -> str:
     """Pseudonyme stable d'un numéro (HMAC-SHA256, clé ``PII_HMAC_KEY``)."""
     key = settings.PII_HMAC_KEY.encode()
     return hmac.new(key, e164.encode(), hashlib.sha256).hexdigest()
 
 
+def _replace_value(match: re.Match[str]) -> str:
+    return f"{match.group('key')}{REDACTED}"
+
+
 def redact(text: str) -> str:
-    """Masque numéros et valeurs de clés sensibles dans un texte libre."""
+    """Masque numéros, jetons et valeurs de clés sensibles dans un texte libre."""
     if not text:
         return text
-    text = _KEY_VALUE.sub(lambda m: f"{m.group('key')}{REDACTED}", text)
-    text = _E164.sub(REDACTED, text)
+    text = _WHOLE_LINE.sub(_replace_value, text)
+    text = _KEY_VALUE.sub(_replace_value, text)
+    text = _JWT.sub(REDACTED, text)
+    text = _INTERNATIONAL.sub(REDACTED, text)
     return _SN_NATIONAL.sub(REDACTED, text)
 
 
@@ -76,13 +118,15 @@ def contains_pii(text: str) -> bool:
     return redact(text) != text
 
 
+def is_sensitive_key(key: object) -> bool:
+    normalized = str(key).lower().replace("-", "_").removeprefix("http_")
+    return normalized in SENSITIVE_KEYS or normalized.startswith(_SENSITIVE_PREFIXES)
+
+
 def redact_data(value: Any) -> Any:
     """Version récursive de ``redact`` pour dictionnaires et listes (Sentry, métadonnées)."""
     if isinstance(value, Mapping):
-        return {
-            k: REDACTED if str(k).lower() in SENSITIVE_KEYS else redact_data(v)
-            for k, v in value.items()
-        }
+        return {k: REDACTED if is_sensitive_key(k) else redact_data(v) for k, v in value.items()}
     if isinstance(value, list | tuple):
         return type(value)(redact_data(v) for v in value)
     if isinstance(value, str):

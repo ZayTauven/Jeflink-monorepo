@@ -11,12 +11,16 @@ class PiiRedactingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             message = record.getMessage()
-        except Exception:  # message mal formé : on le laisse au formateur
-            return True
+        except Exception:
+            # Arguments incohérents : on filtre le tout plutôt que de laisser le handler
+            # recopier record.args en clair sur stderr (M6).
+            message = f"{record.msg!r} {record.args!r}"
         record.msg = redact(message)
         record.args = None
         if record.exc_info and not record.exc_text:
-            record.exc_text = redact(logging.Formatter().formatException(record.exc_info))
-        elif record.exc_text:
+            record.exc_text = logging.Formatter().formatException(record.exc_info)
+        if record.exc_text:
             record.exc_text = redact(record.exc_text)
+        if record.stack_info:
+            record.stack_info = redact(record.stack_info)
         return True

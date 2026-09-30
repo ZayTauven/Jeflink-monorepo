@@ -86,3 +86,50 @@ def test_filtre_de_logs_masque_les_exceptions():
         record = logging.LogRecord("t", logging.ERROR, __file__, 1, "échec", None, sys.exc_info())
     PiiRedactingFilter().filter(record)
     assert "771234567" not in record.exc_text
+
+
+@pytest.mark.parametrize(
+    "texte",
+    [
+        "+221 71 234 56 78",
+        "+33 6 12 34 56 78",
+        "221 77 123 45 67",
+        "{'HTTP_AUTHORIZATION': 'Bearer eyJa.b.c'}",
+        "Cookie: csrftoken=a; sessionid=SECRET",
+        "jeton eyJhbGciOi.eyJzdWIi.signature",
+        "Idempotency-Key: abc123",
+        "X-Jeflink-Client-Ip: 1.2.3.4",
+    ],
+)
+def test_formats_releves_par_la_revue(texte):
+    sortie = redact(texte)
+    assert REDACTED in sortie
+    for fragment in (
+        "234 56",
+        "12 34 56",
+        "123 45",
+        "eyJa",
+        "SECRET",
+        "signature",
+        "abc123",
+        "1.2.3",
+    ):
+        assert fragment not in sortie
+
+
+def test_pas_de_double_masquage():
+    assert redact("Cookie: a=b; c=d") == f"Cookie: {REDACTED}"
+
+
+def test_aucun_faux_positif_sur_hmac_et_uuid():
+    import uuid
+
+    valeurs = [phone_hmac(str(i)) for i in range(5000)]
+    valeurs += [str(uuid.uuid4()) for _ in range(5000)] + [uuid.uuid4().hex for _ in range(5000)]
+    assert [v for v in valeurs if contains_pii(v)] == []
+
+
+def test_filtre_sur_arguments_incoherents():
+    record = logging.LogRecord("t", logging.INFO, __file__, 1, "%s %s", ("+221771234567",), None)
+    PiiRedactingFilter().filter(record)
+    assert "771234567" not in record.getMessage()

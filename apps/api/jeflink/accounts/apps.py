@@ -17,3 +17,14 @@ class AccountsConfig(AppConfig):
         }
         register_audit_schema("accounts.role.granted", role_fields)
         register_audit_schema("accounts.role.revoked", role_fields)
+        register_audit_schema(
+            "accounts.ops_groups.changed",
+            {
+                "groups_added": list,
+                "groups_removed": list,
+                "operator": str,
+                "second_operator": str,
+                "reason_code": str,
+                "bootstrap": bool,
+            },
+        )

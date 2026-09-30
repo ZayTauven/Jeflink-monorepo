@@ -32,12 +32,14 @@ def grant_role(
     """Accorde un rôle (idempotent). Refusé sur un compte de revue, désactivé ou supprimé."""
     if role not in Role.values:
         raise DomainError("role_unknown")
-    if user.is_review_account:
+    # Verrou sur le compte, puis contrôles sur la ligne verrouillée (M1) : deux attributions
+    # concurrentes ne créent qu'un RoleGrant, et l'état lu est celui de la base.
+    user = User.objects.select_for_update(no_key=True).get(pk=user.pk)
+    # Compte de revue des stores (S17) et comptes techniques de l'admin Django (M3).
+    if user.is_review_account or user.is_staff or user.is_superuser:
         raise DomainError("role_not_allowed")
     if not user.is_active or user.is_deleted:
         raise DomainError("account_disabled")
-    # Verrou sur le compte : deux attributions concurrentes ne créent qu'un seul RoleGrant.
-    User.objects.select_for_update().filter(pk=user.pk).first()
     existing = RoleGrant.objects.filter(user=user, role=role, revoked_at__isnull=True).first()
     if existing:
         return existing

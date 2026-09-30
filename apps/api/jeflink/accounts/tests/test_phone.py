@@ -52,7 +52,9 @@ def test_affichage():
     assert phone_region("+221771234567") == "SN"
 
 
-@pytest.mark.parametrize("nom", ["Awa Diop", "Ibou", "Fatou Ndiaye Sarr", "Moussa  Fall"])
+@pytest.mark.parametrize(
+    "nom", ["Awa Diop", "Ibou", "Fatou Ndiaye Sarr", "Moussa  Fall", "Ñdèye Ngoñ", "Hopson"]
+)
 def test_nom_valide(nom):
     assert clean_display_name(nom) == " ".join(nom.split())
 
@@ -68,6 +70,16 @@ def test_nom_valide(nom):
         ("admin", "display_name_reserved"),
         ("Voir www.exemple.com", "display_name_reserved"),
         ("jeflink-promo.sn", "display_name_reserved"),
+        ("Jeflink_Officiel", "display_name_reserved"),
+        ("JeflinkSupport", "display_name_reserved"),
+        ("Jeflink2", "display_name_reserved"),
+        ("Ｊｅｆｌｉｎｋ", "display_name_reserved"),  # pleine chasse
+        ("Jéflink", "display_name_reserved"),
+        ("Suppοrt", "display_name_reserved"),  # omicron grec
+        ("J.e.f.l.i.n.k", "display_name_reserved"),
+        ("Jef1ink", "display_name_reserved"),
+        ("Appelez 77 123 45 67", "display_name_reserved"),
+        ("Awa", "display_name_invalid"),  # usage privé (Co)
     ],
 )
 def test_nom_refuse(nom, code):

@@ -60,6 +60,10 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
     deactivation_reason = models.CharField(
         max_length=16, choices=DeactivationReason.choices, blank=True
     )
+    # Auteur de la désactivation : S30 exige qu'un autre Ops réactive un compte « fraud ».
+    deactivated_by = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
     is_staff = models.BooleanField(default=False)
     is_review_account = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -87,6 +91,12 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
             models.CheckConstraint(
                 condition=~Q(profile_status="complete") | ~Q(display_name=""),
                 name="user_complete_requires_display_name",
+            ),
+            models.CheckConstraint(
+                condition=Q(is_active=True)
+                | ~Q(deactivation_reason="")
+                | Q(deleted_at__isnull=False),
+                name="user_inactive_has_reason",
             ),
         ]
 

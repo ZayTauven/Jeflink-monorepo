@@ -43,7 +43,15 @@ def ops_user(user_factory):
 def test_is_client(user_factory):
     assert allowed(IsClient, make_request(user_factory()))
     assert not allowed(IsClient, make_request(AnonymousUser()))
-    assert not allowed(IsClient, make_request(user_factory(is_active=False)))
+    assert not allowed(
+        IsClient, make_request(user_factory(is_active=False, deactivation_reason="ops_other"))
+    )
+
+
+@pytest.mark.django_db
+def test_comptes_techniques_refuses_par_l_api(user_factory):
+    assert not allowed(IsClient, make_request(user_factory(is_staff=True)))
+    assert not allowed(IsClient, make_request(user_factory(is_superuser=True)))
 
 
 @pytest.mark.django_db
@@ -61,6 +69,9 @@ def test_authentification_recente(user_factory):
     assert not allowed(perm, make_request(user, {"auth_time": int(time.time()) - 600}))
     assert not allowed(perm, make_request(user, {}))
     assert not allowed(perm, make_request(user, {"auth_time": True}))
+    # Horodatage dans le futur ou aberrant : refusé, sans erreur 500.
+    assert not allowed(perm, make_request(user, {"auth_time": int(time.time()) + 3600}))
+    assert not allowed(perm, make_request(user, {"auth_time": 10**20}))
 
 
 @pytest.mark.django_db
@@ -78,7 +89,7 @@ def test_roles_pro(user_factory):
 
 @pytest.mark.django_db
 def test_ops_view_exige_role_mfa_et_groupe(ops_user, user_factory):
-    view = HasOpsPerm("ops.accounts.view")
+    view = HasOpsPerm("ops.accounts.view", step_up=False)
     assert allowed(view, make_request(ops_user, {"mfa": True}))
     assert not allowed(view, make_request(ops_user, {"mfa": False}))
     assert not allowed(view, make_request(ops_user, {}))
@@ -89,7 +100,7 @@ def test_ops_view_exige_role_mfa_et_groupe(ops_user, user_factory):
 
 @pytest.mark.django_db
 def test_ops_manage_exige_step_up(ops_user):
-    manage = HasOpsPerm("ops.accounts.manage")
+    manage = HasOpsPerm("ops.accounts.manage", step_up=True)
     now = int(time.time())
     assert allowed(manage, make_request(ops_user, {"mfa": True, "mfa_at": now - 60}))
     permission = manage()
@@ -100,7 +111,7 @@ def test_ops_manage_exige_step_up(ops_user):
 
 @pytest.mark.django_db
 def test_ops_change_phone_reserve_admin(ops_user):
-    change = HasOpsPerm("ops.accounts.change_phone")
+    change = HasOpsPerm("ops.accounts.change_phone", step_up=True)
     claims = {"mfa": True, "mfa_at": int(time.time())}
     assert not allowed(change, make_request(ops_user, claims))
     ops_user.groups.add(Group.objects.get(name="Admin"))
@@ -108,10 +119,12 @@ def test_ops_change_phone_reserve_admin(ops_user):
 
 
 @pytest.mark.django_db
-def test_superuser_sans_role_ops_refuse(user_factory):
+def test_superuser_refuse_meme_avec_role_et_groupe(user_factory):
     root = user_factory(is_superuser=True, is_staff=True)
+    root.groups.add(Group.objects.get(name="Admin"))
     assert root.has_perm("accounts.ops_accounts_view")  # vrai pour Django…
-    assert not allowed(HasOpsPerm("ops.accounts.view"), make_request(root, {"mfa": True}))
+    view = HasOpsPerm("ops.accounts.view", step_up=False)
+    assert not allowed(view, make_request(root, {"mfa": True}))
 
 
 @pytest.mark.django_db
@@ -124,4 +137,4 @@ def test_classes_objet_refusent_par_defaut(user_factory):
 
 def test_permission_ops_mal_nommee():
     with pytest.raises(ValueError):
-        HasOpsPerm("accounts.view")
+        HasOpsPerm("accounts.view", step_up=False)
