@@ -30,6 +30,7 @@ class Command(OpsCommand):
         parser.add_argument(
             "--groups", required=True, help=f"Groupes séparés par des virgules : {OPS_GROUPS}."
         )
+        self.add_token_file_argument(parser)
 
     def handle(self, *args, **options) -> None:
         names = sorted({name.strip() for name in options["groups"].split(",") if name.strip()})
@@ -41,6 +42,7 @@ class Command(OpsCommand):
             raise CommandError("--bootstrap exige --reason bootstrap et le groupe Admin.")
         target = self.get_target(options)
         operators = self.get_operators(options, target)
+        self.check_token_destination(options)
         groups = self.resolve_groups(names)
         with transaction.atomic():
             try:
@@ -74,5 +76,5 @@ class Command(OpsCommand):
             )
         self.stdout.write(f"Rôle ops accordé à {mask_phone(target.phone)} ({', '.join(names)}).")
         if token:
-            # Affiché une seule fois, jamais journalisé : à remettre hors bande (S1).
-            self.stdout.write(f"Jeton d'enrôlement TOTP (24 h, usage unique) : {token}")
+            # Remis une seule fois, jamais journalisé : à transmettre hors bande (S1).
+            self.deliver_token(options, token)

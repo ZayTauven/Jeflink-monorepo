@@ -7,6 +7,14 @@ from jeflink.accounts.selectors import has_role
 from jeflink.trust.models import AuditEvent
 
 
+@pytest.fixture(autouse=True)
+def terminal(monkeypatch):
+    """Les commandes écrivent dans un StringIO : on simule un terminal (jeton affichable)."""
+    from django.core.management.base import OutputWrapper
+
+    monkeypatch.setattr(OutputWrapper, "isatty", lambda self: True)
+
+
 def run(name, *args):
     out = StringIO()
     call_command(name, *args, stdout=out)

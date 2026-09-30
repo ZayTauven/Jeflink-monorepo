@@ -141,8 +141,13 @@ def _mfa_at(session: DeviceSession) -> datetime | None:
     session hors console ops, donne ``mfa = false`` (S1)."""
     if session.policy != "console_ops" or session.mfa_verified_at is None:
         return None
+    # Défense en profondeur (revue, M7) : un facteur ré-enrôlé ne revalide pas une session
+    # dont le second facteur date d'avant cet enrôlement.
     usable = TotpDevice.objects.filter(
-        user=session.user, confirmed_at__isnull=False, locked_at__isnull=True
+        user=session.user,
+        confirmed_at__isnull=False,
+        confirmed_at__lte=session.mfa_verified_at,
+        locked_at__isnull=True,
     ).exists()
     return session.mfa_verified_at if usable else None
 

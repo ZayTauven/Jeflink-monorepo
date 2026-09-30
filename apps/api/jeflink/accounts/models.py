@@ -424,9 +424,9 @@ class TotpDevice(BaseModel):
     confirmed_at = models.DateTimeField(null=True, blank=True)
     # Anti-rejeu : un code d'un pas de temps déjà utilisé (ou antérieur) est refusé.
     last_used_step = models.BigIntegerField(default=0)
-    # 10 échecs sur 24 h → verrou jusqu'à reset_ops_mfa (compté en base, sans Redis).
-    failure_count = models.PositiveSmallIntegerField(default=0)
-    failure_window_start = models.DateTimeField(null=True, blank=True)
+    # Horodatages (epoch) des échecs des dernières 24 h : 10 → verrou jusqu'à reset_ops_mfa.
+    # Fenêtre glissante, comptée en base sous verrou de ligne (sans Redis). Au plus 10 entrées.
+    recent_failures = models.JSONField(default=list, blank=True)
     locked_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self) -> str:

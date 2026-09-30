@@ -1,5 +1,7 @@
 """Aides communes aux tests du second facteur Ops (TOTP)."""
 
+from datetime import timedelta
+
 import pyotp
 from django.utils import timezone
 
@@ -13,7 +15,8 @@ def enroll(user, *, locked: bool = False) -> pyotp.TOTP:
     TotpDevice.objects.create(
         user=user,
         secret_encrypted=_fernet().encrypt(secret.encode()).decode(),
-        confirmed_at=timezone.now(),
+        # Enrôlé de longue date : antérieur aux sessions ouvertes par les tests.
+        confirmed_at=timezone.now() - timedelta(days=1),
         locked_at=timezone.now() if locked else None,
     )
     return pyotp.TOTP(secret, digits=TOTP_DIGITS, interval=TOTP_INTERVAL)

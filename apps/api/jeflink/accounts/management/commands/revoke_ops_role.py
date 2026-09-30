@@ -2,7 +2,8 @@
 
 from django.db import transaction
 
-from jeflink.accounts.models import DeviceSession, Role
+from jeflink.accounts.mfa import clear_mfa
+from jeflink.accounts.models import DeviceSession, Role, User
 from jeflink.accounts.services import revoke_role
 from jeflink.accounts.sessions import revoke_all_sessions
 from jeflink.common.pii import mask_phone
@@ -18,6 +19,8 @@ class Command(OpsCommand):
         target = self.get_target(options)
         operators = self.get_operators(options, target)
         with transaction.atomic():
+            # Verrou du compte d'abord : même ordre que le module mfa.
+            User.objects.select_for_update(no_key=True).get(pk=target.pk)
             revoked = revoke_role(
                 user=target,
                 role=Role.OPS,
@@ -31,6 +34,8 @@ class Command(OpsCommand):
             revoke_all_sessions(
                 user=target, reason=DeviceSession.RevokedReason.OPS_ROLE_CHANGED, app="console"
             )
+            # Un rôle rendu plus tard exigera un nouvel enrôlement hors bande (revue, M1).
+            clear_mfa(target)
             self.audit_groups(
                 target=target,
                 added=[],

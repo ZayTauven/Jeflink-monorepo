@@ -5,6 +5,7 @@ par leur ``public_id``, distincts entre eux et du compte visé. Seule exception 
 crée le tout premier Admin tant qu'il n'en existe aucun ; les opérateurs sont alors nommés.
 """
 
+import os
 import uuid
 from argparse import ArgumentParser
 
@@ -121,6 +122,36 @@ class OpsCommand(BaseCommand):
                 "bootstrap": bootstrap,
             },
         )
+
+    # --- Jeton d'enrôlement TOTP (revue sécurité tâche 13, M2) ----------------------------------
+    # Jamais écrit sur une sortie non interactive (job, CI, journaux de conteneur) : soit un
+    # terminal, soit un fichier créé en 0600 et remis hors bande.
+
+    @staticmethod
+    def add_token_file_argument(parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "--token-file",
+            help="Fichier (créé en 0600, jamais écrasé) qui recevra le jeton d'enrôlement TOTP.",
+        )
+
+    def check_token_destination(self, options: dict) -> None:
+        """Avant toute écriture : refuse d'émettre un jeton qui finirait dans un journal."""
+        path = options.get("token_file")
+        if path:
+            if os.path.exists(path):
+                raise CommandError("--token-file : le fichier existe déjà.")
+        elif not self.stdout.isatty():
+            raise CommandError("Hors terminal, --token-file est obligatoire (jeton d'enrôlement).")
+
+    def deliver_token(self, options: dict, token: str) -> None:
+        path = options.get("token_file")
+        if path:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(f"{token}\n")
+            self.stdout.write(f"Jeton d'enrôlement TOTP écrit dans {path} (24 h, usage unique).")
+        else:
+            self.stdout.write(f"Jeton d'enrôlement TOTP (24 h, usage unique) : {token}")
 
     @staticmethod
     def resolve_groups(names: list[str]) -> list[Group]:

@@ -41,9 +41,9 @@ class RoleGrantAdmin(ReadOnlyAdmin):
 class TotpDeviceAdmin(ReadOnlyAdmin):
     """État du second facteur, jamais le secret (même chiffré)."""
 
-    list_display = ("public_id", "confirmed_at", "locked_at", "failure_count", "updated_at")
+    list_display = ("public_id", "confirmed_at", "locked_at", "updated_at")
     list_filter = ("locked_at",)
-    exclude = ("secret_encrypted", "user")
+    exclude = ("secret_encrypted", "user", "recent_failures")
 
 
 # Les groupes portent les permissions Ops : jamais modifiables depuis l'admin (I2).

@@ -48,7 +48,10 @@ class AccountsConfig(AppConfig):
         register_audit_schema("accounts.otp.login_refused", {"reason": str, "app": str})
         register_audit_schema("accounts.otp.locked", {"phone_hmac": PhoneHmac, "app": str})
         register_audit_schema("accounts.mfa.enrolled", {})
-        register_audit_schema("accounts.mfa.failed", {"locked": bool})
+        register_audit_schema("accounts.mfa.verified", {})
+        register_audit_schema("accounts.mfa.step_up", {})
+        register_audit_schema("accounts.mfa.enrollment_issued", {"operator": str})
+        register_audit_schema("accounts.mfa.failed", {"stage": str, "locked": bool})
         register_audit_schema("accounts.mfa.locked", {})
         register_audit_schema(
             "accounts.mfa.reset",

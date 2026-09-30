@@ -35,13 +35,14 @@ MFA_ERRORS = {
 
 def _authenticated(result: MfaResult) -> Response:
     others = list(active_sessions_for(result.user).exclude(pk=result.tokens.session.pk)[:10])
+    restricted = result.tokens.session.restricted
     body = verify_body(
         VerifyResult(
             user=result.user,
             tokens=result.tokens,
             is_new_user=False,
-            restricted=False,
-            other_sessions=others,
+            restricted=restricted,
+            other_sessions=[] if restricted else others,
         )
     )
     return Response(OtpVerifyResponseSerializer(body).data)
@@ -95,6 +96,8 @@ class TotpVerifyView(_MfaView):
 
 class TotpStepUpView(APIView):
     permission_classes = [IsClient]
+    # Limite par IP en plus du verrou par compte (10 échecs / 24 h) (revue, I1).
+    rate_limit_scope = "mfa_step_up"
 
     @extend_schema(
         tags=["auth"],

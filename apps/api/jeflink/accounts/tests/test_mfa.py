@@ -38,6 +38,15 @@ from jeflink.trust.models import AuditEvent
 
 from .mfa_helpers import enroll
 
+
+@pytest.fixture(autouse=True)
+def terminal(monkeypatch):
+    """Les commandes écrivent dans un StringIO : on simule un terminal (jeton affichable)."""
+    from django.core.management.base import OutputWrapper
+
+    monkeypatch.setattr(OutputWrapper, "isatty", lambda self: True)
+
+
 # Les échecs sont audités hors transaction (connexion « audit ») : tests transactionnels.
 pytestmark = pytest.mark.django_db(transaction=True, databases="__all__", serialized_rollback=True)
 
@@ -243,7 +252,7 @@ def test_step_up_code_faux_compte_pour_le_verrou(ops):
     enroll(ops)
     pair = create_session(user=ops, app="console", platform="web", mfa_verified_at=timezone.now())
     raises("mfa_invalid", step_up, user=ops, session_public_id=pair.session.public_id, code="0")
-    assert TotpDevice.objects.get().failure_count == 1
+    assert len(TotpDevice.objects.get().recent_failures) == 1
 
 
 def test_step_up_par_l_api(api_client, ops):
@@ -392,3 +401,147 @@ def test_ops_sur_l_app_client_n_a_aucune_permission_ops(ops):
     request.user = ops
     assert not HasOpsPerm("ops.accounts.view", step_up=False)().has_permission(request, None)
     assert not DeviceSession.objects.filter(policy="console_ops").exists()
+
+
+# --- Corrections de la revue sécurité (tâche 13) -----------------------------------------------
+
+
+@pytest.mark.parametrize("stage", ["verify", "step_up"])
+def test_rafale_concurrente_chaque_echec_compte(ops, stage):
+    """C1, I1 : des requêtes parallèles ne testent jamais plus de codes que le budget, sans 500."""
+    import threading
+
+    from django.db import connections
+
+    enroll(ops)
+    token = start(ops)
+    pair = create_session(user=ops, app="console", platform="web", mfa_verified_at=timezone.now())
+    results: list[str] = []
+
+    def attempt():
+        try:
+            if stage == "verify":
+                verify_totp(mfa_token=token, code="000000")
+            else:
+                step_up(user=ops, session_public_id=pair.session.public_id, code="000000")
+            results.append("ok")
+        except DomainError as exc:
+            results.append(exc.code)
+        except Exception as exc:
+            results.append(type(exc).__name__)
+        finally:
+            connections.close_all()
+
+    threads = [threading.Thread(target=attempt) for _ in range(12)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    device = TotpDevice.objects.get()
+    if stage == "verify":
+        assert sorted(set(results)) == ["mfa_invalid", "mfa_token_invalid"]
+        assert results.count("mfa_invalid") == MAX_TOKEN_ATTEMPTS
+        assert MfaChallenge.objects.get().failed_attempts == MAX_TOKEN_ATTEMPTS
+        assert len(device.recent_failures) == MAX_TOKEN_ATTEMPTS
+    else:
+        # 9 échecs, le 10e verrouille, les suivants trouvent la session révoquée ou le verrou.
+        assert results.count("mfa_invalid") == 9
+        assert results.count("mfa_locked") >= 1
+        assert set(results) <= {"mfa_invalid", "mfa_locked", "ops_forbidden"}
+        assert device.locked_at is not None
+    failed = AuditEvent.objects.filter(action="accounts.mfa.failed")
+    assert failed.count() == len(device.recent_failures)
+    assert {event.metadata["stage"] for event in failed} == {stage}
+
+
+def test_fenetre_glissante(ops):
+    """M3 : 9 échecs anciens de 23 h comptent encore ; au-delà de 24 h, ils sortent."""
+    enroll(ops)
+    now = timezone.now()
+    TotpDevice.objects.update(recent_failures=[(now - timedelta(hours=23)).timestamp()] * 9)
+    raises("mfa_locked", verify_totp, mfa_token=start(ops), code="000000")
+    TotpDevice.objects.update(
+        locked_at=None, recent_failures=[(now - timedelta(hours=25)).timestamp()] * 9
+    )
+    raises("mfa_invalid", verify_totp, mfa_token=start(ops), code="000000")
+    assert len(TotpDevice.objects.get().recent_failures) == 1
+
+
+def test_succes_audites_avec_la_session(ops):
+    """I2 : ouverture de session console et step-up tracés, rattachés à la session."""
+    totp = enroll(ops)
+    result = verify_totp(mfa_token=start(ops), code=code_for(totp))
+    verified = AuditEvent.objects.get(action="accounts.mfa.verified")
+    assert verified.session_public_id == result.tokens.session.public_id
+    step_up(
+        user=ops, session_public_id=result.tokens.session.public_id, code=code_for(totp, offset=1)
+    )
+    event = AuditEvent.objects.get(action="accounts.mfa.step_up")
+    assert event.session_public_id == result.tokens.session.public_id
+
+
+def test_step_up_limite_par_ip(settings, api_client, ops):
+    """I1 : le step-up déclare sa limite par IP."""
+    from jeflink.accounts.api.mfa_views import TotpStepUpView
+
+    assert TotpStepUpView.rate_limit_scope in settings.IP_RATE_LIMITS
+
+
+def test_session_anterieure_a_un_reenrolement_sans_mfa(ops):
+    """M7 : un facteur ré-enrôlé ne revalide pas une session d'avant son enrôlement."""
+    from jeflink.accounts.sessions import refresh_session
+
+    pair = create_session(
+        user=ops,
+        app="console",
+        platform="web",
+        mfa_verified_at=timezone.now() - timedelta(minutes=1),
+    )
+    enroll(ops)
+    TotpDevice.objects.update(confirmed_at=timezone.now())  # ré-enrôlé après la session
+    assert decode_access(refresh_session(pair.refresh).access)["mfa"] is False
+
+
+def test_retrait_du_role_efface_le_second_facteur(admins, ops):
+    """M1 : rendre le rôle plus tard exigera un nouvel enrôlement hors bande."""
+    enroll(ops)
+    issue_enrollment_token(user=ops, operator="zay")
+    run("revoke_ops_role", "--user", str(ops.public_id), *ops_args(admins, "departure"))
+    assert not TotpDevice.objects.filter(user=ops).exists()
+    assert not OpsEnrollmentToken.objects.filter(user=ops, expires_at__gt=timezone.now()).exists()
+
+
+def test_jeton_refuse_hors_terminal_sans_fichier(admins, ops, monkeypatch):
+    """M2 : jamais de jeton dans les journaux d'un job."""
+    from django.core.management.base import OutputWrapper
+
+    monkeypatch.setattr(OutputWrapper, "isatty", lambda self: False)
+    with pytest.raises(CommandError):
+        run("reset_ops_mfa", "--user", str(ops.public_id), *ops_args(admins, "device_lost"))
+    assert not AuditEvent.objects.filter(action="accounts.mfa.reset").exists()
+
+
+def test_jeton_ecrit_dans_un_fichier_prive(admins, ops, monkeypatch, tmp_path):
+    import os
+    import stat
+
+    from django.core.management.base import OutputWrapper
+
+    monkeypatch.setattr(OutputWrapper, "isatty", lambda self: False)
+    path = tmp_path / "jeton.txt"
+    out = run(
+        "reset_ops_mfa", "--user", str(ops.public_id), "--token-file", str(path),
+        *ops_args(admins, "device_lost"),
+    )  # fmt: skip
+    token = path.read_text().strip()
+    assert token.startswith("jfe_") and token not in out
+    if os.name == "posix":
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert AuditEvent.objects.filter(action="accounts.mfa.enrollment_issued").exists()
+    # Jamais d'écrasement d'un fichier existant.
+    with pytest.raises(CommandError):
+        run(
+            "reset_ops_mfa", "--user", str(ops.public_id), "--token-file", str(path),
+            *ops_args(admins, "device_lost"),
+        )  # fmt: skip

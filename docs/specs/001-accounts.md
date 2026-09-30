@@ -221,7 +221,7 @@ Autres règles :
 | `last_seen_at`, `idle_expires_at`, `absolute_expires_at`                                                                                                                                                   |                                                                                                                                    |
 | `revoked_at`, `revoked_reason` (`logout`, `user_revoked`, `ops_revoked`, `reuse_detected`, `limit`, `phone_changed`, `account_deleted`, `account_disabled`, `ops_role_changed`, `mfa_locked`, `mfa_reset`) | Au plus 10 sessions actives par compte. Au-delà, la plus ancienne est révoquée, avec l'événement `accounts.session.evicted_limit`. |
 
-**`accounts.TotpDevice`** : `user` OneToOne, `secret_encrypted` (MultiFernet, `MFA_ENCRYPTION_KEYS`), `confirmed_at`, `last_used_step`, `locked_at`, `failure_count` et `failure_window_start` (10 échecs sur 24 h, comptés en base sous verrou de ligne : le verrou tient sans Redis). Un verrou révoque aussi les sessions console (`mfa_locked`).
+**`accounts.TotpDevice`** : `user` OneToOne, `secret_encrypted` (MultiFernet, `MFA_ENCRYPTION_KEYS`), `confirmed_at`, `last_used_step`, `locked_at`, `recent_failures` (horodatages des échecs, fenêtre glissante de 24 h : 10 échecs verrouillent ; comptés en base sous verrou de ligne, dans la même transaction que le test du code, donc sans course ni dépendance à Redis). Un verrou révoque aussi les sessions console (`mfa_locked`).
 
 **`accounts.OpsEnrollmentToken`** (S1) : `user`, `token_hash`, `issued_by_operator`, `expires_at` (24 h), `used_at`.
 
@@ -487,7 +487,7 @@ Règles communes aux endpoints `ops-accounts` :
 - **cible interdite** : son propre compte, ou un compte ops (`403 ops_target_forbidden`) ;
 - les motifs sont un **code énuméré** plus une note de 280 caractères au plus, filtrée (S14).
 
-Commandes de gestion : `grant_ops_role`, `revoke_ops_role`, `reset_ops_mfa`, `create_review_account`. Chacune exige `--operator` et `--reason`. Sur un compte ops, elle exige aussi `--second-operator` : deux Admin différents. Chacune écrit un `AuditEvent` (S3).
+Commandes de gestion : `grant_ops_role`, `revoke_ops_role`, `reset_ops_mfa`, `create_review_account`. Chacune exige `--operator` et `--reason`. Sur un compte ops, elle exige aussi `--second-operator` : deux Admin différents. Chacune écrit un `AuditEvent` (S3). Le jeton d'enrôlement émis par `grant_ops_role` et `reset_ops_mfa` n'est jamais écrit sur une sortie non interactive : hors terminal, `--token-file` (fichier créé en 0600, jamais écrasé) est obligatoire. `revoke_ops_role` efface aussi le second facteur : un rôle rendu plus tard exige un nouvel enrôlement (revue sécurité tâche 13).
 
 ### Tâches Celery
 
@@ -530,16 +530,16 @@ Un registre des traitements documente finalités et durées. La déclaration CDP
   - La rotation des sauvegardes (délai d'effacement effectif) est documentée.
 - **`AuditEvent`, actions** (chacune avec son schéma de `metadata`) :
 
-| Famille                  | Actions                                                                                                                                                                                                                |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Compte                   | `accounts.user.created`, `accounts.otp.verified`, `accounts.otp.locked`, `accounts.otp.phone_blocked`                                                                                                                  |
-| Sessions                 | `accounts.session.refresh_reuse_detected`, `accounts.session.revoked`, `accounts.session.evicted_limit`                                                                                                                |
-| Rôles et invitations     | `accounts.role.granted`, `accounts.role.revoked`, `accounts.invitation.created`, `accounts.invitation.accepted`, `accounts.invitation.declined`                                                                        |
-| Second facteur           | `accounts.mfa.enrolled`, `accounts.mfa.failed`, `accounts.mfa.locked`, `accounts.mfa.reset`                                                                                                                            |
-| Numéro et état du compte | `accounts.phone_change.requested`, `accounts.phone_change.approved`, `accounts.phone_change.completed`, `accounts.user.deactivated`, `accounts.user.reactivated`, `accounts.user.deleted`, `accounts.deletion.blocked` |
-| Revue des stores         | `accounts.review_account.used`                                                                                                                                                                                         |
-| Ops                      | `ops.accounts.searched`, `ops.accounts.phone_revealed`, `ops.accounts.otp_unblocked`                                                                                                                                   |
-| Système                  | `system.sms_cap.reached`                                                                                                                                                                                               |
+| Famille                  | Actions                                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Compte                   | `accounts.user.created`, `accounts.otp.verified`, `accounts.otp.locked`, `accounts.otp.phone_blocked`                                                                                                                                |
+| Sessions                 | `accounts.session.refresh_reuse_detected`, `accounts.session.revoked`, `accounts.session.evicted_limit`                                                                                                                              |
+| Rôles et invitations     | `accounts.role.granted`, `accounts.role.revoked`, `accounts.invitation.created`, `accounts.invitation.accepted`, `accounts.invitation.declined`                                                                                      |
+| Second facteur           | `accounts.mfa.enrollment_issued`, `accounts.mfa.enrolled`, `accounts.mfa.verified`, `accounts.mfa.step_up` (ces deux-là avec `session_public_id`), `accounts.mfa.failed` (avec `stage`), `accounts.mfa.locked`, `accounts.mfa.reset` |
+| Numéro et état du compte | `accounts.phone_change.requested`, `accounts.phone_change.approved`, `accounts.phone_change.completed`, `accounts.user.deactivated`, `accounts.user.reactivated`, `accounts.user.deleted`, `accounts.deletion.blocked`               |
+| Revue des stores         | `accounts.review_account.used`                                                                                                                                                                                                       |
+| Ops                      | `ops.accounts.searched`, `ops.accounts.phone_revealed`, `ops.accounts.otp_unblocked`                                                                                                                                                 |
+| Système                  | `system.sms_cap.reached`                                                                                                                                                                                                             |
 
 Les demandes d'OTP sont comptées en métriques, sans audit.
 
@@ -698,7 +698,7 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
   15. [sécu] **Endpoints Ops** : `search`, détail, `reveal-phone`, `revoke-sessions`, `unblock-otp`, `deactivate`/`reactivate`, règles de cible, motifs énumérés, tests.
   16. [sécu] **Changement de numéro** : `PhoneChangeRequest`, approbation par un second Ops, challenge `change_phone`, `phone-change/confirm`, SMS à l'ancien numéro, tests.
   17. [sécu] **Compte de revue des stores** : `create_review_account`, bornes, checks au démarrage, alertes, tests.
-  18. **Purge** : `purge_auth_data` + `CELERY_BEAT_SCHEDULE` (y compris les `OtpPhoneBlock` expirés depuis plus de 24 h et les `RetiredRefreshToken` des sessions purgées), tests. Ferme aussi les `RoleInvitation` en attente expirées (`expired`, `phone=""`) et les `NoticeSms` restés `queued` ou `sending` plus d'une heure (`unknown`, `phone=""`) (revue sécurité tâche 12, M3).
+  18. **Purge** : `purge_auth_data` + `CELERY_BEAT_SCHEDULE` (y compris les `OtpPhoneBlock` expirés depuis plus de 24 h et les `RetiredRefreshToken` des sessions purgées), tests. Ferme aussi les `RoleInvitation` en attente expirées (`expired`, `phone=""`) et les `NoticeSms` restés `queued` ou `sending` plus d'une heure (`unknown`, `phone=""`) (revue sécurité tâche 12, M3). Supprime les `MfaChallenge` et `OpsEnrollmentToken` expirés depuis plus de 7 j (revue sécurité tâche 13, M8).
   19. **Contrat et documentation** : `make openapi`. Mise à jour de `apps/api/CLAUDE.md` (Bearer seul, classes de permission, `trust.audit`, `notifications.sms.fake`, `register_anonymizer` dans la définition de « done ») et de `ARCHITECTURE.md`. Registre des traitements et note sur la rotation des sauvegardes (S16, S22). Procédure support écrite (S2, S18).
   20. [sécu] **Adaptateur SMS réel**, bloqué par Q7 : adaptateur, DLR si disponible, tests avec réponses enregistrées.
   21. [sécu] **Second facteur de l'admin Django** (`django-otp` ou équivalent, dépendance justifiée dans la PR), en plus de l'hôte interne (infra 4). Relevé par la revue sécurité du 2026-09-30 : aucune tâche ne le couvrait. Y ajouter une limite de débit sur la page de connexion de l'admin (vue non DRF).
