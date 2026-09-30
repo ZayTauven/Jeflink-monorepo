@@ -63,7 +63,12 @@ def review_accounts(app_configs, databases=None, **kwargs) -> list[Error]:
         phones = review_phones()
     except DomainError:
         return []  # signalé par review_settings
-    real = User.objects.filter(phone__in=phones, is_review_account=False).count()
+    from django.db import DatabaseError
+
+    try:
+        real = User.objects.filter(phone__in=phones, is_review_account=False).count()
+    except DatabaseError:
+        return []  # base neuve, migrations pas encore appliquées (migrate lance aussi ce check)
     if real:
         return [
             Error(

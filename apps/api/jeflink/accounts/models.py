@@ -187,6 +187,7 @@ class DeviceSession(BaseModel):
         OPS_ROLE_CHANGED = "ops_role_changed", "Rôle ops modifié"
         MFA_LOCKED = "mfa_locked", "Second facteur verrouillé"
         MFA_RESET = "mfa_reset", "Second facteur réinitialisé"
+        REVIEW_ENDED = "review_ended", "Fin de la revue des stores"
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="device_sessions")
     app = models.CharField(max_length=8, choices=App.choices)
@@ -552,8 +553,11 @@ class ReviewAccess(BaseModel):
     soumission par ``create_review_account``."""
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="review_access")
-    code_hash = models.CharField(max_length=64)
+    # Vide : code invalidé (trop d'échecs) jusqu'à la prochaine rotation.
+    code_hash = models.CharField(max_length=64, blank=True)
     rotated_by_operator = models.CharField(max_length=64)
+    # Échecs depuis la dernière rotation : au-delà du seuil, le code est invalidé (I2).
+    failed_attempts = models.PositiveIntegerField(default=0)
 
     def __str__(self) -> str:
         return "accès de revue des stores"

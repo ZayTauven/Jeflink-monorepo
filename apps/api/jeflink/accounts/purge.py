@@ -112,6 +112,10 @@ def close_expired(now=None) -> PurgeReport:
     OtpChallenge.objects.filter(pk__in=challenge_ids, status=OtpChallenge.Status.PENDING).update(
         status=OtpChallenge.Status.EXPIRED, updated_at=now
     )
+    # Fenêtre de revue des stores fermée : plus aucune session sur le compte de revue (S17).
+    from .review_accounts import close_ended_reviews
+
+    report.add("review_sessions_ended", close_ended_reviews())
     report.add(
         "notices_stuck",
         _update_in_batches(

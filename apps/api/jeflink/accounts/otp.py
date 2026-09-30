@@ -44,6 +44,9 @@ from .client_challenge import check_client_challenge
 from .mfa import MfaStart, open_mfa_challenge, reissue_mfa_challenge
 from .models import DeviceSession, NoticeSms, OtpChallenge, OtpDelivery, Role, User
 from .otp_limits import (
+    REQUEST_PER_INSTALL,
+    SMS_PHONE_DAY,
+    SMS_PHONE_HOUR,
     FallbackCounts,
     phone_blocked_until,
     record_verified,
@@ -290,6 +293,9 @@ def _request_challenge(
                 new_challenge=True,
                 fallback=db_counts,
             )
+        else:
+            # Mêmes limites par numéro et par appareil qu'un vrai numéro, sans SMS (M2, M3).
+            reserve_review_attempt(phone=phone, install_id=install_id, new_challenge=True)
         now = timezone.now()
         secret = secrets.token_urlsafe(32)
         with transaction.atomic():
@@ -303,8 +309,11 @@ def _request_challenge(
                 language=language if language in {"fr", "wo"} else "fr",
                 expires_at=now + CHALLENGE_TTL,
             )
+            delivery = OtpDelivery.objects.create(challenge=challenge, attempt_no=1)
             if review is None:
-                _enqueue(OtpDelivery.objects.create(challenge=challenge, attempt_no=1))
+                _enqueue(delivery)
+            else:
+                _mark_review_delivery(delivery, now)
         resend_at = now + timedelta(seconds=resend_delay(phone))
         body = _response_body(challenge, 1, resend_at, secret)
         _remember_response(cache_key, body, int((resend_at - now).total_seconds()))
@@ -341,23 +350,30 @@ def resend_otp(*, challenge_id, challenge_secret: str) -> dict:
             wait = max(1, int((blocked_until - now).total_seconds()))
             raise DomainError("otp_rate_limited", status=429, retry_after=wait)
         delay = timedelta(seconds=resend_delay(challenge.phone))
-        if review_user_for(challenge.phone, challenge.app) is not None:
-            return _response_body(challenge, 1, now + delay, secret=None)
+        review = review_user_for(challenge.phone, challenge.app)
         deliveries = list(challenge.deliveries.order_by("attempt_no"))
+        if not deliveries:
+            raise DomainError("otp_challenge_invalid")
         if len(deliveries) >= MAX_DELIVERIES:
             raise DomainError("otp_resend_exhausted", status=429)
         available = deliveries[-1].created_at + delay
         if now < available:
             wait = max(1, int((available - now).total_seconds()))
             raise DomainError("otp_resend_too_early", status=429, retry_after=wait)
-        reserve_sms(
-            phone=challenge.phone,
-            region=challenge.region,
-            new_challenge=False,
-            fallback=db_counts,
-        )
+        if review is None:
+            reserve_sms(
+                phone=challenge.phone,
+                region=challenge.region,
+                new_challenge=False,
+                fallback=db_counts,
+            )
+        else:
+            reserve_review_attempt(phone=challenge.phone, install_id="", new_challenge=False)
         delivery = OtpDelivery.objects.create(challenge=challenge, attempt_no=len(deliveries) + 1)
-        _enqueue(delivery)
+        if review is None:
+            _enqueue(delivery)
+        else:
+            _mark_review_delivery(delivery, now)
     return _response_body(challenge, len(deliveries) + 1, now + delay, secret=None)
 
 
@@ -593,10 +609,10 @@ def _open_session(
             restricted=restricted,
         )
         # « Vous êtes aussi connecté sur… » (T2), calculé après la création (M6) ;
-        # jamais montré à une session restreinte.
+        # jamais montré à une session restreinte, ni aux équipes de revue des stores (I1).
         others = (
             []
-            if tokens.session.restricted
+            if tokens.session.restricted or user.is_review_account
             else list(active_sessions_for(user).exclude(pk=tokens.session.pk)[:10])
         )
         OtpChallenge.objects.filter(pk=challenge.pk).update(session=tokens.session, user=user)
@@ -728,3 +744,29 @@ def _replay_code_ok(challenge: OtpChallenge, code: str, *, now: datetime) -> boo
     if review is not None and challenge.user_id == review.pk:
         return review_code_matches(review, code)
     return _code_matches(challenge, code, now=now)
+
+
+def _mark_review_delivery(delivery: OtpDelivery, now: datetime) -> None:
+    """Envoi fictif du compte de revue : même historique (délai, plafond de 3) qu'un vrai SMS,
+    sans code ni fournisseur (M2)."""
+    OtpDelivery.objects.filter(pk=delivery.pk).update(
+        status=OtpDelivery.Status.SENT, gateway="review", sent_at=now, updated_at=now
+    )
+
+
+def reserve_review_attempt(*, phone: str, install_id: str, new_challenge: bool) -> None:
+    """Limites du numéro et de l'appareil, blocage compris, sans budget SMS (M3)."""
+    if new_challenge:
+        until = phone_blocked_until(phone)
+        if until is not None:
+            wait = max(1, int((until - timezone.now()).total_seconds()))
+            raise DomainError("otp_rate_limited", status=429, retry_after=wait)
+    checks = [(SMS_PHONE_HOUR, phone), (SMS_PHONE_DAY, phone)]
+    if install_id and new_challenge:
+        checks.append((REQUEST_PER_INSTALL, install_id))
+    try:
+        outcome = consume(checks)
+    except RateLimitUnavailable as exc:
+        raise DomainError("otp_temporarily_unavailable", status=503) from exc
+    if not outcome.allowed:
+        raise DomainError("otp_rate_limited", status=429, retry_after=outcome.retry_after)

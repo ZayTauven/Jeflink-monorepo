@@ -15,8 +15,10 @@ from django.db import transaction
 from django.utils import timezone
 
 from jeflink.accounts.models import User
+from jeflink.accounts.otp_limits import unblock_phone
 from jeflink.accounts.phone import normalize_phone
 from jeflink.accounts.review_accounts import is_review_phone, review_until, rotate_code
+from jeflink.accounts.validators import clean_display_name
 from jeflink.common.errors import DomainError
 from jeflink.common.pii import mask_phone
 from jeflink.trust.models import AuditEvent
@@ -51,6 +53,10 @@ class Command(OpsCommand):
         until = review_until()
         if until is None or until <= timezone.now():
             raise CommandError("OTP_REVIEW_ENABLED_UNTIL absent ou passé : aucune revue ouverte.")
+        try:
+            display_name = clean_display_name(options["display_name"])
+        except DomainError as exc:
+            raise CommandError(f"--display-name : {exc.code}") from exc
         self.check_token_destination(options)
         with transaction.atomic():
             user = User.objects.select_for_update(no_key=True).filter(phone=phone).first()
@@ -59,7 +65,7 @@ class Command(OpsCommand):
                 user = User.objects.create_user(
                     phone,
                     is_review_account=True,
-                    display_name=options["display_name"],
+                    display_name=display_name,
                     profile_status=User.ProfileStatus.COMPLETE,
                     phone_verified_at=timezone.now(),
                 )
@@ -83,6 +89,8 @@ class Command(OpsCommand):
                 second_operator=second_operator,
                 reason_code=options["reason"],
             )
+            # Un tiers a pu bloquer le numéro par de mauvais codes : levé à chaque soumission (I2).
+            unblock_phone(phone, actor=None, reason_code="review_rotation", target=user)
         state = "créé" if created else "retrouvé"
         self.stdout.write(f"Compte de revue {state} : {mask_phone(phone)}, actif jusqu'au {until}.")
         # Remis une seule fois, jamais journalisé ; à saisir dans la fiche de soumission du store.

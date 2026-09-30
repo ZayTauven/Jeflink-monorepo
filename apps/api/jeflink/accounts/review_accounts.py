@@ -16,8 +16,10 @@ import hashlib
 import hmac
 import secrets
 from datetime import UTC, datetime
+from functools import cache
 
 from django.conf import settings
+from django.db.models import F
 from django.utils import timezone
 
 from jeflink.common.alerts import alert_once
@@ -25,10 +27,12 @@ from jeflink.common.errors import DomainError
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
-from .models import ReviewAccess, User
+from .models import DeviceSession, ReviewAccess, User
 from .phone import normalize_phone
 
 REVIEW_APPS = frozenset({"client", "pro"})
+# Au-delà, le code est invalidé : il faut relancer la commande (revue sécurité tâche 17, I2).
+MAX_CODE_FAILURES = 20
 
 
 def review_until() -> datetime | None:
@@ -41,7 +45,20 @@ def review_until() -> datetime | None:
 
 
 def review_phones() -> frozenset[str]:
-    return frozenset(normalize_phone(raw) for raw in settings.OTP_REVIEW_ACCOUNTS)
+    """Numéros de revue normalisés. Une entrée invalide est ignorée (et alertée) : elle ne doit
+    jamais couper les connexions ; le check E103 la refuse au déploiement (M4)."""
+    return _normalized(tuple(settings.OTP_REVIEW_ACCOUNTS))
+
+
+@cache
+def _normalized(raw_numbers: tuple[str, ...]) -> frozenset[str]:
+    phones = set()
+    for index, raw in enumerate(raw_numbers):
+        try:
+            phones.add(normalize_phone(raw))
+        except DomainError:
+            alert_once(f"review_phone_invalid:{index}", 3600, "review_phone_invalid", index=index)
+    return frozenset(phones)
 
 
 def is_review_phone(phone: str) -> bool:
@@ -69,9 +86,40 @@ def _hash(user: User, code: str) -> str:
 
 
 def review_code_matches(user: User, code: str) -> bool:
+    """Comparaison en temps constant. Un échec est alerté dès le premier (anormal : seule
+    l'équipe de revue connaît le code) et compté ; au-delà du seuil, le code est invalidé."""
     access = ReviewAccess.objects.filter(user=user).first()
-    stored = access.code_hash if access else hashlib.sha256(secrets.token_bytes(8)).hexdigest()
-    return hmac.compare_digest(_hash(user, code), stored) and access is not None
+    usable = access is not None and bool(access.code_hash)
+    stored = access.code_hash if usable else hashlib.sha256(secrets.token_bytes(8)).hexdigest()
+    if hmac.compare_digest(_hash(user, code), stored) and usable:
+        return True
+    if access is not None:
+        ReviewAccess.objects.filter(pk=access.pk).update(failed_attempts=F("failed_attempts") + 1)
+        ReviewAccess.objects.filter(pk=access.pk, failed_attempts__gte=MAX_CODE_FAILURES).exclude(
+            code_hash=""
+        ).update(code_hash="")
+    alert_once(f"review_code_failed:{user.public_id}", 600, "review_code_failed")
+    return False
+
+
+def end_review_sessions(user: User) -> int:
+    """Coupe les sessions du compte de revue (rotation du code, fin de la fenêtre) (I1)."""
+    from .sessions import revoke_all_sessions
+
+    return revoke_all_sessions(user=user, reason=DeviceSession.RevokedReason.REVIEW_ENDED)
+
+
+def close_ended_reviews() -> int:
+    """Tâche quotidienne : fenêtre fermée → plus aucune session sur un compte de revue."""
+    if review_window_open():
+        return 0
+    revoked = 0
+    for user in User.objects.filter(
+        is_review_account=True,
+        device_sessions__revoked_at__isnull=True,
+    ).distinct():
+        revoked += end_review_sessions(user)
+    return revoked
 
 
 def record_use(user: User, *, app: str, purpose: str, challenge_public_id) -> None:
@@ -95,8 +143,14 @@ def rotate_code(*, user: User, operator: str, second_operator: str, reason_code:
     code = f"{secrets.randbelow(10**6):06d}"
     ReviewAccess.objects.update_or_create(
         user=user,
-        defaults={"code_hash": _hash(user, code), "rotated_by_operator": operator[:64]},
+        defaults={
+            "code_hash": _hash(user, code),
+            "rotated_by_operator": operator[:64],
+            "failed_attempts": 0,
+        },
     )
+    # Les sessions ouvertes avec l'ancien code (soumission précédente) sont coupées (I1).
+    end_review_sessions(user)
     audit(
         action="accounts.review_account.code_rotated",
         actor_kind=AuditEvent.ActorKind.OPS,

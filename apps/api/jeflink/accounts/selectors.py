@@ -64,7 +64,8 @@ def has_group_permission(user: User, app_label: str, codename: str) -> bool:
 
 def pending_invitations_for(user: User) -> QuerySet[RoleInvitation]:
     """Invitations en attente pour le numéro du compte, d'un gérant toujours actif (revue, I1)."""
-    if not user.phone:
+    # Compte de revue des stores : aucune invitation d'un vrai pro ne lui est montrée (M5).
+    if not user.phone or user.is_review_account:
         return RoleInvitation.objects.none()
     inviter_is_owner = RoleGrant.objects.filter(
         user=OuterRef("invited_by"), role=Role.OWNER, revoked_at__isnull=True

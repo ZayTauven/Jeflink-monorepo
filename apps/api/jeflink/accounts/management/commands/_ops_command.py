@@ -135,11 +135,21 @@ class OpsCommand(BaseCommand):
         )
 
     def check_token_destination(self, options: dict) -> None:
-        """Avant toute écriture : refuse d'émettre un jeton qui finirait dans un journal."""
+        """Avant toute écriture : refuse d'émettre un jeton qui finirait dans un journal. Le
+        fichier est créé tout de suite (0600, jamais écrasé) : le jeton ne peut plus être perdu
+        après le commit (revue sécurité tâche 17, M7)."""
         path = options.get("token_file")
+        self._token_handle = None
+        self._token_path = None
         if path:
-            if os.path.exists(path):
-                raise CommandError("--token-file : le fichier existe déjà.")
+            try:
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            except FileExistsError as exc:
+                raise CommandError("--token-file : le fichier existe déjà.") from exc
+            except OSError as exc:
+                raise CommandError("--token-file : impossible de créer le fichier.") from exc
+            self._token_handle = os.fdopen(fd, "w", encoding="utf-8")
+            self._token_path = path
         elif not self.stdout.isatty():
             raise CommandError("Hors terminal, --token-file est obligatoire (jeton d'enrôlement).")
 
@@ -149,14 +159,26 @@ class OpsCommand(BaseCommand):
         token: str,
         label: str = "Jeton d'enrôlement TOTP (24 h, usage unique)",
     ) -> None:
-        path = options.get("token_file")
-        if path:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle = getattr(self, "_token_handle", None)
+        if handle is not None:
+            with handle:
                 handle.write(f"{token}\n")
-            self.stdout.write(f"{label} : écrit dans {path}.")
+            self._token_handle = None
+            self.stdout.write(f"{label} : écrit dans {self._token_path}.")
         else:
             self.stdout.write(f"{label} : {token}")
+
+    def execute(self, *args, **options):
+        try:
+            return super().execute(*args, **options)
+        except BaseException:
+            # Échec avant la remise : on retire le fichier vide, pour pouvoir relancer.
+            handle = getattr(self, "_token_handle", None)
+            if handle is not None:
+                handle.close()
+                os.unlink(self._token_path)
+                self._token_handle = None
+            raise
 
     @staticmethod
     def resolve_groups(names: list[str]) -> list[Group]:

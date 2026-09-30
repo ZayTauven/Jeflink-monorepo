@@ -13,7 +13,7 @@ from rest_framework.request import Request
 from jeflink.common.errors import DomainError
 
 from .models import User
-from .sessions import session_state, touch_session
+from .sessions import account_allowed, session_state, touch_session
 from .tokens import decode_access
 
 
@@ -44,6 +44,7 @@ class SessionJWTAuthentication(BaseAuthentication):
             or user.deleted_at is not None
             or user.is_staff
             or user.is_superuser
+            or not account_allowed(user)
         ):
             raise AuthenticationFailed(code="account_disabled")
         # La restriction vient de la base (via le cache), pas du jeton : une levée par l'Ops

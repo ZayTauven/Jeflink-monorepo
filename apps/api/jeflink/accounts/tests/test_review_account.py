@@ -242,3 +242,163 @@ def test_check_compte_reel_sur_un_numero_de_revue(user_factory):
     assert review_accounts(None, databases=["default"]) == []
     user_factory(phone=REVIEW)
     assert [e.id for e in review_accounts(None, databases=["default"])] == ["accounts.E105"]
+
+
+# --- Corrections de la revue sécurité (tâche 17) ------------------------------------------------
+
+
+def test_rotation_du_code_coupe_les_sessions(admins):
+    """I1 : la soumission suivante ne garde aucune session de la précédente."""
+    from jeflink.accounts.sessions import refresh_session
+
+    tokens = login(create(admins)).json()["tokens"]
+    create(admins, reason="code_rotation")
+    with pytest.raises(DomainError) as exc:
+        refresh_session(tokens["refresh"])
+    assert exc.value.code == "session_revoked"
+
+
+def test_fin_de_fenetre_coupe_l_acces(admins, settings):
+    """I1 : après OTP_REVIEW_ENABLED_UNTIL, ni accès, ni refresh, et la purge révoque."""
+    from jeflink.accounts.purge import close_expired
+    from jeflink.accounts.sessions import refresh_session
+
+    tokens = login(create(admins)).json()["tokens"]
+    settings.OTP_REVIEW_ENABLED_UNTIL = (timezone.now() - timedelta(minutes=1)).isoformat()
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+    assert client.get(reverse("me")).json() == {"code": "account_disabled"}
+    with pytest.raises(DomainError):
+        refresh_session(tokens["refresh"])
+    assert close_expired().counts["review_sessions_ended"] == 1
+    assert not DeviceSession.objects.filter(revoked_at__isnull=True).exists()
+
+
+def test_autres_appareils_jamais_montres_a_l_equipe_de_revue(admins):
+    code = create(admins)
+    login(code)
+    assert login(code).json()["other_sessions"] == []
+
+
+def test_code_invalide_apres_20_echecs(admins):
+    """I2 : la force brute est bornée ; il faut relancer la commande."""
+    from jeflink.accounts.review_accounts import MAX_CODE_FAILURES, review_code_matches
+
+    code = create(admins)
+    user = User.objects.get(phone=REVIEW)
+    for _ in range(MAX_CODE_FAILURES):
+        assert not review_code_matches(user, "000000" if code != "000000" else "111111")
+    assert ReviewAccess.objects.get(user=user).code_hash == ""
+    assert not review_code_matches(user, code)
+    create(admins, reason="code_rotation")
+    assert ReviewAccess.objects.get(user=user).failed_attempts == 0
+
+
+def test_la_commande_leve_le_blocage_du_numero(admins):
+    """I2 : un tiers qui bloque le numéro ne fait pas échouer la soumission."""
+    from jeflink.accounts.otp_limits import block_phone, phone_blocked_until
+
+    create(admins)
+    block_phone(REVIEW)
+    assert phone_blocked_until(REVIEW) is not None
+    create(admins, reason="code_rotation")
+    assert phone_blocked_until(REVIEW) is None
+
+
+def test_renvoi_comme_un_vrai_numero(admins):
+    """M1, M2 : délai et plafond de renvoi identiques, jamais d'erreur 500."""
+    create(admins)
+    client = APIClient()
+    challenge = request_code(client, REVIEW).json()
+    payload = {
+        "challenge_id": challenge["challenge_id"],
+        "challenge_secret": challenge["challenge_secret"],
+    }
+    response = client.post(reverse("auth-otp-resend"), payload, format="json")
+    assert response.status_code == 429
+    assert response.json()["code"] == "otp_resend_too_early"
+    assert FakeSmsGateway.outbox == []
+
+
+def test_numero_bloque_refuse_aussi_en_revue(admins):
+    """M6(e) : le blocage progressif s'applique au numéro de revue."""
+    from jeflink.accounts.otp_limits import block_phone
+
+    create(admins)
+    block_phone(REVIEW)
+    response = request_code(APIClient(), REVIEW)
+    assert response.status_code == 429
+
+
+def test_compte_reel_sur_un_numero_liste(user_factory):
+    """M6(a) : sans compte marqué, le code de revue n'existe pas : SMS normal."""
+    user_factory(phone=REVIEW)
+    client = APIClient()
+    challenge = request_code(client, REVIEW).json()
+    assert FakeSmsGateway.outbox[-1].to == REVIEW
+    assert verify(client, challenge, last_code()).status_code == 200
+
+
+def test_code_de_revue_hors_app_mobile(admins):
+    """M6(b) : web et console n'ouvrent jamais la voie de revue."""
+    from jeflink.accounts.review_accounts import review_user_for
+
+    create(admins)
+    assert review_user_for(REVIEW, "client") is not None
+    assert review_user_for(REVIEW, "web") is None
+    assert review_user_for(REVIEW, "console") is None
+
+
+def test_code_du_numero_a_refuse_sur_le_numero_b(admins, settings):
+    """M6(c) : le code est lié au compte (HMAC sur le public_id)."""
+    other = "+221770000043"
+    settings.OTP_REVIEW_ACCOUNTS = [REVIEW, other]
+    code_a = create(admins)
+    out = StringIO()
+    call_command(
+        "create_review_account", "--phone", other,
+        "--operator", str(admins[0].public_id), "--second-operator", str(admins[1].public_id),
+        "--reason", "store_submission", stdout=out,
+    )  # fmt: skip
+    client = APIClient()
+    challenge = request_code(client, other).json()
+    code_b = out.getvalue().rsplit(" : ", 1)[1].strip()
+    wrong = code_a if code_a != code_b else f"{(int(code_a) + 1) % 10**6:06d}"
+    assert verify(client, challenge, wrong).json()["code"] == "otp_invalid"
+
+
+def test_numero_de_revue_jamais_nouveau_numero(admins, complete_user_factory):
+    """M5 : un changement de numéro ne peut pas viser la SIM de revue."""
+    from jeflink.accounts.phone_change import request_phone_change
+
+    admin = admins[0]
+    target = complete_user_factory()
+    with pytest.raises(DomainError) as exc:
+        request_phone_change(
+            actor=admin, public_id=target.public_id, new_phone=REVIEW, reason_code="number_changed"
+        )
+    assert exc.value.code == "phone_in_use"
+
+
+def test_compte_de_revue_desactive_non_reactivable(admins, user_factory):
+    """M8 : la désactivation est un coupe-circuit ; seule la commande rouvre."""
+    from jeflink.accounts.ops import ops_deactivate, ops_reactivate
+
+    create(admins)
+    review = User.objects.get(phone=REVIEW)
+    ops_deactivate(actor=admins[0], public_id=review.public_id, reason_code="ops_other")
+    with pytest.raises(DomainError) as exc:
+        ops_reactivate(actor=admins[1], public_id=review.public_id, reason_code="user_verified")
+    assert exc.value.code == "ops_target_forbidden"
+
+
+def test_fichier_du_code_retire_si_la_commande_echoue(admins, tmp_path):
+    """M7 : un échec ne laisse pas de fichier vide qui bloquerait la relance."""
+    path = tmp_path / "code.txt"
+    with pytest.raises(CommandError):
+        call_command(
+            "create_review_account", "--phone", REVIEW,
+            "--operator", str(admins[0].public_id), "--second-operator", str(admins[0].public_id),
+            "--reason", "store_submission", "--token-file", str(path), stdout=StringIO(),
+        )  # fmt: skip
+    assert not path.exists()

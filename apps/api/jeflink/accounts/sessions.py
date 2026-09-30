@@ -53,6 +53,7 @@ _SYSTEM_REASONS = frozenset(
         DeviceSession.RevokedReason.ACCOUNT_DISABLED,
         DeviceSession.RevokedReason.MFA_LOCKED,
         DeviceSession.RevokedReason.MFA_RESET,
+        DeviceSession.RevokedReason.REVIEW_ENDED,
     }
 )
 
@@ -192,9 +193,18 @@ def _extend_idle(session: DeviceSession, now: datetime) -> None:
 
 
 def account_allowed(user: User) -> bool:
-    """Compte autorisé à détenir une session API : actif, non supprimé, non technique (S3)."""
+    """Compte autorisé à détenir une session API : actif, non supprimé, non technique (S3).
+
+    Le compte de revue des stores ne vaut que pendant la fenêtre de revue (S17, I1).
+    """
+    from .review_accounts import review_window_open
+
     return (
-        user.is_active and user.deleted_at is None and not user.is_staff and not user.is_superuser
+        user.is_active
+        and user.deleted_at is None
+        and not user.is_staff
+        and not user.is_superuser
+        and (not user.is_review_account or review_window_open())
     )
 
 

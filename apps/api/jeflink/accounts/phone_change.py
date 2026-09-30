@@ -48,6 +48,7 @@ from .otp import (
 )
 from .otp_limits import phone_blocked_until, record_verified, resend_delay, reserve_sms
 from .phone import normalize_phone, phone_region
+from .review_accounts import is_review_phone
 from .selectors import has_role
 from .sessions import account_allowed, create_session, revoke_all_sessions
 
@@ -196,7 +197,8 @@ def request_phone_change(
         raise DomainError("account_disabled", status=409)
     if phone == user.phone:
         raise DomainError("phone_unchanged")
-    if User.objects.filter(phone=phone).exists():
+    # Numéro pris, ou numéro de revue des stores (SIM Jeflink) : jamais un nouveau numéro (M5).
+    if User.objects.filter(phone=phone).exists() or is_review_phone(phone):
         raise DomainError("phone_in_use", status=409)
     # Quota bas par Ops : un Admin compromis ne change pas des numéros en série (I4).
     _consume_quota(actor, "phone_change")

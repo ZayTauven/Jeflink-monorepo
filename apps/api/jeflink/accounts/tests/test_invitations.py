@@ -338,9 +338,10 @@ def test_refus_du_gestionnaire_annule_tout(invite, complete_user_factory, handle
 def test_compte_de_revue_ne_recoit_pas_de_role(invite, complete_user_factory):
     cheikh = complete_user_factory(phone=CHEIKH, is_review_account=True)
     invitation = invite()
+    # Le compte de revue ne voit aucune invitation d'un vrai pro (revue tâche 17, M5).
     with pytest.raises(DomainError) as exc:
         accept_invitation(user=cheikh, invitation_public_id=invitation.public_id)
-    assert exc.value.code == "role_not_allowed"
+    assert exc.value.code == "not_found"
     invitation.refresh_from_db()
     assert invitation.status == "pending"
 
@@ -595,11 +596,8 @@ def test_nom_saisi_a_l_acceptation(api_client, invite, user_factory):
     assert cheikh.display_name == "Cheikh Ndiaye"
 
 
-def test_role_non_autorise_en_403(api_client, invite, complete_user_factory):
-    """M5 : le contrat annonce 403 pour role_not_allowed."""
-    cheikh = complete_user_factory(phone=CHEIKH, is_review_account=True)
-    response = bearer(api_client, cheikh).post(
-        reverse("me-invitation-accept", args=[invite().public_id]), {}, format="json"
-    )
-    assert response.status_code == 403
-    assert response.json() == {"code": "role_not_allowed"}
+def test_role_non_autorise_en_403(complete_user_factory):
+    """M5 : role_not_allowed est un 403 (contrat OpenAPI)."""
+    with pytest.raises(DomainError) as exc:
+        grant_role(user=complete_user_factory(is_staff=True), role=Role.OWNER, reason_code="t")
+    assert (exc.value.code, exc.value.status_code) == ("role_not_allowed", 403)

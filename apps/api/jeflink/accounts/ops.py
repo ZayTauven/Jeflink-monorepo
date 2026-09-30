@@ -270,7 +270,9 @@ def ops_reactivate(*, actor: User, public_id, reason_code: str, note: str = "") 
     """Après ``fraud``, seul un Ops différent de celui qui a désactivé peut réactiver (S30)."""
     _check_reason("reactivate", reason_code)
     note = clean_note(note)
-    target = _locked_target(actor, public_id, allow_review_account=True)
+    # Compte de revue : la désactivation est un coupe-circuit ; seule la commande à deux Admin
+    # le rouvre, avec un nouveau code (revue sécurité tâche 17, M8).
+    target = _locked_target(actor, public_id, allow_review_account=False)
     if target.is_deleted:
         raise DomainError("not_found", status=404)
     if target.is_active:
