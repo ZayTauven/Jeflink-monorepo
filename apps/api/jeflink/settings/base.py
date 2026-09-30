@@ -35,6 +35,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "jeflink.common.request_context.RequestIdMiddleware",
+    "jeflink.common.client_ip.TrustedClientIpMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -106,6 +107,8 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "jeflink.common.pagination.CreatedCursorPagination",
     "PAGE_SIZE": 20,
     "EXCEPTION_HANDLER": "jeflink.common.api.exceptions.exception_handler",
+    # Limites par IP déclarées par vue (rate_limit_scope) ; voir IP_RATE_LIMITS.
+    "DEFAULT_THROTTLE_CLASSES": ["jeflink.common.api.throttling.IpRateThrottle"],
 }
 
 SPECTACULAR_SETTINGS = {
@@ -154,6 +157,29 @@ OTP_HMAC_KEY = env("OTP_HMAC_KEY", default="")
 MFA_ENCRYPTION_KEYS = env.list("MFA_ENCRYPTION_KEYS", default=[])
 BFF_SHARED_SECRETS = env.list("BFF_SHARED_SECRETS", default=[])
 PII_HMAC_KEY = env("PII_HMAC_KEY", default="")
+
+# --- Limites de débit (spec 001, « Limites de débit ») ---------------------------------
+# Redis dédié à l'auth en production (noeviction, tâche infra 2).
+RATELIMIT_REDIS_URL = env("RATELIMIT_REDIS_URL", default=env("REDIS_CACHE_URL", default=REDIS_URL))
+# Hôtes par lesquels le BFF joint l'API sur le réseau interne : seuls à pouvoir fixer l'IP (S9).
+INTERNAL_API_HOSTS = env.list("INTERNAL_API_HOSTS", default=["api"])
+# Par IP, larges à cause du CGNAT des opérateurs mobiles. fail_open : seulement la sonde.
+IP_RATE_LIMITS = {
+    "health": {"limit": 120, "window": 60, "fail_open": True},
+    "api_docs": {"limit": 60, "window": 60, "fail_open": True},  # local/test seulement
+    "auth_config": {"limit": 120, "window": 60},
+    "otp_request": {"limit": 30, "window": 600},
+    "otp_verify": {"limit": 60, "window": 600},
+    "token_refresh": {"limit": 60, "window": 60},
+    "phone_change_confirm": {"limit": 20, "window": 600},
+}
+OTP_PHONE_BLOCK_MAX_HOURS = 24
+SMS_DAILY_CAP = env.int("SMS_DAILY_CAP", default=5000)
+SMS_DAILY_CAP_BY_REGION = {"SN": env.int("SMS_DAILY_CAP_SN", default=5000)}
+SMS_PREFIX_HOURLY_CAP = env.int("SMS_PREFIX_HOURLY_CAP", default=600)
+SMS_BLOCK_HOURLY_CAP = env.int("SMS_BLOCK_HOURLY_CAP", default=30)
+SMS_CONVERSION_MIN_RATE = 0.2
+SMS_CONVERSION_MIN_VOLUME = 50
 
 # Schéma OpenAPI servi seulement en local/test ; `make openapi` le génère hors ligne (S24).
 SERVE_API_SCHEMA = DJANGO_ENV in {"local", "test"}

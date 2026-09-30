@@ -136,3 +136,18 @@ class RoleGrant(BaseModel):
                 name="rolegrant_one_active_per_role",
             ),
         ]
+
+
+class OtpPhoneBlock(models.Model):
+    """Blocage progressif des nouveaux challenges d'un numéro après trop d'échecs (S8).
+
+    Le numéro n'est jamais stocké : seul son HMAC. Les sessions existantes ne sont pas touchées.
+    """
+
+    phone_hmac = models.CharField(max_length=64, unique=True)
+    level = models.PositiveSmallIntegerField(default=0)
+    blocked_until = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"blocage niveau {self.level}"

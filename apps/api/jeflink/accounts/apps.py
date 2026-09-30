@@ -7,7 +7,7 @@ class AccountsConfig(AppConfig):
     verbose_name = "Comptes"
 
     def ready(self) -> None:
-        from jeflink.trust.services import register_audit_schema
+        from jeflink.trust.services import MaskedPhone, PhoneHmac, register_audit_schema
 
         role_fields: dict[str, type] = {
             "role": str,
@@ -28,3 +28,11 @@ class AccountsConfig(AppConfig):
                 "bootstrap": bool,
             },
         )
+        register_audit_schema(
+            "accounts.otp.phone_blocked",
+            {"phone_masked": MaskedPhone, "phone_hmac": PhoneHmac, "level": int, "hours": int},
+        )
+        register_audit_schema(
+            "ops.accounts.otp_unblocked", {"phone_hmac": PhoneHmac, "reason_code": str}
+        )
+        register_audit_schema("system.sms_cap.reached", {"cap": str, "region": str})

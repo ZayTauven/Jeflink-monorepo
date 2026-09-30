@@ -8,6 +8,7 @@ _TEST_ENV = {
     "SECRET_KEY": "test-secret-key-not-used-anywhere-else-0000",
     "REDIS_URL": "redis://redis:6379/15",
     "REDIS_CACHE_URL": "redis://redis:6379/14",
+    "RATELIMIT_REDIS_URL": "redis://redis:6379/13",
     "JWT_SIGNING_KEYS": (
         "t1:test-jwt-key-one-aaaaaaaaaaaaaaaaaaaaaaaa,t2:test-jwt-key-two-bbbbbbbbbbbbbbbbbbbbbbbb"
     ),
