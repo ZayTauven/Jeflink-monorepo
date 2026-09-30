@@ -257,7 +257,7 @@ Autres règles :
 | Global quotidien (`SMS_DAILY_CAP`, total et par région)                                                  | Alertes à 50 % et 80 %                                                                                                  | `503 otp_temporarily_unavailable` **au plafond dur seulement**, `system.sms_cap.reached`                                                    |
 | Taux de conversion (vérifiés/envoyés, 1 h glissante)                                                     | Moins de 20 %                                                                                                           | Ralentissement (délai de renvoi doublé, plafonds de préfixe divisés par 2) + alerte                                                         |
 
-Si Redis ne répond pas, on compte en base à partir de `OtpDelivery` pour les limites « numéro ». À défaut, l'API répond `503 otp_temporarily_unavailable`. On ne tombe **jamais en mode ouvert** (S8). Chaque vue `AllowAny` déclare sa limite, et un test le vérifie (S29).
+Si Redis ne répond pas, `reserve_sms` compte en base à partir de `OtpDelivery` (numéro, total du jour, région). À défaut, l'API répond `503 otp_temporarily_unavailable`. On ne tombe **jamais en mode ouvert** (S8). Conséquence assumée (revue sécurité du 2026-09-30) : la limite par IP de `otp/request` refuse elle aussi quand Redis tombe, donc **une panne Redis coupe les nouvelles connexions OTP** ; les sessions ouvertes continuent. Chaque vue `AllowAny` déclare sa limite et garde `IpRateThrottle`, un test le vérifie (S29). Les IPv6 sont comptées par /64.
 
 **Demande (`otp/request`) :**
 
@@ -663,7 +663,7 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
   1. [sécu] gitleaks en pre-commit et en CI.
   2. [sécu] Redis dédié à l'auth : authentification, TLS hors réseau privé, `noeviction`.
   3. Service Celery `beat` dans `infra/docker-compose.yml`.
-  4. Reverse proxy : pose `REMOTE_ADDR`, n'expose pas `/api/schema/` ni l'admin en production.
+  4. Reverse proxy : pose `REMOTE_ADDR` (PROXY protocol ou `--proxy-headers` avec liste stricte), rejette `Host: api` et les hôtes inconnus, retire tout en-tête `X-Jeflink-*` venu de l'extérieur, n'expose pas `/api/schema/` ni l'admin en production (accès par réseau, pas par `Host`). `BFF_TRUSTED_NETWORKS` = CIDR du réseau interne du BFF.
 - api :
   1. [sécu] **`trust` minimal** : `AuditEvent`, `audit()` avec schémas par action, écriture hors transaction sur les chemins d'erreur, admin en lecture seule, tests.
   2. [sécu] **`common`** : `pii.py` (`mask_phone`, `phone_hmac`), filtre de logs (motifs et clés de S14), `gsm7.py`, tests.
@@ -682,10 +682,10 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
   15. [sécu] **Endpoints Ops** : `search`, détail, `reveal-phone`, `revoke-sessions`, `unblock-otp`, `deactivate`/`reactivate`, règles de cible, motifs énumérés, tests.
   16. [sécu] **Changement de numéro** : `PhoneChangeRequest`, approbation par un second Ops, challenge `change_phone`, `phone-change/confirm`, SMS à l'ancien numéro, tests.
   17. [sécu] **Compte de revue des stores** : `create_review_account`, bornes, checks au démarrage, alertes, tests.
-  18. **Purge** : `purge_auth_data` + `CELERY_BEAT_SCHEDULE`, tests.
+  18. **Purge** : `purge_auth_data` + `CELERY_BEAT_SCHEDULE` (y compris les `OtpPhoneBlock` expirés depuis plus de 24 h et les `RetiredRefreshToken` des sessions purgées), tests.
   19. **Contrat et documentation** : `make openapi`. Mise à jour de `apps/api/CLAUDE.md` (Bearer seul, classes de permission, `trust.audit`, `notifications.sms.fake`, `register_anonymizer` dans la définition de « done ») et de `ARCHITECTURE.md`. Registre des traitements et note sur la rotation des sauvegardes (S16, S22). Procédure support écrite (S2, S18).
   20. [sécu] **Adaptateur SMS réel**, bloqué par Q7 : adaptateur, DLR si disponible, tests avec réponses enregistrées.
-  21. [sécu] **Second facteur de l'admin Django** (`django-otp` ou équivalent, dépendance justifiée dans la PR), en plus de l'hôte interne (infra 4). Relevé par la revue sécurité du 2026-09-30 : aucune tâche ne le couvrait.
+  21. [sécu] **Second facteur de l'admin Django** (`django-otp` ou équivalent, dépendance justifiée dans la PR), en plus de l'hôte interne (infra 4). Relevé par la revue sécurité du 2026-09-30 : aucune tâche ne le couvrait. Y ajouter une limite de débit sur la page de connexion de l'admin (vue non DRF).
 - packages/api-client :
   1. `http.ts` : `Authorization` par appel prioritaire, `onUnauthorized` (un seul refresh, un rejeu), `X-Requested-With`. Tests unitaires.
   2. [sécu] `src/bff/` (`server-only`) :
@@ -741,3 +741,6 @@ Chaque question porte la proposition de l’architecte et, quand il existe, l’
 17. **Q17 — Compte dormant.** ✅ _Tranché par Zay le 2026-09-30._ **60 jours** d'inactivité. Règle livrée en V1 (voir « Sessions et jetons »).
 18. **Q18 — Délai de recyclage des numéros.** ✅ _Recherche faite le 2026-09-30 (sources publiques)._ Aucune règle sénégalaise publique n'a été trouvée (ARTP, Orange, Yas). Référence régionale : ARTP-Togo, 3 mois d'inactivité puis réattribution 3 mois après désactivation. Au Sénégal, plus de 1,5 million de numéros ont été désactivés en 2025. Conséquence : la règle « compte dormant » passe en V1. Reste ouvert, sans bloquer : une confirmation écrite de l'ARTP ou d'un opérateur, que seule l'entreprise peut demander.
 19. **Q19 — Verrou local de l'app Pro** ✅ _Proposition acceptée par Zay le 2026-09-30._ Retenu : verrou local de l'app Pro livré en V1, **optionnel** (désactivé par défaut, activable dans « Mon compte »). Question d'origine : (code ou biométrie de l'appareil, `expo-local-authentication`) : oui ou non en V1 ?
+20. **Q20 — Pompage de SMS et plafond global** (revue sécurité de la tâche 7). Un attaquant qui vise des numéros au hasard peut épuiser `SMS_DAILY_CAP` en quelques heures : toutes les nouvelles connexions répondent alors 503 pour la journée. Deux parades à arbitrer :
+    - (a) réserver une part du plafond global aux numéros qui ont déjà un compte (les campagnes de pompage visent des numéros inconnus) ;
+    - (b) inscrire dans la procédure d'alerte : à 50 %/80 % du plafond, activer `OTP_CHALLENGE_REQUIRED` (attestation d'appareil, CAPTCHA web).

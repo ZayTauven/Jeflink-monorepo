@@ -162,8 +162,10 @@ PII_HMAC_KEY = env("PII_HMAC_KEY", default="")
 # --- Limites de débit (spec 001, « Limites de débit ») ---------------------------------
 # Redis dédié à l'auth en production (noeviction, tâche infra 2).
 RATELIMIT_REDIS_URL = env("RATELIMIT_REDIS_URL", default=env("REDIS_CACHE_URL", default=REDIS_URL))
-# Hôtes par lesquels le BFF joint l'API sur le réseau interne : seuls à pouvoir fixer l'IP (S9).
+# Le BFF ne peut fixer l'IP cliente que depuis un réseau interne déclaré, par un hôte interne,
+# avec le secret (S9). Par défaut, aucun réseau n'est de confiance.
 INTERNAL_API_HOSTS = env.list("INTERNAL_API_HOSTS", default=["api"])
+BFF_TRUSTED_NETWORKS = env.list("BFF_TRUSTED_NETWORKS", default=[])
 # Par IP, larges à cause du CGNAT des opérateurs mobiles. fail_open : seulement la sonde.
 IP_RATE_LIMITS = {
     "health": {"limit": 120, "window": 60, "fail_open": True},

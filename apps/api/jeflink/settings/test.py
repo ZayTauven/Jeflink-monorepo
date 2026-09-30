@@ -9,6 +9,7 @@ _TEST_ENV = {
     "REDIS_URL": "redis://redis:6379/15",
     "REDIS_CACHE_URL": "redis://redis:6379/14",
     "RATELIMIT_REDIS_URL": "redis://redis:6379/13",
+    "BFF_TRUSTED_NETWORKS": "10.0.0.0/8,127.0.0.1/32",
     "JWT_SIGNING_KEYS": (
         "t1:test-jwt-key-one-aaaaaaaaaaaaaaaaaaaaaaaa,t2:test-jwt-key-two-bbbbbbbbbbbbbbbbbbbbbbbb"
     ),

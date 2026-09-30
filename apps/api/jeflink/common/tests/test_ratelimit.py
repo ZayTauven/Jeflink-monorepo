@@ -8,6 +8,7 @@ from jeflink.common.ratelimit import (
     client,
     consume,
     count,
+    hit_threshold,
     reset,
 )
 
@@ -65,3 +66,10 @@ def test_redis_injoignable(redis_down):
         consume([(A, "x")])
     with pytest.raises(RateLimitUnavailable):
         count(A, "x")
+
+
+def test_seuil_declenche_une_seule_fois():
+    seuil = Limit("test:seuil", 3, 60)
+    assert [hit_threshold(seuil, "x") for _ in range(3)] == [False, False, True]
+    # La fenêtre repart de zéro après le déclenchement.
+    assert [hit_threshold(seuil, "x") for _ in range(3)] == [False, False, True]

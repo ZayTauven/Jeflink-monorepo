@@ -13,3 +13,5 @@ from .base import env
 DEBUG = env.bool("DEBUG", default=True)
 SMS_GATEWAY = env("SMS_GATEWAY", default="fake")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "api"])
+# Réseau Docker Compose : le BFF local joint l'API par le réseau privé.
+BFF_TRUSTED_NETWORKS = env.list("BFF_TRUSTED_NETWORKS", default=["172.16.0.0/12", "127.0.0.1/32"])

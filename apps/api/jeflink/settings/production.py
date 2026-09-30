@@ -10,6 +10,12 @@ if DJANGO_ENV not in {"staging", "production"}:
         f"settings.production exige DJANGO_ENV=staging ou production (reçu : {DJANGO_ENV})."
     )
 
+# Redis de limitation dédié et sans éviction (S7) : obligatoire, distinct du cache et du broker.
+RATELIMIT_REDIS_URL = env("RATELIMIT_REDIS_URL")
+if RATELIMIT_REDIS_URL in {env("REDIS_URL"), env("REDIS_CACHE_URL", default="")}:
+    raise ImproperlyConfigured("RATELIMIT_REDIS_URL doit viser une base Redis dédiée.")
+BFF_TRUSTED_NETWORKS = env.list("BFF_TRUSTED_NETWORKS")
+
 DEBUG = False
 SERVE_API_SCHEMA = False
 

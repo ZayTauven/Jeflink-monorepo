@@ -6,6 +6,7 @@ from django.utils import timezone
 from jeflink.accounts import otp_limits
 from jeflink.accounts.models import OtpPhoneBlock
 from jeflink.accounts.otp_limits import (
+    FallbackCounts,
     block_phone,
     is_prefix_slowed,
     phone_blocked_until,
@@ -110,8 +111,12 @@ def test_blocage_apres_dix_echecs_puis_progression():
     assert exc.value.code == "otp_rate_limited"
     reserve(new_challenge=False)  # un renvoi sur un challenge existant reste possible
 
-    levels = [block_phone(PHONE).level for _ in range(6)]
-    assert levels == [2, 3, 4, 5, 6, 7]
+    levels = []
+    for _ in range(6):
+        # Le blocage précédent vient d'expirer (moins de 24 h avant) : le palier monte.
+        OtpPhoneBlock.objects.update(blocked_until=timezone.now() - timedelta(minutes=1))
+        levels.append(block_phone(PHONE).level)
+    assert levels == [2, 3, 4, 5, 6, 6]  # niveau borné à 6
     block = OtpPhoneBlock.objects.get()
     assert block.blocked_until - timezone.now() <= timedelta(hours=24)
     event = AuditEvent.objects.filter(action="accounts.otp.phone_blocked").first()
@@ -131,7 +136,7 @@ def test_niveau_repart_a_un_apres_une_periode_calme():
 def test_levee_par_l_ops(user_factory):
     ops = user_factory()
     block_phone(PHONE)
-    assert unblock_phone(PHONE, actor=ops, reason_code="support_verified")
+    assert unblock_phone(PHONE, actor=ops, reason_code="support_verified", target=ops)
     assert phone_blocked_until(PHONE) is None
     reserve()
     assert AuditEvent.objects.filter(action="ops.accounts.otp_unblocked").count() == 1
@@ -165,16 +170,70 @@ def test_redis_injoignable_sans_repli_refuse(redis_down):
     assert code_of(exc) == ("otp_temporarily_unavailable", 503)
 
 
+def counts(hour=0, day=0, total=0, region=0):
+    return lambda phone, region_code: FallbackCounts(hour, day, total, region)
+
+
 @pytest.mark.django_db
-def test_redis_injoignable_repli_en_base(redis_down):
-    reserve(fallback=lambda phone: (4, 4))
-    with pytest.raises(DomainError) as exc:
-        reserve(fallback=lambda phone: (5, 5))
-    assert exc.value.code == "otp_rate_limited"
-    with pytest.raises(DomainError):
-        reserve(fallback=lambda phone: (0, 8))
+def test_redis_injoignable_repli_en_base(redis_down, settings):
+    settings.SMS_DAILY_CAP = 100
+    settings.SMS_DAILY_CAP_BY_REGION = {"SN": 50}
+    reserve(fallback=counts(4, 4, 10, 10))
+    for fallback, code in [
+        (counts(5, 5), "otp_rate_limited"),
+        (counts(0, 8), "otp_rate_limited"),
+        (counts(total=100), "otp_temporarily_unavailable"),  # plafond global tenu sans Redis
+        (counts(region=50), "otp_temporarily_unavailable"),
+    ]:
+        with pytest.raises(DomainError) as exc:
+            reserve(fallback=fallback)
+        assert exc.value.code == code
 
 
 @pytest.mark.django_db
 def test_echecs_sans_redis_ne_plantent_pas(redis_down):
     assert record_verify_failure(PHONE) is False
+
+
+@durable_db
+def test_echecs_concurrents_un_seul_palier():
+    """20 échecs simultanés autour du seuil : un seul blocage, niveau 1 (pas de saut)."""
+    import threading
+
+    from django.db import connections
+
+    def fail():
+        try:
+            record_verify_failure(PHONE)
+        finally:
+            connections.close_all()
+
+    threads = [threading.Thread(target=fail) for _ in range(20)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+    assert OtpPhoneBlock.objects.get().level == 1
+    assert AuditEvent.objects.filter(action="accounts.otp.phone_blocked").count() == 1
+
+
+@durable_db
+def test_blocage_actif_non_aggrave():
+    first = block_phone(PHONE)
+    assert block_phone(PHONE).level == first.level == 1
+
+
+@pytest.mark.django_db
+def test_alerte_au_plafond_de_prefixe(settings, caplog):
+    settings.SMS_PREFIX_HOURLY_CAP = 1
+    reserve(phone="+221771111111")
+    with caplog.at_level("WARNING", logger="jeflink.alerts"), pytest.raises(DomainError):
+        reserve(phone="+221772222222")
+    assert "sms_prefix_cap_reached" in caplog.text
+    assert "771111111" not in caplog.text and "772222222" not in caplog.text
+
+
+@pytest.mark.django_db
+def test_volume_minimal_nul_sans_division_par_zero(settings):
+    settings.SMS_CONVERSION_MIN_VOLUME = 0
+    assert not is_prefix_slowed(PHONE)
