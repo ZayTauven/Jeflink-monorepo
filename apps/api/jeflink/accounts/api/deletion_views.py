@@ -18,10 +18,12 @@ from .serializers import (
 )
 
 BLOCKED = OpenApiResponse(description="account_deletion_blocked (+ reasons)")
+FORBIDDEN = OpenApiResponse(description="session_restricted, account_disabled")
 
 
 class DeletionOtpView(APIView):
     permission_classes = [IsClient]
+    rate_limit_scope = "me_deletion"
 
     @extend_schema(
         tags=["me"],
@@ -30,8 +32,11 @@ class DeletionOtpView(APIView):
         request=None,
         responses={
             202: OtpChallengeResponseSerializer,
+            400: OpenApiResponse(description="idempotency_key_required"),
+            403: FORBIDDEN,
             409: BLOCKED,
             429: OpenApiResponse(description="otp_rate_limited (+ retry_after)"),
+            503: OpenApiResponse(description="otp_temporarily_unavailable"),
         },
     )
     def post(self, request: Request) -> Response:
@@ -46,6 +51,7 @@ class DeletionOtpView(APIView):
 
 class DeletionView(APIView):
     permission_classes = [IsClient]
+    rate_limit_scope = "me_deletion"
 
     @extend_schema(
         tags=["me"],
@@ -53,8 +59,16 @@ class DeletionView(APIView):
         request=DeletionConfirmSerializer,
         responses={
             204: None,
-            400: OpenApiResponse(description="otp_invalid, otp_expired, otp_challenge_invalid"),
-            409: BLOCKED,
+            400: OpenApiResponse(
+                description=(
+                    "otp_invalid (+ attempts_remaining), otp_expired, otp_challenge_invalid"
+                )
+            ),
+            403: FORBIDDEN,
+            409: OpenApiResponse(
+                description="account_deletion_blocked (+ reasons), otp_already_used"
+            ),
+            429: OpenApiResponse(description="otp_locked"),
         },
     )
     def post(self, request: Request) -> Response:
@@ -68,6 +82,7 @@ class FreshStartView(APIView):
     """Session restreinte (compte dormant, client) : « Repartir de zéro »."""
 
     permission_classes = [AllowRestrictedSession]
+    rate_limit_scope = "me_deletion"
 
     @extend_schema(
         tags=["me"],
@@ -75,7 +90,9 @@ class FreshStartView(APIView):
         request=None,
         responses={
             200: OtpVerifyResponseSerializer,
-            403: OpenApiResponse(description="fresh_start_not_allowed, reauth_required"),
+            403: OpenApiResponse(
+                description="fresh_start_not_allowed, reauth_required, account_disabled"
+            ),
             409: BLOCKED,
         },
     )

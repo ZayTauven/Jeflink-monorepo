@@ -12,18 +12,21 @@ portefeuille… Le refus est audité (``accounts.deletion.blocked``).
 from collections.abc import Callable
 from datetime import timedelta
 
+import redis
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 from jeflink.common.errors import DomainError
 from jeflink.common.pii import phone_hmac
+from jeflink.common.ratelimit import client as auth_redis
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
 from .mfa import clear_mfa
 from .models import (
     DeviceSession,
+    MfaChallenge,
     NoticeSms,
     OtpChallenge,
     Role,
@@ -57,13 +60,23 @@ def _register(registry: dict, name: str, fn: Callable, kind: str) -> None:
 def register_anonymizer(domain: str, anonymizer: Anonymizer) -> None:
     """Appelé dans le ``ready()`` de chaque domaine qui stocke des données personnelles.
 
-    L'anonymiseur s'exécute dans la transaction de la suppression, **avant** l'effacement du
-    numéro : il peut encore le lire. Une exception annule toute la suppression.
+    Contrat (revue sécurité tâche 14, I2) :
+    - l'anonymiseur s'exécute dans la transaction de la suppression, sous le verrou du compte,
+      **avant** l'effacement du numéro : il peut encore le lire. Une exception annule tout ;
+    - écritures en base seulement. Tout effet externe (fichiers S3, fournisseur) passe par
+      ``transaction.on_commit`` puis une tâche Celery idempotente.
     """
     _register(_ANONYMIZERS, domain, anonymizer, "anonymiseur")
 
 
 def register_deletion_blocker(domain: str, blocker: DeletionBlocker) -> None:
+    """Refus de suppression (réservation en cours, solde de portefeuille…).
+
+    Contrat (revue sécurité tâche 14, I2) : le domaine crée ses objets bloquants **sous le
+    verrou du compte** (``User.objects.select_for_update(no_key=True)``) et vérifie
+    ``is_active`` et ``deleted_at`` sur la ligne verrouillée, comme ``grant_role``. Sinon, un
+    objet peut naître entre le contrôle et l'anonymisation.
+    """
     _register(_BLOCKERS, domain, blocker, "bloqueur de suppression")
 
 
@@ -79,9 +92,17 @@ def deletion_blockers(user: User) -> list[str]:
     return sorted({reason for fn in _BLOCKERS.values() if (reason := fn(user))})
 
 
-def _check_blockers(user: User) -> None:
-    reasons = deletion_blockers(user)
-    if reasons:
+def _refuse(user: User, reasons: list[str]) -> None:
+    """Lève le refus avec les motifs **déjà établis** (jamais recalculés après coup, I1).
+
+    L'audit est écrit au plus une fois par heure et par compte : un compte bloqué ne peut pas
+    inonder l'audit en rappelant l'endpoint (M6).
+    """
+    try:
+        first = bool(auth_redis().set(f"jf:deletion_blocked:{user.public_id}", 1, nx=True, ex=3600))
+    except redis.RedisError:
+        first = True
+    if first:
         audit(
             action="accounts.deletion.blocked",
             actor=user,
@@ -90,36 +111,53 @@ def _check_blockers(user: User) -> None:
             metadata={"reasons": reasons},
             durable=True,
         )
-        raise DomainError("account_deletion_blocked", status=409, reasons=reasons)
+    raise DomainError("account_deletion_blocked", status=409, reasons=reasons)
+
+
+def _check_blockers(user: User) -> None:
+    reasons = deletion_blockers(user)
+    if reasons:
+        _refuse(user, reasons)
 
 
 # --- Anonymisation -------------------------------------------------------------------------------
 
 
-def _anonymize(user: User, *, reason: str) -> None:
+def _anonymize(user: User, *, reason: str, session_public_id=None) -> None:
     """Efface tout ce qui identifie la personne. Appelée sous le verrou du compte.
 
     « Repartir de zéro » garde les invitations en attente vers ce numéro : elles visent la
-    personne qui le détient **maintenant**, pas l'ancien titulaire.
+    personne qui le détient **maintenant**, pas l'ancien titulaire (sans le nom proposé, qui
+    pouvait être celui de l'ancien titulaire).
     """
     phone = user.phone or ""
     for anonymizer in _ANONYMIZERS.values():
         anonymizer(user)
-    revoke_all_sessions(user=user, reason=DeviceSession.RevokedReason.ACCOUNT_DELETED)
-    # Libellés et identifiants d'appareil, y compris des sessions déjà révoquées.
-    DeviceSession.objects.filter(user=user).update(device_label="", install_id="")
     for role in active_roles(user):
         # Retirer owner clôt aussi les invitations envoyées par ce pro.
         revoke_role(user=user, role=role, reason_code="account_deleted")
     clear_mfa(user)
+    MfaChallenge.objects.filter(user=user).update(device_label="", install_id="")
     user.groups.clear()
+    user.user_permissions.clear()
     OtpChallenge.objects.filter(user=user).delete()
     if phone:
         OtpChallenge.objects.filter(phone=phone).delete()
-        if reason != "fresh_start":
-            RoleInvitation.objects.filter(phone=phone).delete()
+        pending = RoleInvitation.objects.filter(phone=phone, status=RoleInvitation.Status.PENDING)
+        if reason == "fresh_start":
+            pending.update(display_name_hint="", updated_at=timezone.now())
+        else:
+            # Closes, pas supprimées : le quota et l'audit de chaque pro restent cohérents (M4).
+            pending.update(
+                status=RoleInvitation.Status.EXPIRED, phone="", updated_at=timezone.now()
+            )
         NoticeSms.objects.filter(phone_hmac=phone_hmac(phone)).exclude(phone="").delete()
-    now = timezone.now()
+    # Sessions en dernier, pierres tombales au commit seulement : un rollback ne déconnecte
+    # personne. Après le commit, l'authentification refuse de toute façon un compte supprimé.
+    revoke_all_sessions(
+        user=user, reason=DeviceSession.RevokedReason.ACCOUNT_DELETED, immediate=False
+    )
+    DeviceSession.objects.filter(user=user).update(device_label="", install_id="")
     user.phone = None
     user.display_name = ""
     user.email = ""
@@ -127,7 +165,7 @@ def _anonymize(user: User, *, reason: str) -> None:
     user.is_active = False
     user.deactivation_reason = User.DeactivationReason.USER_REQUEST
     user.dormant_restricted_since = None
-    user.deleted_at = now
+    user.deleted_at = timezone.now()
     user.set_unusable_password()
     user.save()
     audit(
@@ -135,6 +173,7 @@ def _anonymize(user: User, *, reason: str) -> None:
         actor=user,
         actor_kind=AuditEvent.ActorKind.USER,
         target=user,
+        session_public_id=session_public_id,
         metadata={"reason": reason},
     )
 
@@ -164,7 +203,8 @@ def request_deletion_otp(*, user: User, app: str, idempotency_key: str, install_
 
 def delete_account(*, user: User, challenge_id, challenge_secret: str, code: str) -> None:
     _check_blockers(user)
-    consume_account_otp(
+    # Hors transaction : un échec de code reste compté (force brute), même si la suite échoue.
+    challenge = consume_account_otp(
         user=user,
         purpose=OtpChallenge.Purpose.DELETE_ACCOUNT,
         challenge_id=challenge_id,
@@ -173,12 +213,15 @@ def delete_account(*, user: User, challenge_id, challenge_secret: str, code: str
     )
     with transaction.atomic():
         user = _lock_active(user)
+        # Numéro changé entre le code et la suppression : le code ne vaut plus (M9).
+        if user.phone != challenge.phone:
+            raise DomainError("otp_challenge_invalid")
         # Revérifié sous verrou : une réservation a pu naître entre-temps.
         reasons = deletion_blockers(user)
         if not reasons:
             _anonymize(user, reason="user_request")
     if reasons:
-        _check_blockers(user)
+        _refuse(user, reasons)
 
 
 # --- « Repartir de zéro » (compte dormant, S18) ----------------------------------------------
@@ -187,7 +230,11 @@ def delete_account(*, user: User, challenge_id, challenge_secret: str, code: str
 def fresh_start(*, user: User, session_public_id, auth_time: int | None) -> TokenPair:
     """Numéro peut-être recyclé : le nouveau titulaire abandonne l'ancien compte, qui est
     anonymisé, et reçoit un compte neuf sur ce numéro. Client seulement ; un pro attend la revue
-    Ops. La session restreinte est remplacée par une session normale du nouveau compte."""
+    Ops. La session restreinte est remplacée par une session normale du nouveau compte.
+
+    Non rejouable : si la réponse se perd, la session restreinte est déjà révoquée (401) et
+    l'app renvoie vers la connexion, où le numéro mène au compte neuf.
+    """
     now = timezone.now()
     if auth_time is None or now.timestamp() - auth_time > FRESH_START_MAX_AUTH_AGE.total_seconds():
         raise DomainError("reauth_required", status=403)
@@ -204,10 +251,9 @@ def fresh_start(*, user: User, session_public_id, auth_time: int | None) -> Toke
             or has_role(old, Role.OWNER, Role.TECHNICIAN, Role.OPS)
         ):
             raise DomainError("fresh_start_not_allowed", status=403)
-        if deletion_blockers(old):
-            blocked = True
-        else:
-            blocked = False
+        reasons = deletion_blockers(old)
+        tokens = None
+        if not reasons:
             phone = old.phone
             device = {
                 "app": session.app,
@@ -215,7 +261,7 @@ def fresh_start(*, user: User, session_public_id, auth_time: int | None) -> Toke
                 "device_label": session.device_label,
                 "install_id": session.install_id,
             }
-            _anonymize(old, reason="fresh_start")
+            _anonymize(old, reason="fresh_start", session_public_id=session.public_id)
             new = User.objects.create_user(
                 phone,
                 phone_verified_at=now,
@@ -229,6 +275,6 @@ def fresh_start(*, user: User, session_public_id, auth_time: int | None) -> Toke
                 metadata={"app": device["app"]},
             )
             tokens = create_session(user=new, **device)
-    if blocked:
-        _check_blockers(old)  # audite puis lève account_deletion_blocked
+    if tokens is None:
+        _refuse(old, reasons)
     return tokens

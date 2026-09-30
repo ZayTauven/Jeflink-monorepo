@@ -280,7 +280,9 @@ def refresh_session(refresh: str) -> TokenPair:
 
     with transaction.atomic():
         now = timezone.now()
-        base = DeviceSession.objects.select_for_update().select_related("user")
+        # Verrou de la session seule (of=self) : jamais le compte, que d'autres chemins
+        # verrouillent avant la session (suppression, second facteur) (revue tâche 14, M2).
+        base = DeviceSession.objects.select_for_update(of=("self",)).select_related("user")
         session = base.filter(refresh_hash=presented).first()
         is_current = session is not None
         if session is None:
@@ -363,7 +365,9 @@ def reissue_session(session: DeviceSession) -> TokenPair:
     with transaction.atomic():
         now = timezone.now()
         session = (
-            DeviceSession.objects.select_for_update().select_related("user").get(pk=session.pk)
+            DeviceSession.objects.select_for_update(of=("self",))
+            .select_related("user")
+            .get(pk=session.pk)
         )
         if not _usable(session, now):
             raise DomainError("session_revoked", status=401)
@@ -379,7 +383,11 @@ def reissue_session(session: DeviceSession) -> TokenPair:
 # --- Révocation -------------------------------------------------------------------------------
 
 
-def revoke_session(session: DeviceSession, *, reason: str, actor: User | None = None) -> None:
+def revoke_session(
+    session: DeviceSession, *, reason: str, actor: User | None = None, immediate: bool = True
+) -> None:
+    """``immediate=False`` : pierre tombale au commit seulement, pour une révocation qui fait
+    partie d'une transaction plus large pouvant encore être annulée (suppression du compte)."""
     if session.revoked_at is not None:
         return
     session.revoked_at = timezone.now()
@@ -388,7 +396,8 @@ def revoke_session(session: DeviceSession, *, reason: str, actor: User | None = 
     sid = session.public_id
     # Pierre tombale immédiate (effet instantané), puis à nouveau après commit : un lecteur
     # concurrent ne peut plus réinscrire « active » (le remplissage se fait en NX).
-    _cache_tombstone(sid)
+    if immediate:
+        _cache_tombstone(sid)
     transaction.on_commit(lambda: _cache_tombstone(sid))
     if reason in _SYSTEM_REASONS:
         actor, actor_kind = None, AuditEvent.ActorKind.SYSTEM
@@ -418,14 +427,19 @@ def revoke_other_sessions(*, user: User, current_sid, reason: str) -> int:
 
 @transaction.atomic
 def revoke_all_sessions(
-    *, user: User, reason: str, actor: User | None = None, app: str | None = None
+    *,
+    user: User,
+    reason: str,
+    actor: User | None = None,
+    app: str | None = None,
+    immediate: bool = True,
 ) -> int:
     sessions = DeviceSession.objects.select_for_update().filter(user=user, revoked_at__isnull=True)
     if app is not None:
         sessions = sessions.filter(app=app)
     revoked = 0
     for session in sessions:
-        revoke_session(session, reason=reason, actor=actor)
+        revoke_session(session, reason=reason, actor=actor, immediate=immediate)
         revoked += 1
     return revoked
 

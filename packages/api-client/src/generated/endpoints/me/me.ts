@@ -291,15 +291,25 @@ export type meDeletionResponse400 = {
   status: 400
 }
 
+export type meDeletionResponse403 = {
+  data: void
+  status: 403
+}
+
 export type meDeletionResponse409 = {
   data: void
   status: 409
 }
 
+export type meDeletionResponse429 = {
+  data: void
+  status: 429
+}
+
 export type meDeletionResponseSuccess = (meDeletionResponse204) & {
   headers: Headers;
 };
-export type meDeletionResponseError = (meDeletionResponse400 | meDeletionResponse409) & {
+export type meDeletionResponseError = (meDeletionResponse400 | meDeletionResponse403 | meDeletionResponse409 | meDeletionResponse429) & {
   headers: Headers;
 };
 
@@ -391,6 +401,16 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   status: 202
 }
 
+export type meDeletionOtpResponse400 = {
+  data: void
+  status: 400
+}
+
+export type meDeletionOtpResponse403 = {
+  data: void
+  status: 403
+}
+
 export type meDeletionOtpResponse409 = {
   data: void
   status: 409
@@ -401,10 +421,15 @@ export type meDeletionOtpResponse429 = {
   status: 429
 }
 
+export type meDeletionOtpResponse503 = {
+  data: void
+  status: 503
+}
+
 export type meDeletionOtpResponseSuccess = (meDeletionOtpResponse202) & {
   headers: Headers;
 };
-export type meDeletionOtpResponseError = (meDeletionOtpResponse409 | meDeletionOtpResponse429) & {
+export type meDeletionOtpResponseError = (meDeletionOtpResponse400 | meDeletionOtpResponse403 | meDeletionOtpResponse409 | meDeletionOtpResponse429 | meDeletionOtpResponse503) & {
   headers: Headers;
 };
 

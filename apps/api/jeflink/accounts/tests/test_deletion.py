@@ -100,7 +100,9 @@ def test_invitations_vers_le_numero_effacees(api_client, awa, complete_user_fact
     client, _ = bearer(api_client, awa)
     challenge = ask_deletion(client).json()
     assert confirm(client, challenge, last_code()).status_code == 204
-    assert not RoleInvitation.objects.filter(phone=PHONE).exists()
+    # Closes, pas supprimées : quota et audit du pro restent cohérents (revue, M4).
+    invitation = RoleInvitation.objects.get()
+    assert (invitation.status, invitation.phone) == ("expired", "")
 
 
 def test_gerant_supprime_ses_invitations_envoyees_closes(api_client, complete_user_factory):
@@ -278,3 +280,110 @@ def test_repartir_de_zero_exige_une_connexion_recente(api_client, awa):
     access = refresh_session(pair.refresh).access
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
     assert client.post(reverse("me-fresh-start")).json() == {"code": "reauth_required"}
+
+
+# --- Corrections de la revue sécurité (tâche 14) -----------------------------------------------
+
+
+def _blocker_on_second_call(reason):
+    calls = []
+
+    def blocker(user):
+        calls.append(user.pk)
+        return reason if len(calls) >= 2 else None
+
+    return blocker
+
+
+def test_refus_decide_sous_verrou_jamais_recalcule(api_client, awa):
+    """I1 : un bloqueur qui ne répond que sous verrou donne 409, jamais 204 sans suppression."""
+    client, _ = bearer(api_client, awa)
+    challenge = ask_deletion(client).json()
+    deletion.register_deletion_blocker("wallet", _blocker_on_second_call("wallet_balance"))
+    response = confirm(client, challenge, last_code())
+    assert response.status_code == 409
+    assert response.json() == {"code": "account_deletion_blocked", "reasons": ["wallet_balance"]}
+    awa.refresh_from_db()
+    assert awa.is_active and awa.phone == PHONE
+    assert AuditEvent.objects.filter(action="accounts.deletion.blocked").count() == 1
+    # Le code a servi : le rejouer ne supprime rien.
+    assert confirm(client, challenge, last_code()).status_code == 409
+
+
+def test_repartir_de_zero_bloque_sous_verrou(api_client, awa):
+    """I1 : 409, jamais 500."""
+    deletion.register_deletion_blocker("wallet", lambda user: "wallet_balance")
+    client, _ = bearer(api_client, awa, restricted=True)
+    response = client.post(reverse("me-fresh-start"))
+    assert response.status_code == 409
+    assert response.json()["reasons"] == ["wallet_balance"]
+    awa.refresh_from_db()
+    assert awa.is_active
+
+
+def test_refus_audite_une_fois_par_heure(api_client, awa):
+    """M6 : un compte bloqué n'inonde pas l'audit."""
+    deletion.register_deletion_blocker("bookings", lambda user: "booking_in_progress")
+    client, _ = bearer(api_client, awa)
+    for _ in range(3):
+        assert ask_deletion(client).status_code == 409
+    assert AuditEvent.objects.filter(action="accounts.deletion.blocked").count() == 1
+
+
+def test_code_de_suppression_refuse_par_la_connexion(api_client, awa):
+    """S16 : un code de suppression n'ouvre jamais de session."""
+    client, _ = bearer(api_client, awa)
+    challenge = ask_deletion(client).json()
+    api_client.credentials()
+    response = verify(api_client, challenge, last_code())
+    assert response.json() == {"code": "otp_challenge_invalid"}
+
+
+def test_numero_change_entre_le_code_et_la_suppression(api_client, awa):
+    """M9 : le code visait l'ancien numéro du compte."""
+    client, _ = bearer(api_client, awa)
+    challenge = ask_deletion(client).json()
+    code = last_code()
+    User.objects.filter(pk=awa.pk).update(phone="+221779999999")
+    assert confirm(client, challenge, code).json() == {"code": "otp_challenge_invalid"}
+    awa.refresh_from_db()
+    assert awa.is_active
+
+
+def test_refresh_refuse_apres_suppression(api_client, awa):
+    from jeflink.accounts.sessions import refresh_session
+    from jeflink.common.errors import DomainError
+
+    client, pair = bearer(api_client, awa)
+    challenge = ask_deletion(client).json()
+    assert confirm(client, challenge, last_code()).status_code == 204
+    with pytest.raises(DomainError) as exc:
+        refresh_session(pair.refresh)
+    assert exc.value.code == "session_revoked"
+
+
+def test_repartir_de_zero_efface_codes_et_nom_propose(api_client, awa, complete_user_factory):
+    """M7 : le nom proposé (peut-être celui de l'ancien titulaire) n'est pas transmis."""
+    owner = complete_user_factory()
+    grant_role(user=owner, role=Role.OWNER, reason_code="test")
+    invite_to_role(
+        phone=PHONE,
+        role="technician",
+        invited_by=owner,
+        context_ref=uuid.uuid4(),
+        display_name_hint="Awa",
+    )
+    OtpChallenge.objects.create(
+        phone=PHONE,
+        region="SN",
+        purpose="login",
+        challenge_secret_hash="x",
+        app="client",
+        expires_at=timezone.now() + timedelta(minutes=30),
+    )
+    client, pair = bearer(api_client, awa, restricted=True)
+    assert client.post(reverse("me-fresh-start")).status_code == 200
+    assert not OtpChallenge.objects.filter(phone=PHONE).exists()
+    assert RoleInvitation.objects.get().display_name_hint == ""
+    event = AuditEvent.objects.get(action="accounts.user.deleted")
+    assert event.session_public_id == pair.session.public_id

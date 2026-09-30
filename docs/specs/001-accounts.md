@@ -527,6 +527,12 @@ Un registre des traitements documente finalités et durées. La déclaration CDP
   - Sessions et rôles révoqués ; `TotpDevice` supprimé ; `OtpChallenge`, `OtpDelivery` et `RoleInvitation` du numéro supprimés ; jetons push supprimés.
   - Le numéro redevient libre.
   - **`register_anonymizer()` est obligatoire** pour chaque domaine futur qui stocke des données personnelles : c'est un critère « done » des specs suivantes.
+  - **Contrat des domaines (revue sécurité de la tâche 14)** :
+    - un domaine qui enregistre un bloqueur crée ses objets bloquants sous le verrou du compte (`User.objects.select_for_update(no_key=True)`) et vérifie `is_active` et `deleted_at` sur la ligne verrouillée ;
+    - un anonymiseur n'écrit qu'en base ; tout effet externe (fichiers S3, fournisseur) passe par `transaction.on_commit` puis une tâche Celery idempotente ;
+    - chaque spec qui ajoute des données personnelles ajoute aussi un test qui échoue si son anonymiseur (ou son bloqueur) n'est pas enregistré. À reporter dans `apps/api/CLAUDE.md` (tâche 19).
+  - **« Repartir de zéro » n'est pas rejouable** : si la réponse se perd, la session restreinte est déjà révoquée (401). L'app renvoie alors vers la connexion, où le numéro mène au compte neuf.
+  - La suppression efface aussi les `OtpDelivery` et `NoticeSms` du numéro : le comptage de repli en base (Redis indisponible) et les traces de facturation SMS de ce numéro repartent de zéro. À mentionner au registre des traitements.
   - `register_deletion_blocker()` (ici, seul le rôle `ops` bloque : un Ops quitte d'abord son rôle) permettra à `bookings` et `wallet` de refuser la suppression. Un refus écrit `accounts.deletion.blocked`.
   - La rotation des sauvegardes (délai d'effacement effectif) est documentée.
 - **`AuditEvent`, actions** (chacune avec son schéma de `metadata`) :
@@ -761,3 +767,4 @@ Chaque question porte la proposition de l’architecte et, quand il existe, l’
 20. **Q20 — Pompage de SMS et plafond global** (revue sécurité de la tâche 7). Un attaquant qui vise des numéros au hasard peut épuiser `SMS_DAILY_CAP` en quelques heures : toutes les nouvelles connexions répondent alors 503 pour la journée. Deux parades à arbitrer :
     - (a) réserver une part du plafond global aux numéros qui ont déjà un compte (les campagnes de pompage visent des numéros inconnus) ;
     - (b) inscrire dans la procédure d'alerte : à 50 %/80 % du plafond, activer `OTP_CHALLENGE_REQUIRED` (attestation d'appareil, CAPTCHA web).
+21. **Q21 — « Repartir de zéro » immédiat ou différé ?** (revue sécurité de la tâche 14, M12). Aujourd'hui, l'ancien compte est anonymisé **tout de suite** : quelqu'un qui a pris la SIM d'un client dormant peut effacer définitivement ce compte (l'argent et les réservations restent protégés par les bloqueurs de `wallet` et `bookings`). Proposition : une **quarantaine** — ancien compte gelé et numéro libéré tout de suite, anonymisation 30 j plus tard ; si le vrai titulaire se manifeste (« C'est bien mon compte »), l'Ops peut le restaurer sur son nouveau numéro. Coût : une tâche de plus (quarantaine, restauration Ops, purge différée).

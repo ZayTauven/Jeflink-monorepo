@@ -358,9 +358,13 @@ paths:
         '204':
           description: No response body
         '400':
-          description: otp_invalid, otp_expired, otp_challenge_invalid
+          description: otp_invalid (+ attempts_remaining), otp_expired, otp_challenge_invalid
+        '403':
+          description: session_restricted, account_disabled
         '409':
-          description: account_deletion_blocked (+ reasons)
+          description: account_deletion_blocked (+ reasons), otp_already_used
+        '429':
+          description: otp_locked
   /api/me/deletion/otp/:
     post:
       operationId: me_deletion_otp
@@ -381,10 +385,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/OtpChallengeResponse'
           description: ''
+        '400':
+          description: idempotency_key_required
+        '403':
+          description: session_restricted, account_disabled
         '409':
           description: account_deletion_blocked (+ reasons)
         '429':
           description: otp_rate_limited (+ retry_after)
+        '503':
+          description: otp_temporarily_unavailable
   /api/me/fresh-start/:
     post:
       operationId: me_fresh_start
@@ -400,7 +410,7 @@ paths:
                 $ref: '#/components/schemas/OtpVerifyResponse'
           description: ''
         '403':
-          description: fresh_start_not_allowed, reauth_required
+          description: fresh_start_not_allowed, reauth_required, account_disabled
         '409':
           description: account_deletion_blocked (+ reasons)
   /api/me/invitations/:

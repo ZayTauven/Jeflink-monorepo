@@ -454,7 +454,7 @@ def step_up(*, user: User, session_public_id, code: str) -> tuple[str, datetime]
         user = _lock_user(user.pk)
         device = _lock_device(user)
         session = (
-            DeviceSession.objects.select_for_update()
+            DeviceSession.objects.select_for_update(of=("self",))
             .select_related("user")
             .filter(
                 public_id=session_public_id,
