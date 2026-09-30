@@ -30,7 +30,8 @@ package = false
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "jeflink.settings.test"
 python_files = ["test_*.py"]
-addopts = "-q"
+# --ds prime sur DJANGO_SETTINGS_MODULE, que docker-compose fixe à « local ».
+addopts = "-q --ds=jeflink.settings.test"
 
 [tool.ruff]
 line-length = 100

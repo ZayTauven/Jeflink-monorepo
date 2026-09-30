@@ -1,6 +1,8 @@
 import os
 
-# Les tests tournent dans le conteneur api (PostGIS et Redis réels) ; valeurs factices ailleurs.
+# Les tests tournent dans le conteneur api (PostGIS et Redis réels). Les valeurs ci-dessous
+# ÉCRASENT l'environnement (docker-compose fixe DJANGO_ENV=local et des clés de dev) :
+# les tests sont déterministes quel que soit l'endroit d'où on les lance.
 _TEST_ENV = {
     "DJANGO_ENV": "test",
     "SECRET_KEY": "test-secret-key-not-used-anywhere-else-0000",
@@ -14,11 +16,11 @@ _TEST_ENV = {
     "BFF_SHARED_SECRETS": "test-bff-secret-eeeeeeeeeeeeeeeeeeeeeeeeeeee",
     "PII_HMAC_KEY": "test-pii-hmac-key-ffffffffffffffffffffffffff",
 }
-for _key, _value in _TEST_ENV.items():
-    os.environ.setdefault(_key, _value)
+os.environ.update(_TEST_ENV)
 
 from .base import *  # noqa: E402, F403
 
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 CELERY_TASK_ALWAYS_EAGER = True
 PAYMENT_GATEWAY = "fake"
+SMS_GATEWAY = "fake"

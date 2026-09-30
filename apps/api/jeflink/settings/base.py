@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     # Domaines Jeflink (un par app, voir apps/api/CLAUDE.md)
     "jeflink.common",
     "jeflink.trust",
+    "jeflink.notifications",
     "jeflink.accounts",
 ]
 
@@ -154,6 +155,10 @@ CELERY_TIMEZONE = "UTC"
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")
 AI_MODEL_FAST = env("AI_MODEL_FAST", default="")
+
+# SMS (ADR 0008) : adaptateur obligatoire hors local/test ; « fake » y est interdit (S23).
+SMS_GATEWAY = env("SMS_GATEWAY", default="")
+SMS_SENDER_ID = env("SMS_SENDER_ID", default="JEFLINK")
 
 # Paiements : cash | manual_mobile_money | wiipay | fake (règle 3).
 PAYMENT_GATEWAY = env("PAYMENT_GATEWAY", default="manual_mobile_money")

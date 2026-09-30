@@ -35,3 +35,8 @@ def test_liste_vide_refusee(settings):
 def test_message_sans_valeur_de_secret(settings):
     settings.OTP_HMAC_KEY = "valeur-secrete"
     assert all("valeur-secrete" not in p for p in secret_problems())
+
+
+def test_les_tests_tournent_avec_les_reglages_de_test(settings):
+    assert settings.SETTINGS_MODULE == "jeflink.settings.test"
+    assert settings.DJANGO_ENV == "test"
