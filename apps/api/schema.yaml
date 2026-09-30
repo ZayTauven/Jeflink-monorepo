@@ -245,13 +245,28 @@ paths:
         required: true
       tags:
       - me
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
       responses:
         '204':
-          description: No response body
+          description: 'Acceptée (rejouer une acceptation faite : 204)'
+        '400':
+          description: display_name_length, display_name_reserved…
         '403':
           description: profile_incomplete, role_not_allowed
         '404':
           description: not_found (autre numéro, close ou expirée)
+        '503':
+          description: invitation_unavailable
   /api/me/invitations/{public_id}/decline/:
     post:
       operationId: me_invitations_decline
@@ -313,6 +328,13 @@ paths:
           description: No response body
 components:
   schemas:
+    AcceptInvitationRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          default: ''
+          maxLength: 256
     AppD8cEnum:
       enum:
       - client

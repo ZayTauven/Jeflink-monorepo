@@ -24,6 +24,7 @@ from jeflink.accounts.sessions import (
 )
 
 from .serializers import (
+    AcceptInvitationSerializer,
     DeviceSessionSerializer,
     InvitationSerializer,
     MeSerializer,
@@ -180,15 +181,23 @@ class AcceptInvitationView(APIView):
     @extend_schema(
         tags=["me"],
         operation_id="me_invitations_accept",
-        request=None,
+        request=AcceptInvitationSerializer,
         responses={
-            204: None,
+            204: OpenApiResponse(description="Acceptée (rejouer une acceptation faite : 204)"),
+            400: OpenApiResponse(description="display_name_length, display_name_reserved…"),
             403: OpenApiResponse(description="profile_incomplete, role_not_allowed"),
             404: OpenApiResponse(description="not_found (autre numéro, close ou expirée)"),
+            503: OpenApiResponse(description="invitation_unavailable"),
         },
     )
     def post(self, request: Request, public_id) -> Response:
-        accept_invitation(user=request.user, invitation_public_id=public_id)
+        serializer = AcceptInvitationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        accept_invitation(
+            user=request.user,
+            invitation_public_id=public_id,
+            display_name=serializer.validated_data["display_name"],
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

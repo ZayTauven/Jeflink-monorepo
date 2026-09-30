@@ -220,6 +220,12 @@ INVITATIONS_PER_INVITER_DAILY = 20
 # SMS d'invitation par numéro invité et par jour, tous pros confondus : un pro ne peut pas
 # épuiser le budget SMS de connexion d'un numéro (5/h, 8/24 h) avec des invitations.
 INVITATION_SMS_PER_PHONE_DAILY = 2
+# SMS d'information (invitations…) : sous-budgets propres, et jamais au-delà de 50 % d'un
+# plafond partagé, pour laisser la marge aux connexions (revue sécurité tâche 12, I3).
+SMS_NOTICE_DAILY_CAP = env.int("SMS_NOTICE_DAILY_CAP", default=SMS_DAILY_CAP // 10)
+SMS_NOTICE_PREFIX_HOURLY_CAP = 30
+SMS_NOTICE_BLOCK_HOURLY_CAP = 3
+SMS_NOTICE_MAX_SHARED_USE = 0.5
 # Lien de téléchargement de l'app Pro, cité dans le SMS d'invitation (domaine à confirmer).
 PRO_APP_LINK = env("PRO_APP_LINK", default="https://jeflink.sn/pro")
 

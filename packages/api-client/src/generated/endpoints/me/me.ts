@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AcceptInvitationRequest,
   Me,
   MeInvitationsListParams,
   MeSessionsListParams,
@@ -398,6 +399,11 @@ export type meInvitationsAcceptResponse204 = {
   status: 204
 }
 
+export type meInvitationsAcceptResponse400 = {
+  data: void
+  status: 400
+}
+
 export type meInvitationsAcceptResponse403 = {
   data: void
   status: 403
@@ -408,10 +414,15 @@ export type meInvitationsAcceptResponse404 = {
   status: 404
 }
 
+export type meInvitationsAcceptResponse503 = {
+  data: void
+  status: 503
+}
+
 export type meInvitationsAcceptResponseSuccess = (meInvitationsAcceptResponse204) & {
   headers: Headers;
 };
-export type meInvitationsAcceptResponseError = (meInvitationsAcceptResponse403 | meInvitationsAcceptResponse404) & {
+export type meInvitationsAcceptResponseError = (meInvitationsAcceptResponse400 | meInvitationsAcceptResponse403 | meInvitationsAcceptResponse404 | meInvitationsAcceptResponse503) & {
   headers: Headers;
 };
 
@@ -425,14 +436,29 @@ export const getMeInvitationsAcceptUrl = (publicId: string,) => {
   return `/api/me/invitations/${publicId}/accept/`
 }
 
-export const meInvitationsAccept = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<meInvitationsAcceptResponse> => {
+export const meInvitationsAccept = async (publicId: string,
+    acceptInvitationRequest?: AcceptInvitationRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<meInvitationsAcceptResponse> => {
 
-  return jeflinkFetch<meInvitationsAcceptResponse>(getMeInvitationsAcceptUrl(publicId),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<meInvitationsAcceptResponse>(getMeInvitationsAcceptUrl(publicId),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(acceptInvitationRequest)
   }
 );}
 
@@ -457,9 +483,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof meInvitationsAccept>>, MeInvitationsAcceptMutationVariables> = (props) => {
-          const {publicId} = props ?? {};
+          const {publicId,data} = props ?? {};
 
-          return  meInvitationsAccept(publicId,requestOptions)
+          return  meInvitationsAccept(publicId,data,requestOptions)
         }
 
 
@@ -470,9 +496,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type MeInvitationsAcceptMutationResult = NonNullable<Awaited<ReturnType<typeof meInvitationsAccept>>>
-
+    export type MeInvitationsAcceptMutationBody = BodyType<AcceptInvitationRequest> | undefined
     export type MeInvitationsAcceptMutationError = ErrorType<void>
-    export type MeInvitationsAcceptMutationVariables = {publicId: string}
+    export type MeInvitationsAcceptMutationVariables = {publicId: string;data?: BodyType<AcceptInvitationRequest>}
 
     export const useMeInvitationsAccept = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meInvitationsAccept>>, TError,MeInvitationsAcceptMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}

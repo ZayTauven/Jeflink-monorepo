@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './acceptInvitationRequest.ts';
 export * from './appD8cEnum.ts';
 export * from './authConfig.ts';
 export * from './authUser.ts';

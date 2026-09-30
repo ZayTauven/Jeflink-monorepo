@@ -197,6 +197,32 @@ def _region_cap(region: str) -> int:
     return settings.SMS_DAILY_CAP_BY_REGION.get(region, settings.SMS_DAILY_CAP)
 
 
+def _shared_caps(phone: str, region: str) -> list[tuple[Limit, str]]:
+    """Plafonds partagés par tous les numéros : préfixe, bloc de 1 000, total et région."""
+    divisor = 2 if is_prefix_slowed(phone) else 1
+    return [
+        (Limit("sms:prefix_1h", settings.SMS_PREFIX_HOURLY_CAP // divisor, 3600),
+         operator_prefix(phone)),
+        (Limit("sms:block_1h", settings.SMS_BLOCK_HOURLY_CAP // divisor, 3600),
+         number_block(phone)),
+        (Limit("sms:daily_total", settings.SMS_DAILY_CAP, 86400), "all"),
+        (Limit("sms:daily_region", _region_cap(region), 86400), region),
+    ]  # fmt: skip
+
+
+def shared_caps_have_margin(phone: str, region: str) -> bool:
+    """Plafonds partagés utilisés à moins de ``SMS_NOTICE_MAX_SHARED_USE`` (50 %).
+
+    Un SMS d'information ne prend jamais la marge réservée aux connexions (revue tâche 12, I3).
+    Lève ``RateLimitUnavailable`` si Redis ne répond pas.
+    """
+    ratio = settings.SMS_NOTICE_MAX_SHARED_USE
+    return all(
+        count(limit, identity) < limit.limit * ratio
+        for limit, identity in _shared_caps(phone, region)
+    )
+
+
 def reserve_sms(
     *,
     phone: str,
@@ -204,29 +230,21 @@ def reserve_sms(
     install_id: str = "",
     new_challenge: bool = True,
     fallback: CountFallback | None = None,
+    extra_checks: list[tuple[Limit, str]] | None = None,
 ) -> None:
     """Réserve un SMS pour ``phone`` ou lève ``otp_rate_limited`` / ``otp_temporarily_unavailable``.
 
-    Tous les plafonds sont vérifiés puis consommés ensemble : un refus ne consomme rien.
+    Tous les plafonds (dont ``extra_checks``, propres à l'appelant) sont vérifiés puis consommés
+    ensemble : un refus ne consomme rien.
     """
     if new_challenge:
         until = phone_blocked_until(phone)
         if until is not None:
             _raise_rate_limited(max(1, int((until - timezone.now()).total_seconds())))
 
-    divisor = 2 if is_prefix_slowed(phone) else 1
-    daily_cap = Limit("sms:daily_total", settings.SMS_DAILY_CAP, 86400)
-    region_cap = Limit("sms:daily_region", _region_cap(region), 86400)
-    checks = [
-        (SMS_PHONE_HOUR, phone),
-        (SMS_PHONE_DAY, phone),
-        (Limit("sms:prefix_1h", settings.SMS_PREFIX_HOURLY_CAP // divisor, 3600),
-         operator_prefix(phone)),
-        (Limit("sms:block_1h", settings.SMS_BLOCK_HOURLY_CAP // divisor, 3600),
-         number_block(phone)),
-        (daily_cap, "all"),
-        (region_cap, region),
-    ]  # fmt: skip
+    shared = _shared_caps(phone, region)
+    daily_cap, region_cap = shared[2][0], shared[3][0]
+    checks = [(SMS_PHONE_HOUR, phone), (SMS_PHONE_DAY, phone), *shared, *(extra_checks or [])]
     if install_id and new_challenge:
         checks.append((REQUEST_PER_INSTALL, install_id))
 

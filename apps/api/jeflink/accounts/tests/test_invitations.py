@@ -32,10 +32,20 @@ TEAM = uuid.UUID("7c9e6679-7425-40de-944b-e07fc1f90ae7")
 
 
 @pytest.fixture
-def fatou(complete_user_factory):
-    owner = complete_user_factory(display_name="Fatou Nettoyage")
-    grant_role(user=owner, role=Role.OWNER, reason_code="test")
-    return owner
+def owner_factory(complete_user_factory):
+    """Un gérant : seul rôle autorisé à inviter (revue sécurité, I1)."""
+
+    def _owner(**kwargs):
+        owner = complete_user_factory(**kwargs)
+        grant_role(user=owner, role=Role.OWNER, reason_code="test")
+        return owner
+
+    return _owner
+
+
+@pytest.fixture
+def fatou(owner_factory):
+    return owner_factory(display_name="Fatou Nettoyage")
 
 
 @pytest.fixture
@@ -53,10 +63,10 @@ def invite(fatou, django_capture_on_commit_callbacks):
     return _invite
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def handlers(monkeypatch):
-    """Registre des gestionnaires isolé : providers n'existe pas encore."""
-    registry: dict = {}
+    """Registre isolé, avec un gestionnaire factice par rôle : providers n'existe pas encore."""
+    registry: dict = {Role.OWNER: lambda accepted: None, Role.TECHNICIAN: lambda accepted: None}
     monkeypatch.setattr(services, "_INVITATION_HANDLERS", registry)
     return registry
 
@@ -143,10 +153,10 @@ def test_quota_de_20_invitations_par_jour_et_par_pro(invite, settings):
     assert 0 < exc.value.extra["retry_after"] <= 86400
 
 
-def test_deux_sms_d_invitation_par_numero_et_par_jour(invite, complete_user_factory):
+def test_deux_sms_d_invitation_par_numero_et_par_jour(invite, owner_factory):
     """Un pro ne peut pas épuiser le budget SMS de connexion d'un numéro avec des invitations."""
     for _ in range(3):
-        invite(context_ref=uuid.uuid4(), by=complete_user_factory())
+        invite(context_ref=uuid.uuid4(), by=owner_factory())
     assert RoleInvitation.objects.filter(status="pending").count() == 3
     assert len(FakeSmsGateway.outbox) == 2
 
@@ -165,9 +175,9 @@ def test_redis_coupe_invitation_creee_sans_sms(invite, redis_down):
     assert FakeSmsGateway.outbox == []
 
 
-def test_les_sms_d_invitation_comptent_dans_le_budget_du_numero(invite, complete_user_factory):
-    invite(context_ref=uuid.uuid4(), by=complete_user_factory())
-    invite(context_ref=uuid.uuid4(), by=complete_user_factory())
+def test_les_sms_d_invitation_comptent_dans_le_budget_du_numero(invite, owner_factory):
+    invite(context_ref=uuid.uuid4(), by=owner_factory())
+    invite(context_ref=uuid.uuid4(), by=owner_factory())
     for _ in range(3):
         reserve_sms(phone=CHEIKH, region="SN", new_challenge=False)
     with pytest.raises(DomainError) as exc:
@@ -242,7 +252,7 @@ def test_relivraison_en_plein_envoi_pas_de_double_sms(invite, monkeypatch):
 
 def test_acceptation(invite, fatou, complete_user_factory, handlers):
     received = []
-    register_invitation_handler(Role.TECHNICIAN, received.append)
+    handlers[Role.TECHNICIAN] = received.append
     cheikh = complete_user_factory(phone=CHEIKH)
     invitation = invite()
     grant = accept_invitation(user=cheikh, invitation_public_id=invitation.public_id)
@@ -314,7 +324,7 @@ def test_refus_du_gestionnaire_annule_tout(invite, complete_user_factory, handle
     def refuse(accepted):
         raise DomainError("team_full", status=409)
 
-    register_invitation_handler(Role.TECHNICIAN, refuse)
+    handlers[Role.TECHNICIAN] = refuse
     cheikh = complete_user_factory(phone=CHEIKH)
     invitation = invite()
     with pytest.raises(DomainError):
@@ -346,6 +356,8 @@ def test_refus(invite, user_factory):
 
 
 def test_registre_des_gestionnaires(handlers):
+    handlers.clear()
+
     def handler(accepted):
         return None
 
@@ -385,7 +397,7 @@ def test_accepter_et_refuser_par_l_api(api_client, invite, complete_user_factory
     second = invite(role=Role.OWNER)
     url = reverse("me-invitation-accept", args=[first.public_id])
     assert client.post(url).status_code == 204
-    assert client.post(url).status_code == 404  # déjà acceptée
+    assert client.post(url).status_code == 204  # rejouée : même succès (I4)
     response = client.post(reverse("me-invitation-decline", args=[second.public_id]))
     assert response.status_code == 204
     assert set(cheikh.role_grants.values_list("role", flat=True)) == {"technician"}
@@ -428,3 +440,166 @@ def test_premiere_connexion_de_cheikh(api_client, invite, django_capture_on_comm
     assert body["is_new_user"] is True
     assert [i["public_id"] for i in body["pending_invitations"]] == [str(invitation.public_id)]
     assert body["pending_invitations"][0]["display_name_hint"] == "Cheikh"
+
+
+# --- Corrections de la revue sécurité (tâche 12) -----------------------------------------------
+
+
+@pytest.mark.parametrize("kind", ["client", "technicien", "revue"])
+def test_seul_un_gerant_invite(invite, complete_user_factory, kind):
+    """I1 : un compte sans rôle owner (ou compte de revue) ne fait naître aucun pro."""
+    inviter = complete_user_factory(is_review_account=kind == "revue")
+    if kind == "technicien":
+        grant_role(user=inviter, role=Role.TECHNICIAN, reason_code="test")
+    with pytest.raises(DomainError) as exc:
+        invite(by=inviter, role=Role.OWNER)
+    assert (exc.value.code, exc.value.status_code) == ("role_required", 403)
+    assert not RoleInvitation.objects.exists()
+    assert FakeSmsGateway.outbox == []
+
+
+def test_gerant_revoque_ses_invitations_tombent(invite, fatou, complete_user_factory):
+    """I1 : Fatou perd son rôle de gérant ; ses invitations en attente ne sont plus acceptables."""
+    from jeflink.accounts.services import revoke_role
+
+    cheikh = complete_user_factory(phone=CHEIKH)
+    invitation = invite()
+    revoke_role(user=fatou, role=Role.OWNER, reason_code="fraud")
+    invitation.refresh_from_db()
+    assert (invitation.status, invitation.phone) == ("expired", "")
+    with pytest.raises(DomainError) as exc:
+        accept_invitation(user=cheikh, invitation_public_id=invitation.public_id)
+    assert exc.value.code == "not_found"
+    assert not cheikh.role_grants.exists()
+
+
+def test_invitation_d_un_gerant_sans_role_invisible(invite, fatou, complete_user_factory):
+    """I1 : même sans passer par revoke_role, le sélecteur exige un gérant actif."""
+    cheikh = complete_user_factory(phone=CHEIKH)
+    invite()
+    RoleGrant.objects.filter(user=fatou).update(revoked_at=timezone.now())
+    from jeflink.accounts.selectors import pending_invitations_for
+
+    assert not pending_invitations_for(cheikh).exists()
+
+
+def test_sans_gestionnaire_providers_rien_n_est_accorde(invite, complete_user_factory, handlers):
+    """I2 : sans providers, aucun rôle global détaché d'une équipe."""
+    handlers.clear()
+    cheikh = complete_user_factory(phone=CHEIKH)
+    invitation = invite()
+    with pytest.raises(DomainError) as exc:
+        accept_invitation(user=cheikh, invitation_public_id=invitation.public_id)
+    assert (exc.value.code, exc.value.status_code) == ("invitation_unavailable", 503)
+    invitation.refresh_from_db()
+    assert invitation.status == "pending"
+    assert not cheikh.role_grants.exists()
+
+
+def test_invitations_d_un_bloc_laissent_intact_son_budget_de_connexion(invite, settings):
+    """I3 : 20 invitations vers un même bloc de 1 000 numéros ne consomment que le sous-budget."""
+    for n in range(20):
+        invite(f"+221781234{n:03d}")
+    assert RoleInvitation.objects.count() == 20
+    assert len(FakeSmsGateway.outbox) == settings.SMS_NOTICE_BLOCK_HOURLY_CAP
+    # Le bloc garde presque tout son budget de connexion.
+    for n in range(settings.SMS_BLOCK_HOURLY_CAP - settings.SMS_NOTICE_BLOCK_HOURLY_CAP):
+        reserve_sms(phone=f"+221781234{900 + n}", region="SN", new_challenge=False)
+
+
+def test_pas_de_sms_d_information_au_dela_de_la_moitie_d_un_plafond(invite, settings):
+    """I3 : la marge des plafonds partagés reste aux connexions."""
+    settings.SMS_BLOCK_HOURLY_CAP = 4
+    for n in range(2):
+        reserve_sms(phone=f"+22178123450{n}", region="SN", new_challenge=False)
+    invitation = invite()
+    assert invitation.status == "pending"
+    assert FakeSmsGateway.outbox == []
+
+
+def test_accepter_deux_fois_renvoie_le_meme_succes(api_client, invite, complete_user_factory):
+    """I4 : réponse perdue sur réseau faible, l'app rejoue : 204, rien n'est réécrit."""
+    cheikh = complete_user_factory(phone=CHEIKH)
+    client = bearer(api_client, cheikh)
+    invitation = invite()
+    url = reverse("me-invitation-accept", args=[invitation.public_id])
+    assert client.post(url, {}, format="json").status_code == 204
+    assert client.post(url, {}, format="json").status_code == 204
+    assert cheikh.role_grants.count() == 1
+    assert AuditEvent.objects.filter(action="accounts.invitation.accepted").count() == 1
+    # L'acceptation d'un autre compte reste invisible (S5).
+    other = bearer(api_client, complete_user_factory(phone="+221770000001"))
+    assert other.post(url, {}, format="json").status_code == 404
+
+
+def test_refuser_deux_fois_renvoie_le_meme_succes(api_client, invite, complete_user_factory):
+    client = bearer(api_client, complete_user_factory(phone=CHEIKH))
+    url = reverse("me-invitation-decline", args=[invite().public_id])
+    assert client.post(url).status_code == 204
+    assert client.post(url).status_code == 204
+    other = bearer(api_client, complete_user_factory(phone="+221770000001"))
+    assert other.post(url).status_code == 404
+
+
+def test_audit_de_creation_et_de_refus_sans_numero(invite, user_factory):
+    """M2 : création et refus tracés, numéro seulement en HMAC."""
+    from jeflink.common.pii import phone_hmac
+
+    cheikh = user_factory(phone=CHEIKH)
+    invitation = invite()
+    created = AuditEvent.objects.get(action="accounts.invitation.created")
+    assert created.metadata == {
+        "role": "technician",
+        "invitation": str(invitation.public_id),
+        "phone_hmac": phone_hmac(CHEIKH),
+        "sms_queued": True,
+    }
+    decline_invitation(user=cheikh, invitation_public_id=invitation.public_id)
+    assert AuditEvent.objects.filter(action="accounts.invitation.declined").count() == 1
+    assert CHEIKH not in str(list(AuditEvent.objects.values_list("metadata", flat=True)))
+
+
+def test_apres_un_refus_le_meme_pro_n_envoie_plus_de_sms(invite, user_factory, owner_factory):
+    """M2 : pas de harcèlement par SMS en changeant d'équipe après un refus."""
+    cheikh = user_factory(phone=CHEIKH)
+    decline_invitation(user=cheikh, invitation_public_id=invite().public_id)
+    invite(context_ref=uuid.uuid4())
+    assert len(FakeSmsGateway.outbox) == 1
+    # Un autre gérant n'est pas concerné.
+    invite(context_ref=uuid.uuid4(), by=owner_factory())
+    assert len(FakeSmsGateway.outbox) == 2
+
+
+def test_broker_indisponible_invitation_creee_sans_erreur(invite, monkeypatch):
+    """M4 : le SMS est au mieux ; une panne du broker n'est jamais une 500 pour le pro."""
+
+    def broken(*args, **kwargs):
+        raise ConnectionError("broker")
+
+    monkeypatch.setattr(tasks.send_notice_sms, "delay", broken)
+    assert invite().status == "pending"
+    assert NoticeSms.objects.get().status == "queued"
+
+
+def test_nom_saisi_a_l_acceptation(api_client, invite, user_factory):
+    """M6 : l'invité confirme ou corrige le nom proposé par le pro."""
+    cheikh = user_factory(phone=CHEIKH)
+    invitation = invite(hint="Cheikh")
+    response = bearer(api_client, cheikh).post(
+        reverse("me-invitation-accept", args=[invitation.public_id]),
+        {"display_name": "Cheikh Ndiaye"},
+        format="json",
+    )
+    assert response.status_code == 204
+    cheikh.refresh_from_db()
+    assert cheikh.display_name == "Cheikh Ndiaye"
+
+
+def test_role_non_autorise_en_403(api_client, invite, complete_user_factory):
+    """M5 : le contrat annonce 403 pour role_not_allowed."""
+    cheikh = complete_user_factory(phone=CHEIKH, is_review_account=True)
+    response = bearer(api_client, cheikh).post(
+        reverse("me-invitation-accept", args=[invite().public_id]), {}, format="json"
+    )
+    assert response.status_code == 403
+    assert response.json() == {"code": "role_not_allowed"}

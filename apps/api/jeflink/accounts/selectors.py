@@ -1,6 +1,6 @@
 from typing import Any
 
-from django.db.models import QuerySet
+from django.db.models import Exists, OuterRef, QuerySet
 from django.utils import timezone
 
 from .models import DeviceSession, Role, RoleGrant, RoleInvitation, User
@@ -63,11 +63,15 @@ def has_group_permission(user: User, app_label: str, codename: str) -> bool:
 
 
 def pending_invitations_for(user: User) -> QuerySet[RoleInvitation]:
-    """Invitations en attente pour le numéro du compte, d'un pro toujours actif."""
+    """Invitations en attente pour le numéro du compte, d'un gérant toujours actif (revue, I1)."""
     if not user.phone:
         return RoleInvitation.objects.none()
+    inviter_is_owner = RoleGrant.objects.filter(
+        user=OuterRef("invited_by"), role=Role.OWNER, revoked_at__isnull=True
+    )
     return (
         RoleInvitation.objects.filter(
+            Exists(inviter_is_owner),
             phone=user.phone,
             status=RoleInvitation.Status.PENDING,
             expires_at__gt=timezone.now(),

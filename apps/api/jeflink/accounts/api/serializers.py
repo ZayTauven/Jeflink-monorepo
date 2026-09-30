@@ -107,6 +107,13 @@ class InvitationSerializer(serializers.Serializer):
     expires_at = serializers.DateTimeField()
 
 
+class AcceptInvitationSerializer(serializers.Serializer):
+    # Nom saisi ou confirmé par l'invité sur l'écran d'acceptation (profil invité seulement).
+    display_name = serializers.CharField(
+        max_length=256, required=False, default="", allow_blank=True, trim_whitespace=False
+    )
+
+
 class OtherSessionSerializer(serializers.Serializer):
     public_id = serializers.UUIDField()
     app = serializers.CharField()

@@ -333,6 +333,8 @@ class RoleInvitation(BaseModel):
         EXPIRED = "expired", "Expirée"
 
     phone = models.CharField(max_length=16, blank=True)
+    # Pseudonyme gardé après la clôture : refus idempotent, pause des SMS après un refus.
+    phone_hmac = models.CharField(max_length=64)
     role = models.CharField(max_length=16, choices=Role.choices)
     status = models.CharField(max_length=8, choices=Status.choices, default=Status.PENDING)
     invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+")
@@ -351,6 +353,7 @@ class RoleInvitation(BaseModel):
             models.Index(fields=["phone", "status"]),
             # Quota quotidien par pro (compté en base, tient sans Redis).
             models.Index(fields=["invited_by", "created_at"]),
+            models.Index(fields=["invited_by", "phone_hmac"]),
         ]
         constraints = [
             models.UniqueConstraint(

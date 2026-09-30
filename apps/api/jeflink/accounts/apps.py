@@ -47,6 +47,10 @@ class AccountsConfig(AppConfig):
         )
         register_audit_schema("accounts.otp.login_refused", {"reason": str, "app": str})
         register_audit_schema("accounts.otp.locked", {"phone_hmac": PhoneHmac, "app": str})
+        invitation_fields: dict[str, type] = {"role": str, "invitation": str, "invited_by": str}
+        register_audit_schema("accounts.invitation.accepted", invitation_fields)
+        register_audit_schema("accounts.invitation.declined", invitation_fields)
         register_audit_schema(
-            "accounts.invitation.accepted", {"role": str, "invitation": str, "invited_by": str}
+            "accounts.invitation.created",
+            {"role": str, "invitation": str, "phone_hmac": PhoneHmac, "sms_queued": bool},
         )
