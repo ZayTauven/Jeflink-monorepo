@@ -1,0 +1,24 @@
+{
+  "name": "@jeflink/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "orval --config orval.config.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.104.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@jeflink/config": "workspace:*",
+    "@tanstack/react-query": "^5.104.0",
+    "@types/react": "^19.0.0",
+    "orval": "^8.38.0",
+    "react": "^19.0.0"
+  }
+}

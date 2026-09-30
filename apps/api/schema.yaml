@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: Jeflink API
+  version: 0.1.0
+  description: Contrat unique des fronts et apps Jeflink (client TS généré depuis
+    ce schéma).
+paths:
+  /api/health/:
+    get:
+      operationId: health
+      description: 'Sonde de disponibilité : l''API répond et la base est joignable.'
+      tags:
+      - health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
