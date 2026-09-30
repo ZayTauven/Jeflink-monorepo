@@ -81,6 +81,7 @@ class User(BaseModel, AbstractBaseUser, PermissionsMixin):
             ("ops_accounts_view", "Ops : consulter les comptes"),
             ("ops_accounts_manage", "Ops : gérer les comptes (sessions, blocages, état)"),
             ("ops_accounts_change_phone", "Ops : changer le numéro d'un compte"),
+            ("ops_accounts_reveal_phone", "Ops : afficher le numéro complet d'un compte"),
         ]
         constraints = [
             models.CheckConstraint(

@@ -42,6 +42,7 @@ class AccountsConfig(AppConfig):
         register_audit_schema("accounts.session.evicted_limit", {"app": str})
         register_audit_schema("accounts.dormant.cleared", {"reason_code": str, "note": str})
         register_audit_schema("ops.accounts.viewed", {})
+        register_audit_schema("ops.accounts.quota_exceeded", {"scope": str})
         ops_fields: dict[str, type] = {"reason_code": str, "note": str}
         register_audit_schema("ops.accounts.searched", {"phone_hmac": PhoneHmac, "found": bool})
         register_audit_schema("ops.accounts.phone_revealed", ops_fields)

@@ -551,7 +551,10 @@ paths:
           description: account_already_inactive, account_already_active, otp_not_blocked,
             account_not_dormant
         '403':
-          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
         '404':
           description: not_found
   /api/ops/accounts/{public_id}/clear-dormant/:
@@ -587,7 +590,10 @@ paths:
           description: account_already_inactive, account_already_active, otp_not_blocked,
             account_not_dormant
         '403':
-          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
         '404':
           description: not_found
   /api/ops/accounts/{public_id}/deactivate/:
@@ -623,7 +629,10 @@ paths:
           description: account_already_inactive, account_already_active, otp_not_blocked,
             account_not_dormant
         '403':
-          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
         '404':
           description: not_found
   /api/ops/accounts/{public_id}/reactivate/:
@@ -659,7 +668,10 @@ paths:
           description: account_already_inactive, account_already_active, otp_not_blocked,
             account_not_dormant
         '403':
-          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
         '404':
           description: not_found
   /api/ops/accounts/{public_id}/reveal-phone/:
@@ -699,7 +711,10 @@ paths:
           description: account_already_inactive, account_already_active, otp_not_blocked,
             account_not_dormant
         '403':
-          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
         '404':
           description: not_found
   /api/ops/accounts/{public_id}/revoke-sessions/:
@@ -735,7 +750,10 @@ paths:
           description: account_already_inactive, account_already_active, otp_not_blocked,
             account_not_dormant
         '403':
-          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
         '404':
           description: not_found
   /api/ops/accounts/{public_id}/unblock-otp/:
@@ -771,7 +789,10 @@ paths:
           description: account_already_inactive, account_already_active, otp_not_blocked,
             account_not_dormant
         '403':
-          description: ops_forbidden, ops_step_up_required, ops_target_forbidden
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
         '404':
           description: not_found
   /api/ops/accounts/search/:

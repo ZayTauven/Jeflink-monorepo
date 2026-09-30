@@ -11,10 +11,13 @@ Règles communes :
 import re
 import unicodedata
 
+from django.conf import settings
 from django.db import transaction
 
+from jeflink.common.alerts import alert_once
 from jeflink.common.errors import DomainError
 from jeflink.common.pii import contains_pii, phone_hmac
+from jeflink.common.ratelimit import Limit, RateLimitUnavailable, consume, count
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
@@ -73,6 +76,37 @@ def _check_target(actor: User, target: User, *, allow_review_account: bool = Tru
         raise DomainError("ops_target_forbidden", status=403)
 
 
+def _consume_quota(actor: User, scope: str) -> None:
+    """Quota par Ops (heure et jour). Sans Redis, refus : jamais d'ouverture (comme l'OTP)."""
+    limits = [
+        Limit(f"ops:{scope}_{window}", limit, window)
+        for limit, window in settings.OPS_QUOTAS[scope]
+    ]
+    identity = str(actor.public_id)
+    try:
+        outcome = consume([(limit, identity) for limit in limits])
+        daily = limits[-1]
+        used = count(daily, identity)
+    except RateLimitUnavailable as exc:
+        raise DomainError("ops_quota_unavailable", status=503) from exc
+    if not outcome.allowed:
+        alert_once(f"ops_quota:{scope}:{identity}", 3600, "ops_quota_exceeded", scope=scope)
+        audit(
+            action="ops.accounts.quota_exceeded",
+            actor=actor,
+            actor_kind=AuditEvent.ActorKind.OPS,
+            metadata={"scope": scope},
+            durable=True,
+        )
+        raise DomainError("ops_rate_limited", status=429, retry_after=outcome.retry_after)
+    if used * 2 >= daily.limit:
+        alert_once(f"ops_quota_half:{scope}:{identity}", 86400, "ops_quota_half", scope=scope)
+
+
+def _is_admin(actor: User) -> bool:
+    return actor.groups.filter(name="Admin").exists()
+
+
 def _metadata(reason_code: str, note: str, **extra) -> dict:
     metadata = {"reason_code": reason_code, **extra}
     if note:
@@ -97,6 +131,7 @@ def search_account(*, actor: User, raw_phone: str) -> User | None:
     Les comptes ops et techniques n'apparaissent jamais (ils ne sont pas des cibles).
     """
     phone = normalize_phone(raw_phone)
+    _consume_quota(actor, "search")
     user = User.objects.filter(phone=phone, deleted_at__isnull=True).first()
     if user is not None and (
         user.pk == actor.pk or user.is_staff or user.is_superuser or has_role(user, Role.OPS)
@@ -136,6 +171,7 @@ def reveal_phone(*, actor: User, public_id, reason_code: str, note: str = "") ->
     _check_target(actor, target, allow_review_account=False)
     if not target.phone:
         raise DomainError("not_found", status=404)
+    _consume_quota(actor, "reveal_phone")
     audit(
         action="ops.accounts.phone_revealed",
         actor=actor,
@@ -261,4 +297,8 @@ def ops_clear_dormant(*, actor: User, public_id, reason_code: str, note: str = "
     target = _locked_target(actor, public_id)
     if target.dormant_restricted_since is None:
         raise DomainError("account_not_dormant", status=409)
+    # Compte pro : rendu à la personne qui détient la SIM, au même risque qu'un changement de
+    # numéro. Réservé au groupe Admin (décision de Zay, revue tâche 15, I4).
+    if has_role(target, Role.OWNER, Role.TECHNICIAN) and not _is_admin(actor):
+        raise DomainError("ops_admin_required", status=403)
     return clear_dormant_restriction(user=target, actor=actor, reason_code=reason_code, note=note)

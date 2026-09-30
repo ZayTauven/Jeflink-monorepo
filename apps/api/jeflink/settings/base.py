@@ -184,6 +184,12 @@ IP_RATE_LIMITS = {
     "mfa_step_up": {"limit": 10, "window": 600},
     "me_deletion": {"limit": 10, "window": 600},
 }
+# Quotas par Ops (décision de Zay, revue sécurité tâche 15, I2) : contre l'aspiration de la
+# base par un Ops malveillant ou un compte compromis. Alerte à 50 %, refus au-delà.
+OPS_QUOTAS = {
+    "search": [(60, 3600), (300, 86400)],
+    "reveal_phone": [(20, 3600), (60, 86400)],
+}
 OTP_PHONE_BLOCK_MAX_HOURS = 24
 SMS_DAILY_CAP = env.int("SMS_DAILY_CAP", default=5000)
 SMS_DAILY_CAP_BY_REGION = {"SN": env.int("SMS_DAILY_CAP_SN", default=5000)}

@@ -89,10 +89,15 @@ export type opsAccountsRetrieveResponse409 = {
   status: 409
 }
 
+export type opsAccountsRetrieveResponse429 = {
+  data: void
+  status: 429
+}
+
 export type opsAccountsRetrieveResponseSuccess = (opsAccountsRetrieveResponse200) & {
   headers: Headers;
 };
-export type opsAccountsRetrieveResponseError = (opsAccountsRetrieveResponse400 | opsAccountsRetrieveResponse403 | opsAccountsRetrieveResponse404 | opsAccountsRetrieveResponse409) & {
+export type opsAccountsRetrieveResponseError = (opsAccountsRetrieveResponse400 | opsAccountsRetrieveResponse403 | opsAccountsRetrieveResponse404 | opsAccountsRetrieveResponse409 | opsAccountsRetrieveResponse429) & {
   headers: Headers;
 };
 
@@ -217,10 +222,15 @@ export type opsAccountsClearDormantResponse409 = {
   status: 409
 }
 
+export type opsAccountsClearDormantResponse429 = {
+  data: void
+  status: 429
+}
+
 export type opsAccountsClearDormantResponseSuccess = (opsAccountsClearDormantResponse204) & {
   headers: Headers;
 };
-export type opsAccountsClearDormantResponseError = (opsAccountsClearDormantResponse400 | opsAccountsClearDormantResponse403 | opsAccountsClearDormantResponse404 | opsAccountsClearDormantResponse409) & {
+export type opsAccountsClearDormantResponseError = (opsAccountsClearDormantResponse400 | opsAccountsClearDormantResponse403 | opsAccountsClearDormantResponse404 | opsAccountsClearDormantResponse409 | opsAccountsClearDormantResponse429) & {
   headers: Headers;
 };
 
@@ -333,10 +343,15 @@ export type opsAccountsDeactivateResponse409 = {
   status: 409
 }
 
+export type opsAccountsDeactivateResponse429 = {
+  data: void
+  status: 429
+}
+
 export type opsAccountsDeactivateResponseSuccess = (opsAccountsDeactivateResponse204) & {
   headers: Headers;
 };
-export type opsAccountsDeactivateResponseError = (opsAccountsDeactivateResponse400 | opsAccountsDeactivateResponse403 | opsAccountsDeactivateResponse404 | opsAccountsDeactivateResponse409) & {
+export type opsAccountsDeactivateResponseError = (opsAccountsDeactivateResponse400 | opsAccountsDeactivateResponse403 | opsAccountsDeactivateResponse404 | opsAccountsDeactivateResponse409 | opsAccountsDeactivateResponse429) & {
   headers: Headers;
 };
 
@@ -449,10 +464,15 @@ export type opsAccountsReactivateResponse409 = {
   status: 409
 }
 
+export type opsAccountsReactivateResponse429 = {
+  data: void
+  status: 429
+}
+
 export type opsAccountsReactivateResponseSuccess = (opsAccountsReactivateResponse204) & {
   headers: Headers;
 };
-export type opsAccountsReactivateResponseError = (opsAccountsReactivateResponse400 | opsAccountsReactivateResponse403 | opsAccountsReactivateResponse404 | opsAccountsReactivateResponse409) & {
+export type opsAccountsReactivateResponseError = (opsAccountsReactivateResponse400 | opsAccountsReactivateResponse403 | opsAccountsReactivateResponse404 | opsAccountsReactivateResponse409 | opsAccountsReactivateResponse429) & {
   headers: Headers;
 };
 
@@ -565,10 +585,15 @@ export type opsAccountsRevealPhoneResponse409 = {
   status: 409
 }
 
+export type opsAccountsRevealPhoneResponse429 = {
+  data: void
+  status: 429
+}
+
 export type opsAccountsRevealPhoneResponseSuccess = (opsAccountsRevealPhoneResponse200) & {
   headers: Headers;
 };
-export type opsAccountsRevealPhoneResponseError = (opsAccountsRevealPhoneResponse400 | opsAccountsRevealPhoneResponse403 | opsAccountsRevealPhoneResponse404 | opsAccountsRevealPhoneResponse409) & {
+export type opsAccountsRevealPhoneResponseError = (opsAccountsRevealPhoneResponse400 | opsAccountsRevealPhoneResponse403 | opsAccountsRevealPhoneResponse404 | opsAccountsRevealPhoneResponse409 | opsAccountsRevealPhoneResponse429) & {
   headers: Headers;
 };
 
@@ -681,10 +706,15 @@ export type opsAccountsRevokeSessionsResponse409 = {
   status: 409
 }
 
+export type opsAccountsRevokeSessionsResponse429 = {
+  data: void
+  status: 429
+}
+
 export type opsAccountsRevokeSessionsResponseSuccess = (opsAccountsRevokeSessionsResponse204) & {
   headers: Headers;
 };
-export type opsAccountsRevokeSessionsResponseError = (opsAccountsRevokeSessionsResponse400 | opsAccountsRevokeSessionsResponse403 | opsAccountsRevokeSessionsResponse404 | opsAccountsRevokeSessionsResponse409) & {
+export type opsAccountsRevokeSessionsResponseError = (opsAccountsRevokeSessionsResponse400 | opsAccountsRevokeSessionsResponse403 | opsAccountsRevokeSessionsResponse404 | opsAccountsRevokeSessionsResponse409 | opsAccountsRevokeSessionsResponse429) & {
   headers: Headers;
 };
 
@@ -797,10 +827,15 @@ export type opsAccountsUnblockOtpResponse409 = {
   status: 409
 }
 
+export type opsAccountsUnblockOtpResponse429 = {
+  data: void
+  status: 429
+}
+
 export type opsAccountsUnblockOtpResponseSuccess = (opsAccountsUnblockOtpResponse204) & {
   headers: Headers;
 };
-export type opsAccountsUnblockOtpResponseError = (opsAccountsUnblockOtpResponse400 | opsAccountsUnblockOtpResponse403 | opsAccountsUnblockOtpResponse404 | opsAccountsUnblockOtpResponse409) & {
+export type opsAccountsUnblockOtpResponseError = (opsAccountsUnblockOtpResponse400 | opsAccountsUnblockOtpResponse403 | opsAccountsUnblockOtpResponse404 | opsAccountsUnblockOtpResponse409 | opsAccountsUnblockOtpResponse429) & {
   headers: Headers;
 };
 

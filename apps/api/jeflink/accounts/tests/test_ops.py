@@ -362,3 +362,64 @@ def test_compte_supprime(agent, user_factory):
     assert client.get(reverse("ops-account", args=[deleted.public_id])).json()["deleted"] is True
     assert act(client, "reveal-phone", deleted, "support_call").status_code == 404
     assert act(client, "deactivate", deleted, "fraud").status_code == 404
+
+
+# --- Décisions de Zay (revue tâche 15 : I1, I2, I4) --------------------------------------------
+
+
+@pytest.mark.parametrize("group", ["Finance", "Validation KYC"])
+def test_finance_et_kyc_ne_revelent_pas_le_numero(user_factory, awa, group):
+    """I1 : révélation réservée à Support et Admin."""
+    ops_user = make_ops(user_factory, group=group)
+    response = act(console(ops_user), "reveal-phone", awa, "support_call")
+    assert response.status_code == 403
+    assert response.json() == {"code": "ops_forbidden"}
+
+
+def test_revelation_exige_un_totp_recent(agent, awa):
+    client = console(agent, mfa_age=timedelta(minutes=10))
+    assert act(client, "reveal-phone", awa, "support_call").json() == {
+        "code": "ops_step_up_required"
+    }
+
+
+def test_quota_de_recherche_par_ops(agent, settings):
+    """I2 : au-delà du quota, refus 429 et trace durable."""
+    settings.OPS_QUOTAS = {**settings.OPS_QUOTAS, "search": [(2, 3600), (10, 86400)]}
+    client = console(agent)
+    for _ in range(2):
+        response = client.post(reverse("ops-search"), {"phone": PHONE}, format="json")
+        assert response.status_code == 200
+    response = client.post(reverse("ops-search"), {"phone": PHONE}, format="json")
+    assert response.status_code == 429
+    assert response.json()["code"] == "ops_rate_limited"
+    assert response.json()["retry_after"] > 0
+    event = AuditEvent.objects.get(action="ops.accounts.quota_exceeded")
+    assert event.metadata == {"scope": "search"}
+
+
+def test_quota_de_revelation_par_ops(agent, awa, settings):
+    settings.OPS_QUOTAS = {**settings.OPS_QUOTAS, "reveal_phone": [(1, 3600), (5, 86400)]}
+    client = console(agent)
+    assert act(client, "reveal-phone", awa, "support_call").status_code == 200
+    assert act(client, "reveal-phone", awa, "support_call").status_code == 429
+    assert AuditEvent.objects.filter(action="ops.accounts.phone_revealed").count() == 1
+
+
+def test_quota_sans_redis_refuse(agent, redis_down):
+    """I2 : jamais d'ouverture quand le compteur ne répond pas."""
+    response = console(agent).post(reverse("ops-search"), {"phone": PHONE}, format="json")
+    assert response.status_code == 503
+    assert response.json() == {"code": "ops_quota_unavailable"}
+
+
+@pytest.mark.parametrize("role", [Role.OWNER, Role.TECHNICIAN])
+def test_compte_dormant_pro_reserve_aux_admin(agent, awa, user_factory, role):
+    """I4 : rendre un compte pro à qui détient la SIM exige le groupe Admin."""
+    grant_role(user=awa, role=role, reason_code="test")
+    create_session(user=awa, app="pro", platform="android", restricted=True)
+    response = act(console(agent), "clear-dormant", awa, "kyc_verified")
+    assert response.status_code == 403
+    assert response.json() == {"code": "ops_admin_required"}
+    admin = make_ops(user_factory, group="Admin")
+    assert act(console(admin), "clear-dormant", awa, "kyc_verified").status_code == 204

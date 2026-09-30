@@ -25,6 +25,8 @@ from .serializers import (
 
 CanView = HasOpsPerm("ops.accounts.view", step_up=False)
 CanManage = HasOpsPerm("ops.accounts.manage", step_up=True)
+# Support et Admin seulement, TOTP de moins de 5 min (décision de Zay, revue tâche 15, I1).
+CanRevealPhone = HasOpsPerm("ops.accounts.reveal_phone", step_up=True)
 
 COMMON_ERRORS = {
     400: OpenApiResponse(description="reason_invalid, note_invalid"),
@@ -33,7 +35,12 @@ COMMON_ERRORS = {
             "account_already_inactive, account_already_active, otp_not_blocked, account_not_dormant"
         )
     ),
-    403: OpenApiResponse(description="ops_forbidden, ops_step_up_required, ops_target_forbidden"),
+    403: OpenApiResponse(
+        description=(
+            "ops_forbidden, ops_step_up_required, ops_target_forbidden, ops_admin_required"
+        )
+    ),
+    429: OpenApiResponse(description="ops_rate_limited (+ retry_after)"),
     404: OpenApiResponse(description="not_found"),
 }
 
@@ -122,7 +129,7 @@ def _action_view(action: str, service, *, permission, operation_id: str, respons
 OpsRevealPhoneView = _action_view(
     "reveal_phone",
     ops.reveal_phone,
-    permission=CanView,
+    permission=CanRevealPhone,
     operation_id="ops_accounts_reveal_phone",
     response=RevealedPhoneSerializer,
 )
