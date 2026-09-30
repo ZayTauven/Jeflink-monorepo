@@ -257,6 +257,23 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 # Au-delà de la durée maximale d'une tâche : pas de relivraison d'une tâche encore en cours.
 CELERY_BROKER_TRANSPORT_OPTIONS = {"visibility_timeout": 3600}
 CELERY_TIMEZONE = "UTC"
+# Planification statique (spec 001, « Tâches Celery ») : pas de planificateur en base.
+CELERY_BEAT_SCHEDULE = {
+    "accounts-purge-auth-data": {
+        "task": "jeflink.accounts.tasks.purge_auth_data",
+        "schedule": 24 * 3600,
+        "options": {"expires": 6 * 3600},
+    },
+}
+
+# Rétention des données d'authentification, en jours (spec 001 ; à valider par le consultant
+# juridique avec la déclaration CDP, Q8). AuditEvent (5 ans) relève d'un archivage dédié.
+AUTH_RETENTION = {
+    "otp": 7,  # OtpChallenge, OtpDelivery, NoticeSms
+    "mfa": 7,  # MfaChallenge, OpsEnrollmentToken expirés
+    "closed_requests": 30,  # RoleInvitation et PhoneChangeRequest clos
+    "sessions": 90,  # DeviceSession révoquées ou expirées (et leurs refresh retirés)
+}
 
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")

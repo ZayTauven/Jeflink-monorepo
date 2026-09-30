@@ -211,3 +211,14 @@ def send_notice_sms(self, notice_public_id: str) -> None:
         sent_at=now,
         updated_at=now,
     )
+
+
+# --- Purge quotidienne (tâche 18) ----------------------------------------------------------------
+
+
+@shared_task(acks_late=True)
+def purge_auth_data() -> dict[str, int]:
+    """Rétention des données d'authentification (voir ``accounts.purge``). Relançable."""
+    from .purge import purge_auth_data as run
+
+    return run()

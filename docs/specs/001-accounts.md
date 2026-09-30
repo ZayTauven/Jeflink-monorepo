@@ -551,6 +551,8 @@ En test, `send_otp.apply_async` et `delay` sont interceptés (Celery en mode EAG
 | `DeviceSession` révoquée                   | 90 j                                                             |
 | `AuditEvent`                               | 5 ans                                                            |
 
+Mise en œuvre (tâche 18) : `accounts.tasks.purge_auth_data`, planifiée chaque jour (`CELERY_BEAT_SCHEDULE`), relançable, par lots de 1 000. Elle **clôt** d'abord ce qui est échu (invitations et demandes de changement de numéro expirées : numéro effacé, code invalidé ; SMS d'information bloqués plus d'une heure : `unknown`, numéro effacé), puis **supprime** au-delà des durées de `AUTH_RETENTION` : challenges OTP, envois et SMS d'information (7 j), challenges MFA et jetons d'enrôlement expirés (7 j), invitations et demandes de changement closes (30 j), sessions révoquées ou expirées et leurs refresh retirés (90 j), blocages OTP échus depuis 24 h. Elle ne journalise que des volumes. `AuditEvent` n'est pas concerné : il est en ajout seul (trigger en base), sa rétention de 5 ans relève d'un archivage dédié, à prévoir avant la production.
+
 Un registre des traitements documente finalités et durées. La déclaration CDP est faite avant la production, avec la formalité de transfert hors Sénégal si le fournisseur SMS ou l'hébergeur est étranger (S22).
 
 - **Suppression du compte (S16)** : anonymisation, la ligne est conservée.
