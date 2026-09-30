@@ -47,6 +47,8 @@ class AccountsConfig(AppConfig):
         )
         register_audit_schema("accounts.otp.login_refused", {"reason": str, "app": str})
         register_audit_schema("accounts.otp.locked", {"phone_hmac": PhoneHmac, "app": str})
+        register_audit_schema("accounts.user.deleted", {"reason": str})
+        register_audit_schema("accounts.deletion.blocked", {"reasons": list})
         register_audit_schema("accounts.mfa.enrolled", {})
         register_audit_schema("accounts.mfa.verified", {})
         register_audit_schema("accounts.mfa.step_up", {})

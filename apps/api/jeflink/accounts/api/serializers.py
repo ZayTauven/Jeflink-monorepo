@@ -204,3 +204,12 @@ class StepUpRequestSerializer(serializers.Serializer):
 class AccessTokenSerializer(serializers.Serializer):
     access = serializers.CharField()
     access_expires_at = serializers.DateTimeField()
+
+
+# --- Suppression du compte -------------------------------------------------------------------
+
+
+class DeletionConfirmSerializer(serializers.Serializer):
+    challenge_id = serializers.UUIDField()
+    challenge_secret = serializers.CharField(max_length=64)
+    code = serializers.RegexField(r"^[0-9]{6}$")

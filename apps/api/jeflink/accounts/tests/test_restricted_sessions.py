@@ -7,10 +7,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.test import APIRequestFactory
 
-# Couples admis pour une session restreinte : se déconnecter doit toujours rester possible, et
-# l'app lit un profil minimal pour choisir l'écran du compte dormant. L'écran de choix
-# (« Repartir de zéro ») s'y ajoutera à la tâche 14.
-RESTRICTED_ALLOWED = {("LogoutView", "POST"), ("MeView", "GET")}
+# Couples admis pour une session restreinte : se déconnecter doit toujours rester possible,
+# l'app lit un profil minimal pour choisir l'écran du compte dormant, et le client peut
+# « Repartir de zéro » (tâche 14).
+RESTRICTED_ALLOWED = {("LogoutView", "POST"), ("MeView", "GET"), ("FreshStartView", "POST")}
 METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
 
 

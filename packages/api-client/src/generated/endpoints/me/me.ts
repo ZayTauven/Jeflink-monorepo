@@ -26,9 +26,12 @@ import type {
 
 import type {
   AcceptInvitationRequest,
+  DeletionConfirmRequest,
   Me,
   MeInvitationsListParams,
   MeSessionsListParams,
+  OtpChallengeResponse,
+  OtpVerifyResponse,
   PaginatedDeviceSessionList,
   PaginatedInvitationList,
   PatchedMeUpdateRequest
@@ -277,6 +280,296 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getMeUpdateMutationOptions(options), queryClient);
+    }
+    export type meDeletionResponse204 = {
+  data: void
+  status: 204
+}
+
+export type meDeletionResponse400 = {
+  data: void
+  status: 400
+}
+
+export type meDeletionResponse409 = {
+  data: void
+  status: 409
+}
+
+export type meDeletionResponseSuccess = (meDeletionResponse204) & {
+  headers: Headers;
+};
+export type meDeletionResponseError = (meDeletionResponse400 | meDeletionResponse409) & {
+  headers: Headers;
+};
+
+export type meDeletionResponse = (meDeletionResponseSuccess | meDeletionResponseError)
+
+export const getMeDeletionUrl = () => {
+
+
+
+
+  return `/api/me/deletion/`
+}
+
+export const meDeletion = async (deletionConfirmRequest: DeletionConfirmRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<meDeletionResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<meDeletionResponse>(getMeDeletionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(deletionConfirmRequest)
+  }
+);}
+
+
+
+
+
+export const getMeDeletionMutationKey = () => ['meDeletion'] as const;
+
+export const getMeDeletionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meDeletion>>, TError,MeDeletionMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof meDeletion>>, TError,MeDeletionMutationVariables, TContext> => {
+
+const mutationKey = getMeDeletionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof meDeletion>>, MeDeletionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  meDeletion(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MeDeletionMutationResult = NonNullable<Awaited<ReturnType<typeof meDeletion>>>
+    export type MeDeletionMutationBody = BodyType<DeletionConfirmRequest>
+    export type MeDeletionMutationError = ErrorType<void>
+    export type MeDeletionMutationVariables = {data: BodyType<DeletionConfirmRequest>}
+
+    export const useMeDeletion = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meDeletion>>, TError,MeDeletionMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof meDeletion>>,
+        TError,
+        MeDeletionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMeDeletionMutationOptions(options), queryClient);
+    }
+    export type meDeletionOtpResponse202 = {
+  data: OtpChallengeResponse
+  status: 202
+}
+
+export type meDeletionOtpResponse409 = {
+  data: void
+  status: 409
+}
+
+export type meDeletionOtpResponse429 = {
+  data: void
+  status: 429
+}
+
+export type meDeletionOtpResponseSuccess = (meDeletionOtpResponse202) & {
+  headers: Headers;
+};
+export type meDeletionOtpResponseError = (meDeletionOtpResponse409 | meDeletionOtpResponse429) & {
+  headers: Headers;
+};
+
+export type meDeletionOtpResponse = (meDeletionOtpResponseSuccess | meDeletionOtpResponseError)
+
+export const getMeDeletionOtpUrl = () => {
+
+
+
+
+  return `/api/me/deletion/otp/`
+}
+
+export const meDeletionOtp = async ( options?: Parameters<typeof jeflinkFetch>[1]): Promise<meDeletionOtpResponse> => {
+
+  return jeflinkFetch<meDeletionOtpResponse>(getMeDeletionOtpUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMeDeletionOtpMutationKey = () => ['meDeletionOtp'] as const;
+
+export const getMeDeletionOtpMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meDeletionOtp>>, TError,void, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof meDeletionOtp>>, TError,void, TContext> => {
+
+const mutationKey = getMeDeletionOtpMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof meDeletionOtp>>, void> = () => {
+
+
+          return  meDeletionOtp(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MeDeletionOtpMutationResult = NonNullable<Awaited<ReturnType<typeof meDeletionOtp>>>
+
+    export type MeDeletionOtpMutationError = ErrorType<void>
+
+
+    export const useMeDeletionOtp = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meDeletionOtp>>, TError,void, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof meDeletionOtp>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getMeDeletionOtpMutationOptions(options), queryClient);
+    }
+    export type meFreshStartResponse200 = {
+  data: OtpVerifyResponse
+  status: 200
+}
+
+export type meFreshStartResponse403 = {
+  data: void
+  status: 403
+}
+
+export type meFreshStartResponse409 = {
+  data: void
+  status: 409
+}
+
+export type meFreshStartResponseSuccess = (meFreshStartResponse200) & {
+  headers: Headers;
+};
+export type meFreshStartResponseError = (meFreshStartResponse403 | meFreshStartResponse409) & {
+  headers: Headers;
+};
+
+export type meFreshStartResponse = (meFreshStartResponseSuccess | meFreshStartResponseError)
+
+export const getMeFreshStartUrl = () => {
+
+
+
+
+  return `/api/me/fresh-start/`
+}
+
+/**
+ * Session restreinte (compte dormant, client) : « Repartir de zéro ».
+ */
+export const meFreshStart = async ( options?: Parameters<typeof jeflinkFetch>[1]): Promise<meFreshStartResponse> => {
+
+  return jeflinkFetch<meFreshStartResponse>(getMeFreshStartUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMeFreshStartMutationKey = () => ['meFreshStart'] as const;
+
+export const getMeFreshStartMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meFreshStart>>, TError,void, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof meFreshStart>>, TError,void, TContext> => {
+
+const mutationKey = getMeFreshStartMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof meFreshStart>>, void> = () => {
+
+
+          return  meFreshStart(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MeFreshStartMutationResult = NonNullable<Awaited<ReturnType<typeof meFreshStart>>>
+
+    export type MeFreshStartMutationError = ErrorType<void>
+
+
+    export const useMeFreshStart = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof meFreshStart>>, TError,void, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof meFreshStart>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getMeFreshStartMutationOptions(options), queryClient);
     }
     export type meInvitationsListResponse200 = {
   data: PaginatedInvitationList

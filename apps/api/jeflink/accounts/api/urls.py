@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import mfa_views, otp_views, views
+from . import deletion_views, mfa_views, otp_views, views
 
 urlpatterns = [
     path("auth/config/", otp_views.AuthConfigView.as_view(), name="auth-config"),
@@ -14,6 +14,9 @@ urlpatterns = [
     path("auth/token/refresh/", views.TokenRefreshView.as_view(), name="auth-token-refresh"),
     path("auth/logout/", views.LogoutView.as_view(), name="auth-logout"),
     path("me/", views.MeView.as_view(), name="me"),
+    path("me/deletion/otp/", deletion_views.DeletionOtpView.as_view(), name="me-deletion-otp"),
+    path("me/deletion/", deletion_views.DeletionView.as_view(), name="me-deletion"),
+    path("me/fresh-start/", deletion_views.FreshStartView.as_view(), name="me-fresh-start"),
     path("me/invitations/", views.MyInvitationsView.as_view(), name="me-invitations"),
     path(
         "me/invitations/<uuid:public_id>/accept/",

@@ -551,7 +551,7 @@ def test_demandes_simultanees_meme_cle(ask):
     from jeflink.common.ratelimit import client
 
     key = "cle-idempotence-simultanee-01"
-    cache_key = _idempotency_cache_key(key, PHONE, "client", "")
+    cache_key = _idempotency_cache_key(key, PHONE, "client:login", "")
     client().set(f"{cache_key}:lock", 1, ex=30)
     response = ask(key=key)
     assert response.status_code == 409

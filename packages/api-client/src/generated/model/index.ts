@@ -11,6 +11,7 @@ export * from './accessToken.ts';
 export * from './appD8cEnum.ts';
 export * from './authConfig.ts';
 export * from './authUser.ts';
+export * from './deletionConfirmRequest.ts';
 export * from './devicePlatformEnum.ts';
 export * from './deviceRequest.ts';
 export * from './deviceSession.ts';

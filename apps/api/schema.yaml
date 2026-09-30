@@ -337,6 +337,72 @@ paths:
           description: display_name_length, display_name_invalid, display_name_reserved
         '403':
           description: session_restricted
+  /api/me/deletion/:
+    post:
+      operationId: me_deletion
+      tags:
+      - me
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeletionConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DeletionConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeletionConfirmRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: otp_invalid, otp_expired, otp_challenge_invalid
+        '409':
+          description: account_deletion_blocked (+ reasons)
+  /api/me/deletion/otp/:
+    post:
+      operationId: me_deletion_otp
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie du numéro (16 à 64 caractères) : même clé,
+          même réponse.'
+        required: true
+      tags:
+      - me
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpChallengeResponse'
+          description: ''
+        '409':
+          description: account_deletion_blocked (+ reasons)
+        '429':
+          description: otp_rate_limited (+ retry_after)
+  /api/me/fresh-start/:
+    post:
+      operationId: me_fresh_start
+      description: 'Session restreinte (compte dormant, client) : « Repartir de zéro
+        ».'
+      tags:
+      - me
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '403':
+          description: fresh_start_not_allowed, reauth_required
+        '409':
+          description: account_deletion_blocked (+ reasons)
   /api/me/invitations/:
     get:
       operationId: me_invitations_list
@@ -521,6 +587,24 @@ components:
       - profile_status
       - public_id
       - roles
+    DeletionConfirmRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        challenge_secret:
+          type: string
+          minLength: 1
+          maxLength: 64
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+      required:
+      - challenge_id
+      - challenge_secret
+      - code
     DevicePlatformEnum:
       enum:
       - android

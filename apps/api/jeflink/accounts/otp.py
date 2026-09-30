@@ -207,14 +207,69 @@ def request_otp(
     if region not in settings.OTP_ALLOWED_REGIONS:
         _count_refused_region(region)
         raise DomainError("phone_region_not_supported")
-    install_id = clean_install_id(install_id)
+    return _request_challenge(
+        phone=phone,
+        region=region,
+        purpose=OtpChallenge.Purpose.LOGIN,
+        app=app,
+        idempotency_key=idempotency_key,
+        install_id=install_id,
+        language=language,
+        client_challenge_token=client_challenge_token,
+    )
 
-    # Le rappel d'idempotence n'envoie rien : il passe avant le défi client (M10).
-    cache_key = _idempotency_cache_key(idempotency_key, phone, app, install_id)
+
+def request_account_otp(
+    *,
+    user: User,
+    purpose: str,
+    app: str,
+    idempotency_key: str,
+    install_id: str = "",
+) -> dict:
+    """Code envoyé au numéro **du compte connecté** pour confirmer une action (suppression…).
+
+    Même corps ``202`` et mêmes limites que ``otp/request`` ; pas de défi client (session).
+    """
+    if purpose != OtpChallenge.Purpose.DELETE_ACCOUNT:
+        raise ValueError(f"motif non pris en charge : {purpose}")
+    if not _IDEMPOTENCY_KEY.match(idempotency_key or ""):
+        raise DomainError("idempotency_key_required")
+    if not user.phone:
+        raise DomainError("account_disabled", status=403)
+    return _request_challenge(
+        phone=user.phone,
+        region=phone_region(user.phone),
+        purpose=purpose,
+        app=app,
+        idempotency_key=idempotency_key,
+        install_id=install_id,
+        language=user.preferred_language,
+        user=user,
+    )
+
+
+def _request_challenge(
+    *,
+    phone: str,
+    region: str,
+    purpose: str,
+    app: str,
+    idempotency_key: str,
+    install_id: str,
+    language: str,
+    client_challenge_token: str = "",
+    user: User | None = None,
+) -> dict:
+    install_id = clean_install_id(install_id)
+    # Le rappel d'idempotence n'envoie rien : il passe avant le défi client (M10). Le motif
+    # fait partie de la clé : une demande de suppression ne rappelle jamais une connexion.
+    cache_key = _idempotency_cache_key(idempotency_key, phone, f"{app}:{purpose}", install_id)
     remembered = _recall_response(cache_key)
     if remembered is not None:
         return remembered
-    check_client_challenge(token=client_challenge_token, app=app)
+    if purpose == OtpChallenge.Purpose.LOGIN:
+        check_client_challenge(token=client_challenge_token, app=app)
     if not _claim_in_flight(cache_key):
         raise DomainError("otp_request_in_progress", status=409)
     try:
@@ -232,7 +287,8 @@ def request_otp(
             challenge = OtpChallenge.objects.create(
                 phone=phone,
                 region=region,
-                purpose=OtpChallenge.Purpose.LOGIN,
+                purpose=purpose,
+                user=user,
                 challenge_secret_hash=hash_secret(secret),
                 app=app,
                 language=language if language in {"fr", "wo"} else "fr",
@@ -592,3 +648,36 @@ def _audit_verified(user: User, *, app: str, replay: bool) -> None:
         target=user,
         metadata={"app": app, "is_new_user": False, "restricted": False, "replay": replay},
     )
+
+
+def consume_account_otp(
+    *, user: User, purpose: str, challenge_id, challenge_secret: str, code: str
+) -> OtpChallenge:
+    """Valide un code de confirmation d'action. Le challenge doit avoir ce motif, appartenir au
+    compte connecté et viser son numéro actuel (S16). Aucun rejeu : l'action est définitive."""
+    challenge = _get_challenge(challenge_id, challenge_secret, for_update=False)
+    if (
+        challenge.purpose != purpose
+        or challenge.user_id != user.pk
+        or not user.phone
+        or not hmac.compare_digest(challenge.phone, user.phone)
+    ):
+        raise DomainError("otp_challenge_invalid")
+    now = timezone.now()
+    if challenge.status == OtpChallenge.Status.VERIFIED:
+        raise DomainError("otp_already_used", status=409)
+    if challenge.status == OtpChallenge.Status.LOCKED or phone_blocked_until(challenge.phone):
+        raise DomainError("otp_locked", status=429)
+    if challenge.status == OtpChallenge.Status.EXPIRED or now >= challenge.expires_at:
+        raise DomainError("otp_expired")
+    delivered = challenge.deliveries.exclude(code_hash="")
+    if delivered.exists() and not delivered.filter(expires_at__gt=now).exists():
+        raise DomainError("otp_expired")
+    if not _code_matches(challenge, code, now=now):
+        _register_failure(challenge)
+    updated = OtpChallenge.objects.filter(
+        pk=challenge.pk, status=OtpChallenge.Status.PENDING
+    ).update(status=OtpChallenge.Status.VERIFIED, verified_at=now)
+    if updated != 1:
+        raise DomainError("otp_already_used", status=409)
+    return challenge
