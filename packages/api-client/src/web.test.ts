@@ -152,6 +152,15 @@ describe("refreshWebSession", () => {
     assert.equal(calls.length, 1);
   });
 
+  it("marque jf-refreshed-at dans le futur : ignorée, le refresh part vraiment", async () => {
+    const storage = memoryStorage();
+    storage.setItem(REFRESHED_AT_KEY, String(10_000_000_000_000));
+    const { deps, calls } = setup(status(200), { storage });
+    assert.equal(await refreshWebSession(deps), true);
+    assert.equal(calls.length, 1);
+    assert.ok(Number(storage.values.get(REFRESHED_AT_KEY)) < 10_000_000_000_000);
+  });
+
   it("un refresh échoué dans un onglet n'empêche pas l'autre d'essayer", async () => {
     const codes = [503, 200];
     const { deps, calls } = setup(async () => new Response(null, { status: codes.shift() ?? 500 }));

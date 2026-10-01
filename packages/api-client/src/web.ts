@@ -118,7 +118,10 @@ export function refreshWebSession(deps: WebSessionDeps = browserDeps()): Promise
   const startedAt = deps.now();
   return underLock(deps, async () => {
     // Un autre onglet a rafraîchi pendant l'attente du verrou : le cookie d'accès est déjà neuf.
-    if (refreshedAt(deps.storage) >= startedAt) return true;
+    // Une marque dans le futur (horloge corrigée en arrière, valeur falsifiée) ne compte pas :
+    // sinon aucun refresh ne partirait plus jusqu'à ce que l'horloge la rattrape.
+    const at = refreshedAt(deps.storage);
+    if (at >= startedAt && at <= deps.now()) return true;
     const response = await post(deps, REFRESH_ENDPOINT);
     if (!response) return false;
     if (response.status === 401) {
