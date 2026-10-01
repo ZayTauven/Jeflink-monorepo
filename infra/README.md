@@ -41,7 +41,10 @@ Ainsi, les réglages de production s'appliquent sans exception : redirection HTT
 `next start` derrière un proxy de bord ; Next n'est jamais joignable directement depuis Internet. Le bord :
 
 - écrase l'en-tête d'IP cliente avec l'adresse réelle (`proxy_set_header X-Real-IP $remote_addr;`), et le BFF le lit par `BFF_CLIENT_IP_HEADER=x-real-ip`. Sans IP valide, Django répond `400 client_ip_missing` ;
-- ne met jamais `/api/*` en cache.
+- ne met jamais en cache `/api/*`, ni une page demandée avec un cookie `__Host-jf_at` ou `__Host-jf_sess` : Next la sert en `private, no-store`, mais réécrit `Vary` (pas de `Vary: Cookie` sur lequel compter) ;
+- pose HSTS avec `includeSubDomains`.
+
+Gabarit nginx et test de fumée : tâche infra 5 de la spec 001 (à faire avant toute exposition publique).
 
 Variables serveur, lues au démarrage seulement : `next build` n'en a besoin d'aucune (`pnpm --filter web test:build`, en CI). Liste et format dans `apps/web/.env.example`. Une variable manquante ou invalide arrête le serveur au démarrage, avec le nom de la variable et jamais sa valeur. `BFF_SHARED_SECRET` est une des valeurs de `BFF_SHARED_SECRETS` côté Django. Les instances du BFF sortent par `BFF_TRUSTED_NETWORKS` et appellent `JEFLINK_API_URL=https://api`.
 

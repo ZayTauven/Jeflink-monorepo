@@ -5,9 +5,15 @@
 // - CSP à nonce, neuve à chaque requête ; Next l'applique à ses scripts.
 // - Chemin courant transmis aux Server Components par `x-jf-path`, toujours posé ici avec `set` :
 //   une valeur venue du navigateur est écrasée. Il est revalidé par `refreshRedirectPath`.
+// - Page demandée avec une session : `Cache-Control: private, no-store`, posé ici et gardé par
+//   Next ; aucun cache partagé ne sert la page d'un client à un autre (revue web 1, I-2). Next
+//   réécrit `Vary` : c'est ce `no-store`, et la règle du bord (infra/README.md), qui protègent.
 import { type NextRequest, NextResponse } from "next/server";
 
-import { PATH_HEADER } from "@/lib/bff-config";
+import { PATH_HEADER } from "./lib/routes.ts";
+
+// Cookies qui signalent une session (accès, ou témoin d'un refresh possible).
+const SESSION_COOKIES = ["__Host-jf_at", "__Host-jf_sess"];
 
 function contentSecurityPolicy(nonce: string): string {
   const dev = process.env.NODE_ENV === "development";
@@ -43,10 +49,14 @@ export function proxy(request: NextRequest): NextResponse {
 
   const response = NextResponse.next({ request: { headers } });
   response.headers.set("Content-Security-Policy", csp);
+  if (SESSION_COOKIES.some((name) => request.cookies.has(name))) {
+    response.headers.set("Cache-Control", "private, no-store");
+  }
   return response;
 }
 
 export const config = {
-  // Ni /api (BFF), ni les fichiers de Next, ni les fichiers publics.
-  matcher: ["/((?!api/|api$|_next/|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)"],
+  // Ni /api (BFF), ni les fichiers de Next, ni les fichiers publics. Fichiers exclus par leur nom
+  // exact (ancré) : `/robots.txt-x/…` reste une page, avec CSP et x-jf-path (revue web 1, m-4).
+  matcher: ["/((?!api/|api$|_next/|favicon\\.ico$|robots\\.txt$|sitemap\\.xml$).*)"],
 };

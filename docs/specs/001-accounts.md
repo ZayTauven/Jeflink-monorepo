@@ -459,7 +459,7 @@ Mise en œuvre (tâche 17) :
   Pour le mobile, `REMOTE_ADDR` est réglé par le reverse proxy.
 
 - **Secrets** : jamais en `NEXT_PUBLIC_`. Un test de build parcourt `.next/static` à leur recherche (S9).
-- **En-têtes** : CSP stricte sur la console ; `Referrer-Policy: no-referrer` sur `/connexion` (S10). Le paramètre `next` doit être un chemin relatif interne validé (S20).
+- **En-têtes** : CSP stricte sur la console ; `Referrer-Policy: same-origin` sur `/connexion` (S10 : `next` ne part jamais vers un autre site). Le paramètre `next` doit être un chemin relatif interne validé (S20).
 - **Client API** : `configureApiClient()` est un singleton, donc côté serveur, le jeton passe **par appel**. Les aides serveur vivent dans `packages/api-client/src/bff/` (`server-only`), seul second `fetch` autorisé (ADR 0007 amende ADR 0006). `jeflinkFetch` gagne un `Authorization` par appel prioritaire, `onUnauthorized` (un seul refresh à la fois, un rejeu) et l'en-tête `X-Requested-With`.
 
 ### Rôles et permissions
@@ -731,7 +731,8 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
   1. [sécu] gitleaks en pre-commit et en CI.
   2. [sécu] Redis dédié à l'auth : authentification, TLS hors réseau privé, `noeviction`.
   3. Service Celery `beat` dans `infra/docker-compose.yml`.
-  4. Reverse proxy : pose `REMOTE_ADDR` (PROXY protocol ou `--proxy-headers` avec liste stricte), rejette `Host: api` et les hôtes inconnus, retire tout en-tête `X-Jeflink-*` venu de l'extérieur, n'expose pas `/api/schema/` ni l'admin en production (accès par réseau, pas par `Host`). `BFF_TRUSTED_NETWORKS` = CIDR du réseau interne du BFF. Le déploiement de production lance `manage.py check --database default --deploy` (vérifications du compte de revue E101 à E105, secrets) avant de démarrer gunicorn, qui ne lance aucun check. Fait : gabarits nginx `infra/proxy/templates/` (règles communes partagées par la production TLS et le test de fumée), `bin/start-production` (check --deploy puis uvicorn, `FORWARDED_ALLOW_IPS` sans `*`), test de fumée `infra/proxy/smoke.mjs` et garde-fou des en-têtes `X-Jeflink-*` en CI ; topologie dans `infra/README.md`.
+  4. [sécu] **Bord du BFF web** (revue web 1, I-4 ; avant toute exposition publique de `apps/web`, au plus tard le 2026-10-15) : gabarit nginx devant Next (`X-Real-IP` écrasé par `$remote_addr`, retrait des `X-Jeflink-*`, `Forwarded` et `X-Forwarded-*` venus de l'extérieur, `/api/*` et pages avec `__Host-jf_at` ou `__Host-jf_sess` jamais en cache, HSTS avec `includeSubDomains`), Next lié à l'interface interne seulement (`next start -H`), test de fumée qui envoie `X-Real-IP: 203.0.113.7` et vérifie que le BFF voit l'adresse réelle.
+  5. Reverse proxy : pose `REMOTE_ADDR` (PROXY protocol ou `--proxy-headers` avec liste stricte), rejette `Host: api` et les hôtes inconnus, retire tout en-tête `X-Jeflink-*` venu de l'extérieur, n'expose pas `/api/schema/` ni l'admin en production (accès par réseau, pas par `Host`). `BFF_TRUSTED_NETWORKS` = CIDR du réseau interne du BFF. Le déploiement de production lance `manage.py check --database default --deploy` (vérifications du compte de revue E101 à E105, secrets) avant de démarrer gunicorn, qui ne lance aucun check. Fait : gabarits nginx `infra/proxy/templates/` (règles communes partagées par la production TLS et le test de fumée), `bin/start-production` (check --deploy puis uvicorn, `FORWARDED_ALLOW_IPS` sans `*`), test de fumée `infra/proxy/smoke.mjs` et garde-fou des en-têtes `X-Jeflink-*` en CI ; topologie dans `infra/README.md`.
 - api :
   1. [sécu] **`trust` minimal** : `AuditEvent`, `audit()` avec schémas par action, écriture hors transaction sur les chemins d'erreur, admin en lecture seule, tests.
   2. [sécu] **`common`** : `pii.py` (`mask_phone`, `phone_hmac`), filtre de logs (motifs et clés de S14), `gsm7.py`, tests.
@@ -790,6 +791,22 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
      - `Referrer-Policy: same-origin` sur `/connexion` ;
      - `pnpm --filter web test:build` (aussi en CI) : un build sans aucune variable, puis un build avec des valeurs témoins absentes de tout `.next/` ;
      - `@jeflink/api-client/web` : `refreshWebSession`, `logoutWebSession` et `onWebSessionEnded` (verrou `jf-refresh` avec délais de 20 s, `jf-refreshed-at`, `BroadcastChannel` `jf-session`). Le `Providers` vide le cache et renvoie à la connexion quand la session expire.
+
+     Revue sécurité : acceptée avec réserves. Corrections :
+     - I-1 : règles de production pour tout `NODE_ENV` autre que `development` ;
+     - I-2 : `private, no-store` posé par le proxy dès qu'un cookie de session est présent, `connection()` dans `serverApi()`. Next réécrit `Vary`, la règle du bord est dans `infra/README.md` ;
+     - I-3 : tests du montage (matcher, CSP, `x-jf-path`, barre finale, en-têtes de `next.config`, redirections serveur) ;
+     - I-4 : tracé en tâche infra 5 ;
+     - m-1 : fin de session prévenue dans l'onglet courant sans `BroadcastChannel`, puis navigation complète ;
+     - m-2, m-3 : `refresh_missing` n'est pas une fin de session, `400 refresh_invalid` en est une ;
+     - m-4 : matcher ancré ;
+     - m-5 : un 401 côté serveur passe par le refresh si possible, sans boucle sur `/connexion` ;
+     - m-6 : test de build fondé sur `.env.example`, refus si un `.env*` local existe, cache compris, et cache Turbopack de build désactivé ;
+     - m-7 : HSTS `includeSubDomains` ;
+     - m-8 : documentation alignée ;
+     - m-10 : API refusée sur un hôte public.
+
+     Reste ouvert : m-9, alertes `onSecurityEvent` à brancher sur la supervision quand elle existera.
 
   2. **web — `/connexion`** :
      - étapes téléphone, code, autres appareils, nom ;

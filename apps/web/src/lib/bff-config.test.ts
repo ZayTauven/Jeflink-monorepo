@@ -2,12 +2,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-  BffConfigError,
-  LOGIN_PATH,
-  WEB_REFRESH_MAX_AGE_SECONDS,
-  readBffConfig,
-} from "./bff-config.ts";
+import { BffConfigError, WEB_REFRESH_MAX_AGE_SECONDS, readBffConfig } from "./bff-config.ts";
+import { LOGIN_PATH } from "./routes.ts";
 
 const SECRET = "s".repeat(40);
 const production = {
@@ -95,6 +91,34 @@ describe("readBffConfig", () => {
       );
     }
   });
+
+  for (const nodeEnv of [undefined, "", "test", "staging", "preprod", "Development"]) {
+    it(`NODE_ENV=${JSON.stringify(nodeEnv)} : règles de production, aucun repli de dev`, () => {
+      assert.throws(
+        () => readBffConfig({ NODE_ENV: nodeEnv, BFF_SHARED_SECRET: SECRET }),
+        /JEFLINK_API_URL/,
+      );
+      assert.throws(
+        () => readBffConfig({ ...production, NODE_ENV: nodeEnv, BFF_CLIENT_IP_HEADER: undefined }),
+        /BFF_CLIENT_IP_HEADER/,
+      );
+    });
+  }
+
+  for (const apiUrl of [
+    "https://jeflink.sn",
+    "https://www.jeflink.sn",
+    "https://api.jeflink.sn",
+    "https://JEFLINK.SN:8443",
+    "https://",
+  ]) {
+    it(`production : API « ${apiUrl} » refusée (hôte public)`, () => {
+      assert.throws(
+        () => readBffConfig({ ...production, JEFLINK_API_URL: apiUrl }),
+        /JEFLINK_API_URL/,
+      );
+    });
+  }
 
   it("local : seul le secret est exigé, valeurs de dev par défaut", () => {
     assert.throws(() => readBffConfig({ NODE_ENV: "development" }), /BFF_SHARED_SECRET/);

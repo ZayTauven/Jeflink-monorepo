@@ -4,18 +4,20 @@
 // Côté serveur :
 // - page : `serverApiWithSession()` (ou `serverApi()` si la session est facultative), puis
 //   `options` passé à chaque appel généré ; jamais à un Client Component ni dans un
-//   `HydrationBoundary`. Une erreur d'appel passe par `rethrowApiError()` ;
+//   `HydrationBoundary`. Une erreur d'appel passe par `rethrowApiError(error, api)` ;
 // - Server Action : `serverApi()` ; si `needsRefresh`, renvoyer `{ needsRefresh: true }` (le client
 //   rafraîchit puis rejoue), jamais `redirect`, qui perdrait le formulaire.
 import "server-only";
 
-import { ApiError } from "@jeflink/api-client";
 import { type BffServer, createBff } from "@jeflink/api-client/bff";
 import { safeNextPath } from "@jeflink/api-client/paths";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
-import { LOGIN_PATH, PATH_HEADER, readBffConfig } from "./bff-config";
+import { readBffConfig } from "./bff-config.ts";
+import { PATH_HEADER } from "./routes.ts";
+import { sessionRedirect, unauthorizedRedirect } from "./session-redirects.ts";
 
 type Bff = ReturnType<typeof createBff>;
 
@@ -33,8 +35,13 @@ async function currentPath(): Promise<string> {
   return safeNextPath((await headers()).get(PATH_HEADER));
 }
 
-/** Contexte serveur de la requête courante : rien de secret n'y est lisible. */
+/**
+ * Contexte serveur de la requête courante : rien de secret n'y est lisible. `connection()` rend
+ * la page dynamique quoi qu'il arrive : une page qui lit la session n'est jamais prérendue ni
+ * mise en cache (revue web 1, I-2).
+ */
 export async function serverApi(): Promise<BffServer> {
+  await connection();
   return bff().server(await headers());
 }
 
@@ -44,17 +51,14 @@ export async function serverApi(): Promise<BffServer> {
  */
 export async function serverApiWithSession(): Promise<BffServer> {
   const api = await serverApi();
-  if (api.needsRefresh) redirect(api.refreshPath(await currentPath()));
+  const target = sessionRedirect(api, await currentPath());
+  if (target) redirect(target);
   return api;
 }
 
-/**
- * Erreur d'un appel serveur. Un 401 alors qu'un accès était présent (session révoquée, compte
- * désactivé) mène à la connexion, jamais au refresh : pas de boucle. Le reste est relancé.
- */
-export async function rethrowApiError(error: unknown): Promise<never> {
-  if (error instanceof ApiError && error.status === 401) {
-    redirect(`${LOGIN_PATH}?next=${encodeURIComponent(await currentPath())}`);
-  }
+/** Erreur d'un appel serveur : 401 → refresh ou connexion (voir `unauthorizedRedirect`). */
+export async function rethrowApiError(error: unknown, api: BffServer): Promise<never> {
+  const target = unauthorizedRedirect(error, api, await currentPath());
+  if (target) redirect(target);
   throw error;
 }

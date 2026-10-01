@@ -2,8 +2,8 @@
 
 // Client API du navigateur (spec 001, « BFF Next ») : même origine (le BFF), cookies httpOnly,
 // aucun jeton côté JavaScript. Un 401 déclenche un seul refresh, sous le verrou partagé entre
-// onglets (@jeflink/api-client/web). Une fin de session, annoncée par cet onglet ou un autre,
-// vide le cache ; une session expirée renvoie à la connexion.
+// onglets (@jeflink/api-client/web). Une fin de session, dans cet onglet ou un autre, vide le
+// cache puis recharge : la connexion si la session a expiré, l'accueil après une déconnexion.
 //
 // Pas de `useSuspenseQuery` sans préchargement serveur : la requête partirait au rendu serveur,
 // sans session ni transport.
@@ -11,10 +11,10 @@ import { configureApiClient } from "@jeflink/api-client";
 import { safeNextPath } from "@jeflink/api-client/paths";
 import { onWebSessionEnded, refreshWebSession } from "@jeflink/api-client/web";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 
-const LOGIN_PATH = "/connexion";
+import { LOGIN_PATH } from "../lib/routes.ts";
+import { isLoginPath } from "../lib/session-redirects.ts";
 
 // Une seule fois, au chargement du module, dans le navigateur seulement : au rendu serveur, le
 // singleton du module ne reçoit rien (S4). Jamais de `baseUrl` absolue.
@@ -27,7 +27,6 @@ if (typeof window !== "undefined") {
 }
 
 export function Providers({ children }: { children: ReactNode }) {
-  const router = useRouter();
   // Un client par montage : au rendu serveur, jamais partagé entre deux requêtes.
   const [queryClient] = useState(
     () =>
@@ -43,14 +42,15 @@ export function Providers({ children }: { children: ReactNode }) {
     () =>
       onWebSessionEnded((reason) => {
         queryClient.clear();
-        if (reason === "expired") {
-          const here = safeNextPath(`${window.location.pathname}${window.location.search}`);
-          router.replace(`${LOGIN_PATH}?next=${encodeURIComponent(here)}`);
-        } else {
-          router.refresh(); // déconnexion : la page se rend de nouveau, sans session
-        }
+        // Navigation complète : cache du routeur, brouillons en mémoire et retour arrière purgés
+        // (téléphone partagé, T2 ; revue web 1, m-1). Jamais depuis la connexion elle-même.
+        const here = safeNextPath(`${window.location.pathname}${window.location.search}`);
+        if (isLoginPath(here)) return;
+        window.location.replace(
+          reason === "expired" ? `${LOGIN_PATH}?next=${encodeURIComponent(here)}` : "/",
+        );
       }),
-    [queryClient, router],
+    [queryClient],
   );
 
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;

@@ -3,11 +3,10 @@
 // tests ; seul `lib/bff.ts` (server-only) l'appelle avec process.env.
 import type { BffConfig } from "@jeflink/api-client/bff";
 
+import { LOGIN_PATH } from "./routes.ts";
+
 /** Durée du cookie de refresh web : 30 j d'inactivité (Q4). Django borne la session à 90 j. */
 export const WEB_REFRESH_MAX_AGE_SECONDS = 30 * 24 * 3600;
-export const LOGIN_PATH = "/connexion";
-/** Chemin courant d'une page, posé par src/proxy.ts (jamais repris du navigateur). */
-export const PATH_HEADER = "x-jf-path";
 const DEV_ORIGIN = "http://localhost:3000";
 const DEV_API_URL = "http://localhost:8000";
 const DEV_CLIENT_IP = "127.0.0.1";
@@ -29,8 +28,20 @@ function value(env: Env, name: string): string | undefined {
   return raw ? raw : undefined;
 }
 
+/** Hôte d'une URL ou d'une origine, en minuscules ; null si l'URL est illisible. */
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 export function readBffConfig(env: Env): BffConfig {
-  const production = env.NODE_ENV === "production";
+  // Règles de production partout, sauf en `next dev` (NODE_ENV=development). `next start` garde
+  // une valeur déjà posée (staging, test…) : elle ne doit jamais ouvrir les replis de dev
+  // (revue web 1, I-1).
+  const production = env.NODE_ENV !== "development";
 
   const secret = value(env, "BFF_SHARED_SECRET");
   if (!secret) throw new BffConfigError("BFF_SHARED_SECRET", "est absente");
@@ -68,6 +79,19 @@ export function readBffConfig(env: Env): BffConfig {
   // Production : un refresh planté par un sous-domaine doit pouvoir être effacé (revue BFF, m1).
   if (production && !cookieDomain) {
     throw new BffConfigError("BFF_COOKIE_DOMAIN", "est obligatoire en production");
+  }
+
+  // L'API passe par son hôte interne : jamais par le bord public, qui retirerait les en-têtes
+  // X-Jeflink-* et que le secret partagé traverserait (revue web 1, m-10).
+  const apiHost = hostOf(apiUrl);
+  const publicHosts = origins.map(hostOf);
+  if (
+    production &&
+    (!apiHost ||
+      publicHosts.includes(apiHost) ||
+      (cookieDomain && (apiHost === cookieDomain || apiHost.endsWith(`.${cookieDomain}`))))
+  ) {
+    throw new BffConfigError("JEFLINK_API_URL", "doit désigner l'hôte interne de l'API");
   }
 
   return {
