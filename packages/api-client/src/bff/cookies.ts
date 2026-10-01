@@ -109,23 +109,40 @@ export function deviceCookie(id: string): string {
 }
 
 /**
+ * Chemins sous lesquels un refresh planté sur le domaine parent atteint le refresh du BFF : un
+ * cookie s'identifie par (nom, domaine, chemin), son effacement doit viser le même chemin.
+ */
+const PLANTED_REFRESH_PATHS = [
+  "/",
+  "/api",
+  "/api/",
+  "/api/auth",
+  "/api/auth/",
+  "/api/auth/token",
+  "/api/auth/token/",
+  "/api/auth/token/refresh",
+  "/api/auth/token/refresh/",
+];
+
+/**
  * Efface la session (accès, refresh, témoin, MFA). L'identifiant d'appareil reste. Avec
- * `parentDomain`, efface aussi un refresh planté sur le domaine parent par un sous-domaine (m1) ;
- * les cookies `__Host-` ne peuvent pas porter de `Domain`, rien d'autre n'est concerné.
+ * `parentDomain`, efface aussi un refresh planté sur le domaine parent par un sous-domaine, sur
+ * chaque chemin qui atteint le refresh (contre-revue, m-2) ; les cookies `__Host-` ne peuvent pas
+ * porter de `Domain`, rien d'autre n'est concerné.
  */
 export function clearSessionCookies(parentDomain?: string): string[] {
   return [
     serializeCookie(COOKIES.access, "", { maxAge: 0 }),
     serializeCookie(COOKIES.refresh, "", { maxAge: 0, path: REFRESH_PATH, sameSite: "Strict" }),
     ...(parentDomain
-      ? [
+      ? PLANTED_REFRESH_PATHS.map((path) =>
           serializeCookie(COOKIES.refresh, "", {
             maxAge: 0,
-            path: REFRESH_PATH,
+            path,
             sameSite: "Strict",
             domain: parentDomain,
           }),
-        ]
+        )
       : []),
     serializeCookie(COOKIES.session, "", { maxAge: 0 }),
     clearMfaCookie(),

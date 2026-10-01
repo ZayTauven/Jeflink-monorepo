@@ -2,6 +2,7 @@
 // CSRF, traversée de chemin, en-têtes, jetons en cookies, refresh, état par requête.
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
+import { runInNewContext } from "node:vm";
 
 import { jeflinkFetch } from "../http.ts";
 import { COOKIES } from "./cookies.ts";
@@ -320,6 +321,36 @@ describe("proxy durci", () => {
     assert.ok(!JSON.stringify(events).includes("xxxxxxxx"));
   });
 
+  it("proxy : jeton caché derrière un échappement JSON masqué aussi (contre-revue, m-1)", async () => {
+    for (const prefix of ["note\n", "a\t", "\u0001", "é"]) {
+      handler = () =>
+        new Response(JSON.stringify({ d: `${prefix}${FAKE_REFRESH}` }).replace("é", "\\u00e9"), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      const response = await bff.handle(browser("/api/me/"));
+      const text = await response.text();
+      assert.ok(!text.includes("x".repeat(43)), JSON.stringify(prefix));
+      assert.equal(JSON.parse(text).d, `${prefix}[jeton masqué]`);
+    }
+    handler = () => jsonResponse(400, { code: "x", detail: `ligne\n${FAKE_REFRESH}` });
+    const refused = await bff.handle(
+      browser("/api/auth/otp/verify/", { method: "POST", body: { code: "1" } }),
+    );
+    assert.equal(refused.status, 502);
+  });
+
+  it("proxy : une clé __proto__ reste une donnée après masquage", async () => {
+    handler = () =>
+      new Response(`{"__proto__":{"x":"${FAKE_REFRESH}"},"y":1}`, {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    const response = await bff.handle(browser("/api/me/"));
+    const body = JSON.parse(await response.text());
+    assert.deepEqual(Object.keys(body), ["__proto__", "y"]);
+  });
+
   it("proxy : aucun faux positif sur un texte d'utilisateur ni sur des clés usuelles (I-A)", async () => {
     const body = {
       description: "voir dossier jfr_2026_10_01_cuisine",
@@ -445,6 +476,77 @@ describe("jetons en cookies", () => {
   });
 });
 
+/** Exécute le script de la page de rebond dans un bac à sable : stockages, fetch et navigation. */
+async function runBounce(
+  storage: { local: Map<string, string>; session: Map<string, string> },
+  status = 200,
+): Promise<{ posts: number; went: string[] }> {
+  const page = await bff.handle(new Request(`${ORIGIN}/api/auth/token/refresh/?next=/compte`));
+  const script = /<script nonce="[^"]+">([\s\S]*?)<\/script>/.exec(await page.text())?.[1] ?? "";
+  const store = (map: Map<string, string>) => ({
+    getItem: (key: string) => map.get(key) ?? null,
+    setItem: (key: string, value: string) => void map.set(key, value),
+  });
+  const result = { posts: 0, went: [] as string[] };
+  runInNewContext(script, {
+    localStorage: store(storage.local),
+    sessionStorage: store(storage.session),
+    location: { replace: (url: string) => result.went.push(url) },
+    navigator: {},
+    fetch: async () => {
+      result.posts += 1;
+      return { ok: status === 200, status };
+    },
+    AbortController,
+    setTimeout: () => 0, // délais neutralisés : le test ne doit pas attendre 20 s
+    Date,
+    String,
+    Promise,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  return result;
+}
+
+describe("page de rebond exécutée (contre-revue, I-1)", () => {
+  it("sans marque : vrai refresh, marque posée, retour à next", async () => {
+    const storage = { local: new Map<string, string>(), session: new Map<string, string>() };
+    const run = await runBounce(storage);
+    assert.equal(run.posts, 1);
+    assert.deepEqual(run.went, ["/compte"]);
+    assert.ok(storage.local.has("jf-refreshed-at"));
+  });
+
+  it("marque dans le futur (horloge corrigée en arrière) : vrai refresh, jamais de boucle", async () => {
+    const storage = {
+      local: new Map([["jf-refreshed-at", String(Date.now() + 3_600_000)]]),
+      session: new Map<string, string>(),
+    };
+    assert.equal((await runBounce(storage)).posts, 1);
+    // La marque est réécrite au présent : l'horloge ne peut plus bloquer les refresh suivants.
+    assert.ok(Number(storage.local.get("jf-refreshed-at")) <= Date.now());
+  });
+
+  it("marque récente : sautée une seule fois par onglet, puis vrai refresh", async () => {
+    const storage = {
+      local: new Map([["jf-refreshed-at", String(Date.now() - 2_000)]]),
+      session: new Map<string, string>(),
+    };
+    const first = await runBounce(storage);
+    assert.equal(first.posts, 0);
+    assert.deepEqual(first.went, ["/compte"]);
+    const second = await runBounce(storage);
+    assert.equal(second.posts, 1);
+  });
+
+  it("401 : connexion ; 503 : connexion avec raison=indisponible", async () => {
+    const empty = () => ({ local: new Map<string, string>(), session: new Map<string, string>() });
+    assert.deepEqual((await runBounce(empty(), 401)).went, ["/connexion?next=%2Fcompte"]);
+    assert.deepEqual((await runBounce(empty(), 503)).went, [
+      "/connexion?next=%2Fcompte&raison=indisponible",
+    ]);
+  });
+});
+
 describe("refresh", () => {
   const rotated = () =>
     jsonResponse(200, {
@@ -514,8 +616,15 @@ describe("refresh", () => {
     );
     assert.equal(response.status, 401);
     const cleared = setCookies(response).filter((c) => c.startsWith(`${COOKIES.refresh}=;`));
-    assert.equal(cleared.length, 2);
-    assert.ok(cleared.some((c) => c.includes("Domain=jeflink.test")));
+    // Hôte + domaine parent sur chaque chemin qui atteint le refresh (contre-revue, m-2).
+    const parent = cleared.filter((c) => c.includes("Domain=jeflink.test"));
+    assert.equal(cleared.length, 1 + parent.length);
+    for (const path of ["/", "/api/auth", "/api/auth/token/refresh/"]) {
+      assert.ok(
+        parent.some((c) => c.includes(`Path=${path};`)),
+        path,
+      );
+    }
     assert.deepEqual(events, [{ kind: "duplicate_refresh", path: "/api/auth/token/refresh/" }]);
   });
 

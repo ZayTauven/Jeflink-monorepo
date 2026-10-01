@@ -92,8 +92,10 @@ const TOKEN_MASK = "[jeton masqué]";
 const BOUNCE_FETCH_TIMEOUT_MS = 20_000;
 const BOUNCE_LOCK_TIMEOUT_MS = 30_000;
 const BOUNCE_FALLBACK_SECONDS = 60;
-// Un refresh réussi depuis moins longtemps dans un autre onglet n'est pas refait.
+// Un refresh réussi depuis moins longtemps dans un autre onglet n'est pas refait, une seule fois
+// par onglet et par marque (sessionStorage).
 const RECENT_REFRESH_MS = 10_000;
+const BOUNCE_SKIP_KEY = "jf-bounce-skip";
 // Endpoints qui émettent ou consomment des jetons : jamais par le transport serveur.
 const SERVER_ALLOWED_AUTH = new Set(["/api/auth/config/"]);
 const TOKEN_ISSUING = new Set(["/api/me/fresh-start/"]);
@@ -139,17 +141,51 @@ function parseObject(text: string): Body | null {
   }
 }
 
-/** Un jeton, quel que soit l'endroit du corps (M1). */
-function containsToken(text: string): boolean {
-  return TOKEN_PATTERN.test(text);
+function maskString(value: string, hit: { found: boolean }): string {
+  if (!TOKEN_PATTERN.test(value)) return value;
+  hit.found = true;
+  return value.replace(new RegExp(TOKEN_SOURCE, "g"), TOKEN_MASK);
+}
+
+function maskValue(value: unknown, hit: { found: boolean }): unknown {
+  if (typeof value === "string") return maskString(value, hit);
+  if (Array.isArray(value)) return value.map((item) => maskValue(item, hit));
+  if (typeof value === "object" && value !== null) {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      // defineProperty : une clé `__proto__` reste une donnée, jamais un prototype.
+      Object.defineProperty(out, maskString(key, hit), {
+        value: maskValue(item, hit),
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    }
+    return out;
+  }
+  return value;
 }
 
 /**
- * Masque les jetons d'un corps du proxy générique. Un jeton n'a que des caractères base64url : il
- * est toujours à l'intérieur d'une chaîne JSON, que le masque laisse valide.
+ * Jetons d'un corps, quel que soit l'endroit (M1). Un corps JSON est analysé sur ses chaînes
+ * DÉCODÉES : `"note\njfr_…"` ne cache pas le jeton derrière l'échappement (contre-revue, m-1).
+ * `masked` : le corps avec les jetons masqués, inchangé s'il n'y en a pas.
  */
-function maskTokens(text: string): string {
-  return text.replace(new RegExp(TOKEN_SOURCE, "g"), TOKEN_MASK);
+function inspectTokens(text: string): { found: boolean; masked: string } {
+  const hit = { found: false };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    const masked = maskString(text, hit);
+    return { found: hit.found, masked };
+  }
+  const walked = maskValue(parsed, hit);
+  return { found: hit.found, masked: hit.found ? JSON.stringify(walked) : text };
+}
+
+function containsToken(text: string): boolean {
+  return inspectTokens(text).found;
 }
 
 function isString(value: unknown): value is string {
@@ -240,9 +276,12 @@ export function createBff(config: BffConfig) {
         securityEvent({ kind: "token_leak_refused", path, status: response.status });
         return json(502, { code: "bff_token_leak" });
       }
-    } else if (text && containsToken(text)) {
-      securityEvent({ kind: "token_leak_masked", path, status: response.status });
-      text = maskTokens(text);
+    } else if (text) {
+      const inspected = inspectTokens(text);
+      if (inspected.found) {
+        securityEvent({ kind: "token_leak_masked", path, status: response.status });
+        text = inspected.masked;
+      }
     }
     const headers = new Headers();
     const retryAfter = response.headers.get("retry-after");
@@ -466,7 +505,7 @@ export function createBff(config: BffConfig) {
     }
     const code = isString(body?.code) ? body.code : "bff_refresh_failed";
     if (response.status === 401 || (response.status === 400 && code === "refresh_invalid")) {
-      ctx.setCookies.push(...clearSessionCookies());
+      ctx.setCookies.push(...clearSessionCookies(settings.cookieDomain));
     }
     const status = response.ok ? 502 : response.status;
     const retryAfter = response.headers.get("retry-after");
@@ -491,6 +530,7 @@ export function createBff(config: BffConfig) {
       endpoint: REFRESH_ENDPOINT,
       lock: REFRESH_LOCK,
       mark: REFRESHED_AT_KEY,
+      skip: BOUNCE_SKIP_KEY,
       recent: RECENT_REFRESH_MS,
       fetchTimeout: BOUNCE_FETCH_TIMEOUT_MS,
       lockTimeout: BOUNCE_LOCK_TIMEOUT_MS,
@@ -503,7 +543,11 @@ export function createBff(config: BffConfig) {
       "(function(){",
       `var d=${scriptJson(data)};`,
       "function go(u){location.replace(u)}",
-      "function recent(){try{return Date.now()-(+localStorage.getItem(d.mark)||0)<d.recent}catch(e){return false}}",
+      // Marque valable : passée, de moins de 10 s, et pas déjà sautée par cet onglet (une horloge
+      // corrigée en arrière ou une session révoquée ne font jamais boucler, contre-revue I-1).
+      "function recent(){try{var m=localStorage.getItem(d.mark)||'',t=Date.now()-(+m||0);",
+      "if(!m||!(t>=0&&t<d.recent)||sessionStorage.getItem(d.skip)===m)return false;",
+      "sessionStorage.setItem(d.skip,m);return true}catch(e){return false}}",
       "function mark(){try{localStorage.setItem(d.mark,String(Date.now()))}catch(e){}}",
       "function aborter(ms){if(typeof AbortController!=='function')return null;var c=new AbortController();setTimeout(function(){c.abort()},ms);return c}",
       "function run(){if(recent()){go(d.next);return Promise.resolve()}",
@@ -551,7 +595,7 @@ export function createBff(config: BffConfig) {
         ...(revokeStatus !== undefined ? { status: revokeStatus } : {}),
       });
     }
-    ctx.setCookies.push(...clearSessionCookies());
+    ctx.setCookies.push(...clearSessionCookies(settings.cookieDomain));
     return new Response(null, { status: 204 });
   }
 
