@@ -232,6 +232,11 @@ OTP_REVIEW_ACCOUNTS = env.list("OTP_REVIEW_ACCOUNTS", default=[])
 OTP_REVIEW_ENABLED_UNTIL = env("OTP_REVIEW_ENABLED_UNTIL", default="")
 OTP_REVIEW_MAX_DAYS = 45
 
+# --- Admin Django (tâche 21) : sessions courtes, second facteur revalidé ------------------
+# Seul l'admin utilise des sessions Django (l'API est en Bearer JWT).
+SESSION_COOKIE_AGE = 12 * 3600
+ADMIN_MFA_MAX_AGE = 12 * 3600
+
 # --- Invitations (spec 001, S19) ------------------------------------------------------------
 INVITATION_TTL_DAYS = 7
 INVITATIONS_PER_INVITER_DAILY = 20

@@ -187,6 +187,7 @@ def _count_failure(
     challenge: MfaChallenge | None,
     device: TotpDevice | None,
     code: str = "mfa_invalid",
+    count_unconfirmed: bool = False,
 ) -> _Failure:
     """Compte l'échec **sous les verrous déjà pris** (même transaction que le test du code).
 
@@ -199,7 +200,8 @@ def _count_failure(
         challenge.save(update_fields=["failed_attempts", "updated_at"])
         remaining = MAX_TOKEN_ATTEMPTS - challenge.failed_attempts
     locked = False
-    if device is not None and device.confirmed_at is not None and device.locked_at is None:
+    counted = device is not None and (device.confirmed_at is not None or count_unconfirmed)
+    if counted and device.locked_at is None:
         device.recent_failures = [*_recent_failures(device, now), now.timestamp()]
         if len(device.recent_failures) >= FAILURES_BEFORE_LOCK:
             device.locked_at = now

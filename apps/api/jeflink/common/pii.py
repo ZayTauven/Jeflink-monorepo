@@ -21,6 +21,7 @@ SENSITIVE_KEYS = frozenset(
         "phone",
         "new_phone",
         "code",
+        "otp_code",
         "refresh",
         "access",
         "mfa_token",

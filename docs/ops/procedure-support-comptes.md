@@ -80,4 +80,4 @@ Réservé à l'équipe technique et à deux Admin.
 
 ## Administration technique (admin Django)
 
-Accès réservé à l'équipe technique, sur le réseau interne. Chaque compte technique a son second facteur : deux Admin lancent `enroll_admin_totp` et remettent la clé hors bande ; le premier code saisi à la connexion confirme l'appareil.
+Accès réservé à l'équipe technique, sur le réseau interne. Chaque compte technique a son second facteur : deux Admin lancent `enroll_admin_totp` et remettent la clé hors bande. La clé est le secret permanent : la scanner puis **détruire le fichier**. Le premier code saisi à la connexion, **dans les 24 h**, confirme l'appareil ; passé ce délai, relancer la commande. Appareil perdu : relancer la commande (motif « Appareil perdu ») ; toutes les sessions admin ouvertes avec l'ancien appareil sont fermées. Une session admin dure 12 h au plus.
