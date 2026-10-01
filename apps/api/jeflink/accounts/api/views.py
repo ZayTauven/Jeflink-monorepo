@@ -19,6 +19,7 @@ from jeflink.accounts.services import accept_invitation, decline_invitation, upd
 from jeflink.accounts.sessions import (
     TokenPair,
     refresh_session,
+    revoke_by_refresh,
     revoke_other_sessions,
     revoke_session,
 )
@@ -64,6 +65,27 @@ class TokenRefreshView(APIView):
         serializer = RefreshRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         return _token_response(refresh_session(serializer.validated_data["refresh"]))
+
+
+class TokenRevokeView(APIView):
+    """Déconnexion par le refresh, sans accès valide (BFF web, apps hors ligne longtemps)."""
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    rate_limit_scope = "token_refresh"
+
+    @extend_schema(
+        tags=["auth"],
+        operation_id="auth_token_revoke",
+        request=RefreshRequestSerializer,
+        responses={204: None},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = RefreshRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            revoke_by_refresh(serializer.validated_data["refresh"])
+        # Toujours 204 : un jeton inconnu, déjà révoqué ou invalide ne se distingue pas.
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class LogoutView(APIView):

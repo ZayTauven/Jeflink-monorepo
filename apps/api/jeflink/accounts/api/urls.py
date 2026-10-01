@@ -13,6 +13,7 @@ urlpatterns = [
     path("auth/mfa/totp/step-up/", mfa_views.TotpStepUpView.as_view(), name="auth-mfa-step-up"),
     path("auth/token/refresh/", views.TokenRefreshView.as_view(), name="auth-token-refresh"),
     path("auth/logout/", views.LogoutView.as_view(), name="auth-logout"),
+    path("auth/token/revoke/", views.TokenRevokeView.as_view(), name="auth-token-revoke"),
     path("me/", views.MeView.as_view(), name="me"),
     path(
         "auth/phone-change/confirm/",

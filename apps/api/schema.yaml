@@ -314,6 +314,30 @@ paths:
           description: ''
         '401':
           description: refresh_invalid, session_revoked
+  /api/auth/token/revoke/:
+    post:
+      operationId: auth_token_revoke
+      description: Déconnexion par le refresh, sans accès valide (BFF web, apps hors
+        ligne longtemps).
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
   /api/health/:
     get:
       operationId: health

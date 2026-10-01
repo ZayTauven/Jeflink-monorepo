@@ -543,3 +543,20 @@ def _clear_restricted_cache(sid) -> None:
         key = _cache_key(sid)
         if (auth_redis().get(key) or b"").startswith(b"r:"):
             auth_redis().delete(key)
+
+
+def revoke_by_refresh(refresh: str) -> None:
+    """Déconnexion par le refresh (RFC 7009) : marche même quand l'accès a expiré (web : la
+    déconnexion arrive souvent plus de 15 min après le dernier rafraîchissement). Sans effet et
+    sans erreur pour un jeton inconnu : la réponse ne révèle rien."""
+    if not refresh or not refresh.startswith(REFRESH_PREFIX):
+        return
+    with transaction.atomic():
+        session = (
+            DeviceSession.objects.select_for_update(of=("self",))
+            .select_related("user")
+            .filter(refresh_hash=hash_refresh(refresh), revoked_at__isnull=True)
+            .first()
+        )
+        if session is not None:
+            revoke_session(session, reason=DeviceSession.RevokedReason.LOGOUT)

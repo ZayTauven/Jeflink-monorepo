@@ -181,3 +181,26 @@ def test_compte_ops_depuis_l_app_client_sans_permission_ops(user_factory):
     request.user, request.auth = user, decode_access(pair.access)
     assert request.auth["mfa"] is False
     assert not HasOpsPerm("ops.accounts.view", step_up=False)().has_permission(request, None)
+
+
+def test_revocation_par_le_refresh_sans_acces_valide(api_client, user_factory):
+    """Revue BFF, I5 : la déconnexion web révoque la session même après expiration de l'accès."""
+    pair = open_session(user_factory())
+    response = api_client.post(
+        reverse("auth-token-revoke"), {"refresh": pair.refresh}, format="json"
+    )
+    assert response.status_code == 204
+    pair.session.refresh_from_db()
+    assert pair.session.revoked_reason == "logout"
+    refused = api_client.post(
+        reverse("auth-token-refresh"), {"refresh": pair.refresh}, format="json"
+    )
+    assert refused.status_code == 401
+
+
+def test_revocation_par_refresh_inconnu_meme_reponse(api_client):
+    for refresh in ("jfr_inconnu", "pas-un-refresh", ""):
+        response = api_client.post(
+            reverse("auth-token-revoke"), {"refresh": refresh}, format="json"
+        )
+        assert response.status_code == 204
