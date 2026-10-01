@@ -101,4 +101,6 @@ Beaucoup de skills couvrant la stack sont installés **globalement** sur la mach
 - Architecture, domaines, machine à états : `docs/architecture/ARCHITECTURE.md`
 - Direction visuelle : `docs/design/DESIGN.md`
 - Décisions : `docs/adr/`
+- Données personnelles (registre des traitements, CDP) : `docs/compliance/`
+- Procédures du support et de l'Ops : `docs/ops/`
 - Références visuelles (locales) : `references/crafto/demo-marketing-strategy.html` (web public), `references/vireo/` (console), `references/assets-originaux/` (logo, illustrations : à optimiser en WebP/AVIF avant tout usage dans une app)

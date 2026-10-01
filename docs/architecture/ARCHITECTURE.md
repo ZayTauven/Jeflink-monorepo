@@ -32,23 +32,23 @@ flowchart LR
 
 ## Domaines backend
 
-| Domaine         | Responsabilité                                                                                                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `accounts`      | Utilisateurs, OTP, rôles (client, owner, technician, ops), sessions                                                                                                            |
-| `zones`         | Polygones de quartiers (puis villes), disponibilité des métiers par zone                                                                                                       |
-| `catalog`       | Métiers, services, fourchettes de prix de référence. Métiers = lignes en base (slug stable, libellés `fr`/`wo`, actif oui/non), jamais un `enum` ou des `choices` dans le code |
-| `providers`     | Profils pro, équipes, disponibilités, badges, Passeport Pro                                                                                                                    |
-| `requests`      | Demandes clients (texte/voix/photos), devis, sélection                                                                                                                         |
-| `bookings`      | Réservation, machine à états, avenants, code de fin, preuves                                                                                                                   |
-| `payments`      | Interface `PaymentGateway`, intentions, webhooks                                                                                                                               |
-| `wallet`        | Grand livre en partie double, soldes dérivés, versements                                                                                                                       |
-| `reviews`       | Avis multicritères, modération                                                                                                                                                 |
-| `messaging`     | Conversations, pièces jointes, masquage des numéros avant réservation                                                                                                          |
-| `notifications` | Push, SMS, WhatsApp, préférences, replis                                                                                                                                       |
-| `trust`         | KYC, litiges, garantie, signalements, `AuditEvent`                                                                                                                             |
-| `promotions`    | Codes promo, parrainage                                                                                                                                                        |
-| `analytics`     | Événements produit, demandes non servies                                                                                                                                       |
-| `ai`            | Fournisseurs, prompts versionnés, schémas, évals, journal de coûts                                                                                                             |
+| Domaine         | Responsabilité                                                                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `accounts`      | Comptes par téléphone, OTP SMS, sessions d'appareil (JWT + refresh rotatif), rôles et invitations, second facteur Ops, changement de numéro, suppression et anonymisation, purge (spec 001) |
+| `zones`         | Polygones de quartiers (puis villes), disponibilité des métiers par zone                                                                                                                    |
+| `catalog`       | Métiers, services, fourchettes de prix de référence. Métiers = lignes en base (slug stable, libellés `fr`/`wo`, actif oui/non), jamais un `enum` ou des `choices` dans le code              |
+| `providers`     | Profils pro, équipes, disponibilités, badges, Passeport Pro                                                                                                                                 |
+| `requests`      | Demandes clients (texte/voix/photos), devis, sélection                                                                                                                                      |
+| `bookings`      | Réservation, machine à états, avenants, code de fin, preuves                                                                                                                                |
+| `payments`      | Interface `PaymentGateway`, intentions, webhooks                                                                                                                                            |
+| `wallet`        | Grand livre en partie double, soldes dérivés, versements                                                                                                                                    |
+| `reviews`       | Avis multicritères, modération                                                                                                                                                              |
+| `messaging`     | Conversations, pièces jointes, masquage des numéros avant réservation                                                                                                                       |
+| `notifications` | Push, SMS (`SmsGateway`, adaptateur `fake` en local/test seulement), WhatsApp, préférences, replis                                                                                          |
+| `trust`         | KYC, litiges, garantie, signalements, `AuditEvent`                                                                                                                                          |
+| `promotions`    | Codes promo, parrainage                                                                                                                                                                     |
+| `analytics`     | Événements produit, demandes non servies                                                                                                                                                    |
+| `ai`            | Fournisseurs, prompts versionnés, schémas, évals, journal de coûts                                                                                                                          |
 
 ## Machine à états d'une réservation
 
@@ -105,9 +105,21 @@ ai/
 
 ## Auth
 
-- OTP téléphone → JWT (access court + refresh rotatif) pour le mobile.
-- Console et web : BFF Next, tokens en cookies httpOnly.
-- Permissions Ops granulaires (`ops.kyc.review`, `ops.dispute.decide`, `ops.wallet.adjust`…).
+Référence : spec `docs/specs/001-accounts.md`, ADR 0007 (sessions, BFF) et 0008 (SMS).
+
+- **Connexion par code SMS** (`otp/request`, `otp/verify`) : le téléphone est l'identifiant, le compte n'est créé qu'après le code. Réponses identiques que le compte existe ou non. Limites par numéro, appareil, IP, préfixe et plafond global ; jamais d'ouverture si Redis tombe.
+- **Sessions** : une `DeviceSession` par appareil ; access JWT court (HS256, `kid` en rotation), refresh opaque tourné à chaque usage avec une grâce unique de 24 h ; réutilisation détectée → session révoquée. Aucun rôle dans le jeton : les rôles sont relus en base. Bearer seul côté API (ni session Django, ni CSRF, ni CORS).
+- **Web et console** : BFF Next, jetons en cookies `HttpOnly` ; le navigateur n'en voit jamais.
+- **Compte dormant** : plus de 60 j sans activité et nouvel appareil → session restreinte (numéro peut-être recyclé). « Repartir de zéro » ou levée par l'Ops.
+- **Ops** : second facteur TOTP obligatoire sur la console (enrôlement par jeton hors bande), TOTP de moins de 5 min pour les actions `manage` (step-up). Permissions par groupe (`HasOpsPerm("ops.<domaine>.<action>", step_up=…)`), jamais par `is_superuser`. Quotas par Ops sur la recherche et la révélation des numéros.
+- **Admin Django** : équipe technique seulement, en lecture seule, hôte interne, second facteur TOTP et limite de débit.
+
+## Règles transverses posées par `accounts`
+
+- **Audit** : toute action sensible écrit un `AuditEvent` via `trust.services.audit()`, avec un schéma de métadonnées déclaré (`register_audit_schema`) ; numéros seulement masqués ou en HMAC ; audit hors transaction (`durable=True`) sur un chemin d'erreur.
+- **Suppression du compte** : anonymisation, la ligne reste. Chaque domaine qui stocke des données personnelles enregistre un anonymiseur (`register_anonymizer`) ; un domaine peut refuser la suppression (`register_deletion_blocker`) **à condition de créer ses objets bloquants sous le verrou du compte**.
+- **Compte de revue des stores** (`User.is_review_account`) : ses données ne sont jamais diffusées aux vrais pros.
+- **Rétention** : purge quotidienne (`accounts.tasks.purge_auth_data`), durées en réglages (`AUTH_RETENTION`).
 
 ## Environnements
 
