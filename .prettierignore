@@ -3,3 +3,6 @@ pnpm-lock.yaml
 packages/api-client/src/generated/
 packages/ui-tokens/generated/
 apps/api/
+
+# Généré par Next
+apps/*/next-env.d.ts

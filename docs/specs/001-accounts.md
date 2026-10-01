@@ -782,6 +782,15 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
      - **Refresh et déconnexion côté client** : par `@jeflink/api-client/web` uniquement (règle 1). Verrou `jf-refresh` avec délais, `X-Requested-With`, marque `jf-refreshed-at`. Sur un 401 : `resetApiClientSession()`, vidage du `QueryClient`, `router.replace(connexion?next=…)`. La déconnexion se fait sous le même verrou, puis `resetApiClientSession()`, vidage du cache et `BroadcastChannel` vers les autres onglets.
      - **Paiement** : retours de paiement en `GET` (un `POST` d'un autre site n'envoie pas les cookies `Lax`).
      - **Paramètres de route** : identifiants publics validés (UUID) avant tout appel.
+
+     Fait (`apps/web`, Next 16) :
+     - montage : `src/app/api/[...path]/route.ts` ; `lib/bff.ts` (`server-only`) fournit `serverApi()`, `serverApiWithSession()` et `rethrowApiError()` ;
+     - variables : `lib/bff-config.ts`, avec `.env.example`. En production, https exigé, ainsi que `BFF_CLIENT_IP_HEADER` (jamais `X-Forwarded-For`) et `BFF_COOKIE_DOMAIN`. Une variable invalide arrête le serveur au démarrage (`instrumentation.ts`) ;
+     - `src/proxy.ts` : CSP à nonce, `x-jf-path` posé avec `set`, pages sans barre finale. `/api` est exclu ;
+     - `Referrer-Policy: same-origin` sur `/connexion` ;
+     - `pnpm --filter web test:build` (aussi en CI) : un build sans aucune variable, puis un build avec des valeurs témoins absentes de tout `.next/` ;
+     - `@jeflink/api-client/web` : `refreshWebSession`, `logoutWebSession` et `onWebSessionEnded` (verrou `jf-refresh` avec délais de 20 s, `jf-refreshed-at`, `BroadcastChannel` `jf-session`). Le `Providers` vide le cache et renvoie à la connexion quand la session expire.
+
   2. **web — `/connexion`** :
      - étapes téléphone, code, autres appareils, nom ;
      - challenge reprenable (`sessionStorage`), WebOTP ;

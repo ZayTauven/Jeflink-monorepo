@@ -58,6 +58,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - name: web — build sans secret, aucune variable du BFF figée dans .next/
+        run: pnpm --filter web test:build
 
   edge:
     runs-on: ubuntu-latest

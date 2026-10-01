@@ -36,6 +36,15 @@ Gabarit `infra/proxy/templates/internal/`, en TLS, avec un certificat pour le no
 
 Ainsi, les réglages de production s'appliquent sans exception : redirection HTTPS et cookies `Secure`. Les en-têtes `X-Jeflink-*` du BFF y passent. Django ne les croit que si trois conditions sont réunies : la connexion vient de `BFF_TRUSTED_NETWORKS`, elle arrive par l'hôte `api`, et le secret partagé est valide.
 
+### BFF web (`apps/web`)
+
+`next start` derrière un proxy de bord ; Next n'est jamais joignable directement depuis Internet. Le bord :
+
+- écrase l'en-tête d'IP cliente avec l'adresse réelle (`proxy_set_header X-Real-IP $remote_addr;`), et le BFF le lit par `BFF_CLIENT_IP_HEADER=x-real-ip`. Sans IP valide, Django répond `400 client_ip_missing` ;
+- ne met jamais `/api/*` en cache.
+
+Variables serveur, lues au démarrage seulement : `next build` n'en a besoin d'aucune (`pnpm --filter web test:build`, en CI). Liste et format dans `apps/web/.env.example`. Une variable manquante ou invalide arrête le serveur au démarrage, avec le nom de la variable et jamais sa valeur. `BFF_SHARED_SECRET` est une des valeurs de `BFF_SHARED_SECRETS` côté Django. Les instances du BFF sortent par `BFF_TRUSTED_NETWORKS` et appellent `JEFLINK_API_URL=https://api`.
+
 ### Sonde de santé
 
 `GET http://api:8000/api/health/`, avec `Host: api`. C'est la seule URL exemptée de la redirection HTTPS (`SECURE_REDIRECT_EXEMPT`).
