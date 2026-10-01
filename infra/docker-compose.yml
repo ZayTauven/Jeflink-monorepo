@@ -14,6 +14,8 @@ x-api-env: &api-env
   REDIS_CACHE_URL: redis://redis:6379/1
   DATABASE_URL: postgis://jeflink:jeflink@db:5432/jeflink
   REDIS_URL: redis://redis:6379/0
+  # Redis dédié à l'auth et aux limites (S7) : mot de passe, aucune éviction. Valeur de dev publique.
+  RATELIMIT_REDIS_URL: redis://:local-dev-redis-auth-not-secret@redis-auth:6379/0
   S3_ENDPOINT: http://s3:8333
   S3_BUCKET: jeflink-dev
   TIME_ZONE: Africa/Dakar
@@ -40,6 +42,15 @@ services:
     image: redis:7-alpine
     ports: ["6379:6379"]
 
+  # Sessions actives, compteurs de limites, blocages (spec 001, S7 ; infra 2). Une éviction
+  # rouvrirait des limites ou ferait revivre une session révoquée : noeviction, persistance AOF.
+  redis-auth:
+    image: redis:7-alpine
+    command: >
+      redis-server --requirepass local-dev-redis-auth-not-secret
+      --maxmemory-policy noeviction --appendonly yes
+    volumes: [redisauth:/data]
+
   # Stockage objets S3-compatible de dev (photos, audio, KYC). MinIO ne publie plus d'image Docker.
   s3:
     image: chrislusf/seaweedfs:4.48
@@ -57,10 +68,21 @@ services:
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_started }
+      redis-auth: { condition: service_started }
 
   worker:
     build: ../apps/api
-    command: uv run --frozen celery -A jeflink worker -B -l info --schedule /tmp/celerybeat-schedule
+    command: uv run --frozen celery -A jeflink worker -l info
+    environment: *api-env
+    env_file: *api-env-file
+    volumes: ["../apps/api:/app"]
+    depends_on: [api]
+
+  # Planificateur Celery (infra 3) : une seule instance, jamais embarqué dans les workers
+  # (plusieurs workers -B lanceraient chaque tâche planifiée plusieurs fois).
+  beat:
+    build: ../apps/api
+    command: uv run --frozen celery -A jeflink beat -l info --schedule /tmp/celerybeat-schedule
     environment: *api-env
     env_file: *api-env-file
     volumes: ["../apps/api:/app"]
@@ -69,3 +91,4 @@ services:
 volumes:
   pgdata:
   s3data:
+  redisauth:

@@ -165,6 +165,7 @@ PII_HMAC_KEY = env("PII_HMAC_KEY", default="")
 # --- Limites de débit (spec 001, « Limites de débit ») ---------------------------------
 # Redis dédié à l'auth en production (noeviction, tâche infra 2).
 RATELIMIT_REDIS_URL = env("RATELIMIT_REDIS_URL", default=env("REDIS_CACHE_URL", default=REDIS_URL))
+AUTH_REDIS_PRIVATE_HOSTS: list[str] = []
 # Le BFF ne peut fixer l'IP cliente que depuis un réseau interne déclaré, par un hôte interne,
 # avec le secret (S9). Par défaut, aucun réseau n'est de confiance.
 INTERNAL_API_HOSTS = env.list("INTERNAL_API_HOSTS", default=["api"])

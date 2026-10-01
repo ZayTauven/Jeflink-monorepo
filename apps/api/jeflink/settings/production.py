@@ -14,6 +14,8 @@ if DJANGO_ENV not in {"staging", "production"}:
 RATELIMIT_REDIS_URL = env("RATELIMIT_REDIS_URL")
 if RATELIMIT_REDIS_URL in {env("REDIS_URL"), env("REDIS_CACHE_URL", default="")}:
     raise ImproperlyConfigured("RATELIMIT_REDIS_URL doit viser une base Redis dédiée.")
+# Hôtes du Redis d'auth joignables par un réseau privé : sans TLS permis seulement vers eux.
+AUTH_REDIS_PRIVATE_HOSTS = env.list("AUTH_REDIS_PRIVATE_HOSTS", default=[])
 BFF_TRUSTED_NETWORKS = env.list("BFF_TRUSTED_NETWORKS")
 # Sans hachage, pas de remplissage automatique du code sur Android (spec 001, T3).
 if not all(SMS_ANDROID_APP_HASH.values()):  # noqa: F405
