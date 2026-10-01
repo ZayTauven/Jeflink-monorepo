@@ -413,7 +413,7 @@ Mise en œuvre (tâche 17) :
   - refresh dans `expo-secure-store` avec `keychainAccessible = WHEN_UNLOCKED_THIS_DEVICE_ONLY` ; access en mémoire ;
   - Android : `allowBackup = false`, ou règles d'exclusion couvrant la session et les caches ;
   - sur un 401, un seul refresh à la fois.
-- **Déconnexion** : `POST /api/auth/logout/` révoque la session, puis le client purge ses données (T2). `POST /api/auth/token/revoke/` révoque par le refresh, même quand l'accès a expiré (RFC 7009) : public, limité par IP (portée `token_refresh`), toujours `204` (un jeton inconnu ne se distingue pas). Le BFF l'appelle à chaque déconnexion web.
+- **Déconnexion** : `POST /api/auth/logout/` révoque la session, puis le client purge ses données (T2). `POST /api/auth/token/revoke/` révoque par le refresh, même quand l'accès a expiré (RFC 7009) : public, limité par IP (portée `token_revoke`, distincte du refresh), toujours `204` (un jeton inconnu ne se distingue pas). Tout jeton de la chaîne de la session est accepté : courant ou précédent (déconnexion pendant la rotation d'un autre onglet) révoquent en `logout`, un jeton retiré en `reuse_detected`. Le BFF l'appelle à chaque déconnexion web et signale une révocation non confirmée.
 
 ### BFF Next (web et console)
 
@@ -424,11 +424,12 @@ Mise en œuvre (tâche 17) :
   - `__Host-jf_sess` : témoin de session, sans secret (`HttpOnly`, `Path=/`, même durée que le refresh). Les pages ne reçoivent jamais le refresh : ce témoin leur dit qu'un rafraîchissement est possible quand l'accès a expiré.
   - `__Host-jf_dev` : identifiant d'appareil web (UUID, régénéré sinon), qui tient lieu d'`install_id`.
   - Un cookie présent en double (fixation par un sous-domaine) est ignoré ; un refresh en double efface la session.
-- **Refresh web** : il n'a lieu **que** par `POST /api/auth/token/refresh/`. Les Server Components et le middleware ne rafraîchissent jamais : ils redirigent vers `bff.refreshRedirectPath(<chemin courant>)`. Ce `GET` ne change aucun état : il renvoie une page de rebond (CSP à nonce, `default-src 'none'`) dont le script fait le `POST` sous le verrou `navigator.locks` `jf-refresh`, puis revient à `next` (ou à la connexion, avec `raison=indisponible` hors 401). Le client web prend le même verrou (`REFRESH_LOCK`) dans son `onUnauthorized` (S6).
+- **Refresh web** : il n'a lieu **que** par `POST /api/auth/token/refresh/`. Les Server Components et le middleware ne rafraîchissent jamais : ils redirigent vers `bff.refreshRedirectPath(<chemin courant>)`. Ce `GET` ne change aucun état : il renvoie une page de rebond (CSP à nonce, `default-src 'none'`) dont le script fait le `POST` sous le verrou `navigator.locks` `jf-refresh`, puis revient à `next` (ou à la connexion, avec `raison=indisponible` hors 401). Le `POST` est borné à 20 s, l'attente du verrou à 30 s ; un `meta refresh` de 60 s mène à la connexion si le script ne s'exécute pas. Un refresh réussi depuis moins de 10 s dans un autre onglet (`localStorage` `jf-refreshed-at`) n'est pas refait. Le client web prend le même verrou (`REFRESH_LOCK`) dans son `onUnauthorized`, par `@jeflink/api-client/web` (S6).
+  - Sans Web Locks (Chrome < 69, Safari < 15.4) : pas de verrou, seulement la marque `jf-refreshed-at`. Risque accepté : au-delà d'un refresh concurrent couvert par la grâce, la session est révoquée (`reuse_detected`) et l'utilisateur se reconnecte.
   - Refresh absent : `401 refresh_missing`, seul le témoin est effacé.
   - `401` de Django (ou `400 refresh_invalid`) : session effacée.
   - `429` ou panne : rien n'est effacé, `Retry-After` transmis.
-- **Contexte serveur** : `bff.server(request)` rend `{ needsRefresh, options, refreshPath }`. `options` ne contient qu'un `transport`, fonction qui garde le jeton et le secret dans sa fermeture (rien de lisible ni de sérialisable) ; il impose `no-store`, la liste fermée d'en-têtes, et refuse les endpoints de jetons. `jeflinkFetch` avec un `transport` ne lit rien du singleton (ni jeton, ni langue, ni `onUnauthorized`).
+- **Contexte serveur** : `bff.server(await headers())` (ou la requête) rend `{ needsRefresh, options, refreshPath }`. `options` ne contient qu'un `transport`, fonction qui garde le jeton et le secret dans sa fermeture (rien de lisible ni de sérialisable) ; il impose `no-store`, la liste fermée d'en-têtes, et refuse les endpoints de jetons ainsi que tout chemin brut piégé. `jeflinkFetch` avec un `transport` ne lit rien du singleton (ni jeton, ni langue, ni `onUnauthorized`).
 - **`app` imposé** par le BFF (`web` ou `console`). Aucune permission ne dépend de `app` (S10).
 - **Aucun état de module côté serveur (S4)** : jeton, promesse de refresh et en-têtes sont propres à chaque requête. Un test envoie 2 requêtes concurrentes de comptes différents.
 - **Cache (S4)** :
@@ -441,7 +442,10 @@ Mise en œuvre (tâche 17) :
   - refus de `/api/internal/`, `/api/webhooks/`, `/api/schema/` et `/api/docs/`, comparés en minuscules ;
   - **liste fermée** d'en-têtes transmis ; retrait des `Authorization`, `Cookie`, `X-Forwarded-*` et `X-Jeflink-*` venus du navigateur, et des `Set-Cookie` venus de Django ;
   - JSON imposé dès qu'il y a un corps (un `POST` ou un `DELETE` sans corps passe) ; corps lu en flux, plafonné à 64 Kio ;
-  - réponses : aucun jeton (détection par valeur : `jfr_`, `jfm_`, `jfe_`, JWT), `X-Content-Type-Options: nosniff`, corps non JSON rendu en `text/plain`, redirection d'amont refusée (`502`).
+  - réponses : aucun jeton, détecté par sa forme exacte (`jfr_`, `jfm_`, `jfe_` + 43 caractères, JWT à trois segments). Sur le proxy générique, un jeton est **masqué** et signalé : un texte d'utilisateur ne peut pas bloquer une liste. Sur les endpoints d'auth, jeton ou clé de jeton = `502`. Plus `X-Content-Type-Options: nosniff`, corps non JSON rendu en `text/plain`, redirection d'amont refusée (`502`) ;
+  - alertes `onSecurityEvent` (chemin et statut, jamais une valeur) : jeton masqué ou refusé, refresh en double, révocation non confirmée ;
+  - fichiers (KYC, photos, factures) : jamais par le BFF (JSON seul, 64 Kio), toujours par des URL signées de courte durée vers le stockage.
+- **Chemins** : les paramètres de chemin du client généré sont encodés (`urlEncodeParameters`), et `jeflinkFetch` refuse tout chemin brut contenant `.`, `..`, `%2e`, `%2f`, `%5c`, `\` ou `//` avant que `fetch` ne le normalise (`unsafe_path`).
 - **CSRF** :
   - contrôle `Origin` sur toute méthode non GET, **y compris `/api/auth/*`**, contre des origines exactes par app ;
   - en-tête `X-Requested-With: jeflink` exigé.
@@ -761,8 +765,23 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
      - tests (concurrence, traversée de chemin, en-têtes).
 
      Revue sécurité : tâche 2 refusée en l'état, tâche 1 acceptée avec réserve. Corrections (commits `feat(api): révocation d'une session par son refresh` et `fix(api-client): corrections de la revue sécurité du BFF`) : `next` contrôlé après normalisation ; témoin `__Host-jf_sess` ; page de rebond sans changement d'état ; corps optionnel et lu en flux ; déconnexion par le refresh ; contexte serveur fermé `bff.server()` ; mode `transport` de `jeflinkFetch` ; détection de fuite par valeur ; refresh en double ; appareil UUID ; IP validée ; refresh partagé à compteur de génération ; export `@jeflink/api-client/paths` pour le code client.
+
+     Contre-revue : tâche 1 et tâche 2 acceptées avec réserves, levées par le commit `fix(api-client): réserves de la contre-revue du BFF` : masquage au lieu du `502` sur le proxy et motif exact (I-A) ; révocation par tout jeton de la chaîne (I-B) ; paramètres de chemin encodés et chemins bruts piégés refusés (I-C) ; délais et repli de la page de rebond (I-D) ; effacement sur le domaine parent (m1) ; portée `token_revoke` et alerte de révocation (m3, m4) ; `/%61pi/` refusé dans `next` (m6) ; `bff.server(headers)` (m7). m8 (connexion qui propose de réessayer) et m9 (`@jeflink/api-client/web`) relèvent de la tâche web 1.
 - web / console :
-  1. [sécu] **web — BFF** : montage, variables serveur, test de build sans secret, `Referrer-Policy` sur `/connexion`, verrou de refresh entre onglets.
+  1. [sécu] **web — BFF** : montage, variables serveur, test de build sans secret, `Referrer-Policy` sur `/connexion`, verrou de refresh entre onglets. Exigences de montage (contre-revue sécurité du BFF), valables aussi pour la console :
+     - **Route** : une seule route `app/api/[...path]/route.ts`, rien d'autre sous `app/api`. Elle exporte `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE` vers `bff.handle(request)`, avec `runtime = "nodejs"` et `dynamic = "force-dynamic"`, sans `revalidate`. `skipTrailingSlashRedirect: true` (ou `trailingSlash: true`) dans next.config.
+     - **Configuration** : `createBff` appelé une fois, dans un module `server-only` ; `app` imposé ; origine exacte ; API par l'hôte interne ; refresh 30 j (web) ou 12 h (console) ; `loginPath` réel ; `cookieDomain` en production.
+     - **Variables** : jamais en `NEXT_PUBLIC_` (secret partagé ≥ 32 caractères, URL interne, origines). Un test de build vérifie que `.next/static` ne contient ni le secret ni l'URL interne, sans jamais afficher la valeur.
+     - **IP cliente** : `clientIp(headers)` lit un seul en-tête réécrit par le proxy de confiance (`X-Real-IP = $remote_addr`), jamais la valeur de gauche de `X-Forwarded-For`. Next n'est joignable que par ce proxy.
+     - **Middleware** : son `matcher` exclut `/api/` (ni CSP, ni i18n, ni redirection sur le BFF : la page de rebond porte sa propre CSP). Les pages reçoivent une CSP à nonce. Un chemin courant transmis par en-tête est posé avec `set` (jamais repris du navigateur) et revalidé par `refreshRedirectPath`.
+     - **En-têtes** : HSTS, `frame-ancestors 'none'`, `Referrer-Policy: same-origin` sur la connexion, `Cache-Control: private, no-store` sur toute page authentifiée ; le CDN ne met jamais en cache `/api/*` ni une page authentifiée.
+     - **Server Components** : `bff.server(await headers())` une fois par requête, `options` passé à chaque appel généré, jamais à un Client Component ni dans `HydrationBoundary`. `needsRefresh` → `redirect(server.refreshPath(cheminCourant))`. Un 401 du transport alors qu'un accès est présent → connexion, pas le refresh (pas de boucle).
+     - **Connexion** : ne redirige jamais d'après le témoin `__Host-jf_sess` (sinon boucle sur un refresh en 429 ou 5xx). Avec `raison=indisponible`, elle propose d'abord « Réessayer » (retour par `refreshRedirectPath(next)`), puis l'OTP. `next` revalidé par `safeNextPath` (`@jeflink/api-client/paths`).
+     - **Server Actions** : sur `needsRefresh`, renvoyer `{ needsRefresh: true }` ; le client rafraîchit puis rejoue (pas de `redirect`, qui perdrait le formulaire). Ne pas élargir `serverActions.allowedOrigins`. Un route handler maison qui écrit par le transport vérifie lui-même l'Origin.
+     - **Provider client** : `configureApiClient({ baseUrl: "", onUnauthorized })` au niveau du module d'un fichier `"use client"`, protégé par `typeof window !== "undefined"` (ni dans le rendu, ni dans un `useEffect`). Jamais de `baseUrl` absolue côté serveur. Pas de `useSuspenseQuery` sans préchargement serveur.
+     - **Refresh et déconnexion côté client** : par `@jeflink/api-client/web` uniquement (règle 1). Verrou `jf-refresh` avec délais, `X-Requested-With`, marque `jf-refreshed-at`. Sur un 401 : `resetApiClientSession()`, vidage du `QueryClient`, `router.replace(connexion?next=…)`. La déconnexion se fait sous le même verrou, puis `resetApiClientSession()`, vidage du cache et `BroadcastChannel` vers les autres onglets.
+     - **Paiement** : retours de paiement en `GET` (un `POST` d'un autre site n'envoie pas les cookies `Lax`).
+     - **Paramètres de route** : identifiants publics validés (UUID) avant tout appel.
   2. **web — `/connexion`** :
      - étapes téléphone, code, autres appareils, nom ;
      - challenge reprenable (`sessionStorage`), WebOTP ;

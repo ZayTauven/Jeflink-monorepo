@@ -240,6 +240,28 @@ describe("401 et rafraîchissement", () => {
   });
 });
 
+describe("chemins piégés (revue BFF, I-C)", () => {
+  it("un paramètre de chemin qui change d'endpoint n'est jamais envoyé", async () => {
+    configureApiClient({ baseUrl: "" });
+    for (const url of [
+      "/api/ops/accounts/../../me/sessions/revoke-others/",
+      "/api/ops/accounts/..%2F..%2Fme%2Fsessions%2F/",
+      "/api/ops/accounts/%2e%2e/x/",
+      "/api/a\\b/",
+    ]) {
+      await assert.rejects(jeflinkFetch(url, { method: "POST" }), (error: unknown) => {
+        assert.ok(error instanceof ApiError);
+        assert.equal(error.code, "unsafe_path");
+        return true;
+      });
+    }
+    assert.equal(calls.length, 0);
+    responses.push(json(200, {}));
+    await jeflinkFetch("/api/ops/accounts/?q=..%2F");
+    assert.equal(calls.length, 1);
+  });
+});
+
 describe("corps de réponse", () => {
   it("garde le texte brut d'une page HTML de proxy", async () => {
     configureApiClient({ baseUrl: "" });

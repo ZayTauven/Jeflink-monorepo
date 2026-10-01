@@ -5,19 +5,19 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { jeflinkFetch } from "../http.ts";
 import { COOKIES } from "./cookies.ts";
-import { createBff } from "./handlers.ts";
+import { type BffConfig, type BffSecurityEvent, createBff } from "./handlers.ts";
 import { safeApiPath, safeNextPath } from "./paths.ts";
 
 const ORIGIN = "https://jeflink.test";
 const SECRET = "test-bff-secret-not-secret-0123456789abcd";
 const DEVICE = "6f1c2b9e-3a4d-4c5e-9f00-1a2b3c4d5e6f";
 // Formes réalistes, valeurs factices : servent à vérifier la détection de fuite.
-const FAKE_REFRESH = `jfr_${"x".repeat(40)}`;
+const FAKE_REFRESH = `jfr_${"x".repeat(43)}`;
 // Assemblé à l'exécution : aucun littéral de forme JWT dans le dépôt (gitleaks).
 const FAKE_JWT = [
   "eyJhbGciOiJIUzI1NiJ9",
   "eyJzdWIiOiJ0ZXN0LWZhY3RpY2UifQ",
-  "signature-factice",
+  "signature-factice-0123456789",
 ].join(".");
 
 type Upstream = {
@@ -28,6 +28,7 @@ type Upstream = {
   cache: RequestCache | undefined;
 };
 let upstream: Upstream[];
+let events: BffSecurityEvent[] = [];
 let handler: (call: Upstream) => Response | Promise<Response>;
 const realFetch = globalThis.fetch;
 
@@ -36,9 +37,10 @@ const bff = createBff({
   apiUrl: "http://api:8000",
   allowedOrigins: [ORIGIN],
   bffSecret: SECRET,
-  clientIp: (request) => request.headers.get("x-real-ip"),
+  clientIp: (headers) => headers.get("x-real-ip"),
   refreshMaxAgeSeconds: 30 * 24 * 3600,
   loginPath: "/connexion",
+  onSecurityEvent: (event) => events.push(event),
 });
 
 function jsonResponse(
@@ -54,6 +56,7 @@ function jsonResponse(
 
 beforeEach(() => {
   upstream = [];
+  events = [];
   handler = () => jsonResponse(200, { ok: true });
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const call: Upstream = {
@@ -296,19 +299,39 @@ describe("proxy durci", () => {
     assert.equal(moved.headers.get("location"), null);
   });
 
-  it("un jeton n'atteint jamais le navigateur, où qu'il soit dans le corps (M1)", async () => {
+  it("proxy : un jeton est masqué et signalé, la réponse passe (M1, I-A)", async () => {
     for (const body of [
-      { tokens: { access: "x" } },
       { data: { items: [{ note: FAKE_REFRESH }] } },
-      { autre: FAKE_JWT },
+      { autre: `avant ${FAKE_JWT} après` },
     ]) {
       handler = () => jsonResponse(200, body);
       const response = await bff.handle(browser("/api/me/"));
-      assert.equal(response.status, 502);
-      assert.deepEqual(await response.json(), { code: "bff_token_leak" });
+      assert.equal(response.status, 200);
+      const text = await response.text();
+      assert.ok(!text.includes(FAKE_REFRESH) && !text.includes(FAKE_JWT), text);
+      assert.ok(text.includes("[jeton masqué]"));
+      JSON.parse(text); // toujours du JSON valide
     }
     handler = () => new Response(`erreur ${FAKE_REFRESH}`, { status: 500 });
-    assert.equal((await bff.handle(browser("/api/me/"))).status, 502);
+    const plain = await bff.handle(browser("/api/me/"));
+    assert.ok(!(await plain.text()).includes(FAKE_REFRESH));
+    assert.equal(events.length, 3);
+    assert.ok(events.every((e) => e.kind === "token_leak_masked" && e.path === "/api/me/"));
+    assert.ok(!JSON.stringify(events).includes("xxxxxxxx"));
+  });
+
+  it("proxy : aucun faux positif sur un texte d'utilisateur ni sur des clés usuelles (I-A)", async () => {
+    const body = {
+      description: "voir dossier jfr_2026_10_01_cuisine",
+      access: "Code du portail : 1234",
+      refresh: 30,
+      tokens: 3,
+    };
+    handler = () => jsonResponse(200, body);
+    const response = await bff.handle(browser("/api/missions/"));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), body);
+    assert.equal(events.length, 0);
   });
 });
 
@@ -367,6 +390,9 @@ describe("jetons en cookies", () => {
       browser("/api/auth/otp/verify/", { method: "POST", body: { code: "1" } }),
     );
     assert.equal(leaked.status, 502);
+    assert.deepEqual(events, [
+      { kind: "token_leak_refused", path: "/api/auth/otp/verify/", status: 400 },
+    ]);
   });
 
   it("jeton résiduel dans un corps de jetons : 502, aucun cookie posé", async () => {
@@ -468,6 +494,31 @@ describe("refresh", () => {
     assert.equal(upstream.length, 0);
   });
 
+  it("refresh en double : cookie du domaine parent effacé aussi, alerte (m1)", async () => {
+    const withDomain = createBff({
+      app: "web",
+      apiUrl: "http://api:8000",
+      allowedOrigins: [ORIGIN],
+      bffSecret: SECRET,
+      clientIp: () => null,
+      refreshMaxAgeSeconds: 60,
+      loginPath: "/connexion",
+      cookieDomain: "jeflink.test",
+      onSecurityEvent: (event) => events.push(event),
+    });
+    const response = await withDomain.handle(
+      browser("/api/auth/token/refresh/", {
+        method: "POST",
+        cookieHeader: `${COOKIES.refresh}=jfr_A; ${COOKIES.refresh}=jfr_B`,
+      }),
+    );
+    assert.equal(response.status, 401);
+    const cleared = setCookies(response).filter((c) => c.startsWith(`${COOKIES.refresh}=;`));
+    assert.equal(cleared.length, 2);
+    assert.ok(cleared.some((c) => c.includes("Domain=jeflink.test")));
+    assert.deepEqual(events, [{ kind: "duplicate_refresh", path: "/api/auth/token/refresh/" }]);
+  });
+
   it("refresh en double (fixation par un sous-domaine) : refusé et effacé (M5)", async () => {
     const response = await postRefresh(
       {},
@@ -494,6 +545,13 @@ describe("refresh", () => {
     assert.ok(html.includes(`nonce="${nonce}"`));
     assert.ok(html.includes('"next":"/"'));
     assert.ok(html.includes('"lock":"jf-refresh"'));
+    // Délais et repli (I-D) : verrou et POST bornés, meta refresh hors noscript.
+    assert.ok(html.includes('"fetchTimeout":20000') && html.includes('"lockTimeout":30000'));
+    assert.ok(html.includes('"mark":"jf-refreshed-at"'));
+    assert.match(
+      html,
+      /<meta http-equiv="refresh" content="60;url=\/connexion\?next=%2F&amp;raison=indisponible">/,
+    );
     assert.ok(!html.includes("evil.test"));
   });
 
@@ -542,6 +600,7 @@ describe("déconnexion", () => {
     assert.equal(response.status, 204);
     assert.equal(upstream.length, 2);
     assert.ok(upstream.some((c) => c.headers.get("authorization") === "Bearer ACC"));
+    assert.deepEqual(events, [{ kind: "revoke_failed", path: "/api/auth/token/revoke/" }]);
     assert.ok(cookieNamed(response, COOKIES.access)?.includes("Max-Age=0"));
   });
 });
@@ -603,6 +662,29 @@ describe("contexte serveur (I6)", () => {
     assert.equal(upstream.length, 1);
   });
 
+  it("accepte les en-têtes d'un Server Component (m7)", async () => {
+    const incoming = new Headers({
+      cookie: `${COOKIES.access}=SRV; ${COOKIES.device}=${DEVICE}`,
+      "x-real-ip": "41.82.1.2",
+    });
+    const server = bff.server(incoming);
+    await jeflinkFetch("/api/me/", server.options);
+    assert.equal(upstream[0]?.headers.get("authorization"), "Bearer SRV");
+    assert.equal(upstream[0]?.headers.get("x-jeflink-client-ip"), "41.82.1.2");
+  });
+
+  it("transport : paramètre de chemin piégé refusé avant normalisation (I-C)", async () => {
+    const server = bff.server(browser("/compte", { cookies: { [COOKIES.access]: "SRV" } }));
+    for (const path of [
+      "/api/ops/accounts/../../me/sessions/revoke-others/",
+      "/api/ops/accounts/..%2F..%2Fme%2F/",
+      "/api/ops/accounts/./x/",
+    ]) {
+      await assert.rejects(server.options.transport(path, {}), Error, path);
+    }
+    assert.equal(upstream.length, 0);
+  });
+
   it("needsRefresh : témoin de session sans accès (I1)", () => {
     // Une page ne reçoit jamais le refresh (Path=/api/auth) : seul le témoin la renseigne.
     const expired = bff.server(browser("/compte", { cookies: { [COOKIES.session]: "1" } }));
@@ -633,6 +715,8 @@ describe("safeNextPath (S20, C1)", () => {
     }
     assert.equal(safeNextPath("/compte?onglet=2#x"), "/compte?onglet=2#x");
     assert.equal(safeNextPath("/apiculture"), "/apiculture");
+    // Caractère non réservé encodé : `/%61pi/` est `/api/` (m6).
+    assert.equal(safeNextPath("/%61pi/auth/token/refresh/?next=/x"), "/");
   });
 });
 
@@ -645,7 +729,7 @@ describe("configuration", () => {
     clientIp: () => null,
     refreshMaxAgeSeconds: 1,
     loginPath: "/connexion",
-  };
+  } satisfies BffConfig;
 
   it("refuse une configuration dangereuse", () => {
     for (const override of [
@@ -656,6 +740,8 @@ describe("configuration", () => {
       { loginPath: "//evil.test" },
       { loginPath: "/connexion?x=1" },
       { refreshMaxAgeSeconds: 0 },
+      { cookieDomain: ".jeflink.test" },
+      { cookieDomain: "jeflink.test; Secure" },
     ]) {
       assert.throws(() => createBff({ ...valid, ...override }), JSON.stringify(override));
     }

@@ -751,7 +751,7 @@ export const getMeInvitationsAcceptUrl = (publicId: string,) => {
 
 
 
-  return `/api/me/invitations/${publicId}/accept/`
+  return `/api/me/invitations/${encodeURIComponent(String(publicId))}/accept/`
 }
 
 export const meInvitationsAccept = async (publicId: string,
@@ -852,7 +852,7 @@ export const getMeInvitationsDeclineUrl = (publicId: string,) => {
 
 
 
-  return `/api/me/invitations/${publicId}/decline/`
+  return `/api/me/invitations/${encodeURIComponent(String(publicId))}/decline/`
 }
 
 export const meInvitationsDecline = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<meInvitationsDeclineResponse> => {
@@ -1044,7 +1044,7 @@ export const getMeSessionsRevokeUrl = (publicId: string,) => {
 
 
 
-  return `/api/me/sessions/${publicId}/`
+  return `/api/me/sessions/${encodeURIComponent(String(publicId))}/`
 }
 
 export const meSessionsRevoke = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<meSessionsRevokeResponse> => {

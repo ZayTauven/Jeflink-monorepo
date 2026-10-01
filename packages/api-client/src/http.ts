@@ -7,6 +7,8 @@
 // et l'appel ne consulte alors rien du singleton, ni jeton, ni refresh, ni langue
 // (spec 001, S4 ; ADR 0007).
 
+import { hasUnsafePathSegments } from "./bff/paths.ts";
+
 export type ApiClientConfig = {
   /** Origine de l'API. Web/console : le BFF Next (même origine). Mobile : l'URL de l'API. */
   baseUrl: string;
@@ -87,6 +89,10 @@ function refreshOnce(handler: NonNullable<ApiClientConfig["onUnauthorized"]>, er
 }
 
 async function send(url: string, options: JeflinkRequestInit): Promise<Response> {
+  if (hasUnsafePathSegments(url)) {
+    // Paramètre de chemin piégé : jamais envoyé, ni au BFF ni à l'API (revue BFF, I-C).
+    throw new ApiError(400, { code: "unsafe_path" });
+  }
   const { transport, ...init } = options;
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");

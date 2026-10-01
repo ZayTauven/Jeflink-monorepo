@@ -7,6 +7,26 @@
  */
 export const REFRESH_LOCK = "jf-refresh";
 
+/**
+ * Clé localStorage de la date du dernier refresh réussi (aucun secret) : un onglet qui obtient le
+ * verrou juste après un refresh réussi ailleurs ne le refait pas (page de rebond et client web).
+ */
+export const REFRESHED_AT_KEY = "jf-refreshed-at";
+
+/** Seul endpoint du refresh web : `POST` le fait, `GET` renvoie la page de rebond. */
+export const REFRESH_ENDPOINT = "/api/auth/token/refresh/";
+
+/**
+ * Vrai si le chemin BRUT (avant toute normalisation par `new URL` ou `fetch`) contient un segment
+ * `.` ou `..`, un point, une barre ou un antislash encodés, un antislash ou une double barre. Un
+ * paramètre de route piégé (`..%2F..%2Fme%2F…`) ne peut alors jamais changer d'endpoint
+ * (revue BFF, I-C). La requête (`?…`) et le fragment ne sont pas contrôlés.
+ */
+export function hasUnsafePathSegments(url: string): boolean {
+  const path = url.split(/[?#]/, 1)[0] ?? "";
+  return /%2e|%2f|%5c|\\|\/\//i.test(path) || /(^|\/)\.\.?(\/|$)/.test(path);
+}
+
 /** Préfixes jamais servis par le proxy générique (S9). `/api/auth/` a ses propres gestionnaires. */
 export const DENIED_PREFIXES = ["/api/internal/", "/api/webhooks/", "/api/schema/", "/api/docs/"];
 
@@ -47,6 +67,14 @@ export function safeNextPath(next: string | null | undefined, fallback = "/"): s
     normalized.startsWith("/\\") ||
     /^\/api(\/|$|\?|#)/i.test(normalized)
   ) {
+    return fallback;
+  }
+  // `/%61pi/…` est `/api/…` pour le serveur : contrôle aussi sur la forme décodée (revue BFF, m6).
+  try {
+    if (/^\/api(\/|$)/i.test(decodeURIComponent(normalized.split(/[?#]/, 1)[0] ?? ""))) {
+      return fallback;
+    }
+  } catch {
     return fallback;
   }
   return normalized;

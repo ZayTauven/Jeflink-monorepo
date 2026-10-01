@@ -114,7 +114,7 @@ export const getOpsAccountsRetrieveUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/accounts/${publicId}/`
+  return `/api/ops/accounts/${encodeURIComponent(String(publicId))}/`
 }
 
 export const opsAccountsRetrieve = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<opsAccountsRetrieveResponse> => {
@@ -247,7 +247,7 @@ export const getOpsAccountsClearDormantUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/accounts/${publicId}/clear-dormant/`
+  return `/api/ops/accounts/${encodeURIComponent(String(publicId))}/clear-dormant/`
 }
 
 export const opsAccountsClearDormant = async (publicId: string,
@@ -368,7 +368,7 @@ export const getOpsAccountsDeactivateUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/accounts/${publicId}/deactivate/`
+  return `/api/ops/accounts/${encodeURIComponent(String(publicId))}/deactivate/`
 }
 
 export const opsAccountsDeactivate = async (publicId: string,
@@ -489,7 +489,7 @@ export const getOpsAccountsPhoneChangeUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/accounts/${publicId}/phone-change/`
+  return `/api/ops/accounts/${encodeURIComponent(String(publicId))}/phone-change/`
 }
 
 export const opsAccountsPhoneChange = async (publicId: string,
@@ -610,7 +610,7 @@ export const getOpsAccountsReactivateUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/accounts/${publicId}/reactivate/`
+  return `/api/ops/accounts/${encodeURIComponent(String(publicId))}/reactivate/`
 }
 
 export const opsAccountsReactivate = async (publicId: string,
@@ -731,7 +731,7 @@ export const getOpsAccountsRevealPhoneUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/accounts/${publicId}/reveal-phone/`
+  return `/api/ops/accounts/${encodeURIComponent(String(publicId))}/reveal-phone/`
 }
 
 export const opsAccountsRevealPhone = async (publicId: string,
@@ -852,7 +852,7 @@ export const getOpsAccountsRevokeSessionsUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/accounts/${publicId}/revoke-sessions/`
+  return `/api/ops/accounts/${encodeURIComponent(String(publicId))}/revoke-sessions/`
 }
 
 export const opsAccountsRevokeSessions = async (publicId: string,
@@ -973,7 +973,7 @@ export const getOpsAccountsUnblockOtpUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/accounts/${publicId}/unblock-otp/`
+  return `/api/ops/accounts/${encodeURIComponent(String(publicId))}/unblock-otp/`
 }
 
 export const opsAccountsUnblockOtp = async (publicId: string,
@@ -1310,7 +1310,7 @@ export const getOpsPhoneChangesApproveUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/phone-changes/${publicId}/approve/`
+  return `/api/ops/phone-changes/${encodeURIComponent(String(publicId))}/approve/`
 }
 
 export const opsPhoneChangesApprove = async (publicId: string,
@@ -1426,7 +1426,7 @@ export const getOpsPhoneChangesRejectUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/phone-changes/${publicId}/reject/`
+  return `/api/ops/phone-changes/${encodeURIComponent(String(publicId))}/reject/`
 }
 
 export const opsPhoneChangesReject = async (publicId: string,
@@ -1542,7 +1542,7 @@ export const getOpsPhoneChangesResendCodeUrl = (publicId: string,) => {
 
 
 
-  return `/api/ops/phone-changes/${publicId}/resend-code/`
+  return `/api/ops/phone-changes/${encodeURIComponent(String(publicId))}/resend-code/`
 }
 
 export const opsPhoneChangesResendCode = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<opsPhoneChangesResendCodeResponse> => {

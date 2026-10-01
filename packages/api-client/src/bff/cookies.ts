@@ -25,12 +25,19 @@ const ACCESS_SKEW_SECONDS = 30;
 const ACCESS_MIN_SECONDS = 60;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type CookieOptions = { maxAge: number; path?: string; sameSite?: "Lax" | "Strict" };
+type CookieOptions = {
+  maxAge: number;
+  path?: string;
+  sameSite?: "Lax" | "Strict";
+  /** Seulement pour effacer un cookie `__Secure-` planté sur le domaine parent (m1). */
+  domain?: string;
+};
 
 export function serializeCookie(name: string, value: string, options: CookieOptions): string {
   const parts = [
     `${name}=${encodeURIComponent(value)}`,
     `Path=${options.path ?? "/"}`,
+    ...(options.domain ? [`Domain=${options.domain}`] : []),
     `Max-Age=${Math.max(0, Math.floor(options.maxAge))}`,
     "HttpOnly",
     "Secure",
@@ -46,9 +53,9 @@ export type CookieJar = {
   duplicated(name: string): boolean;
 };
 
-export function readCookies(request: Request): CookieJar {
+export function readCookies(headers: Headers): CookieJar {
   const values = new Map<string, string[]>();
-  for (const part of (request.headers.get("cookie") ?? "").split(";")) {
+  for (const part of (headers.get("cookie") ?? "").split(";")) {
     const index = part.indexOf("=");
     if (index <= 0) continue;
     const name = part.slice(0, index).trim();
@@ -101,11 +108,25 @@ export function deviceCookie(id: string): string {
   return serializeCookie(COOKIES.device, id, { maxAge: DEVICE_MAX_AGE });
 }
 
-/** Efface la session (accès, refresh, témoin, MFA). L'identifiant d'appareil reste. */
-export function clearSessionCookies(): string[] {
+/**
+ * Efface la session (accès, refresh, témoin, MFA). L'identifiant d'appareil reste. Avec
+ * `parentDomain`, efface aussi un refresh planté sur le domaine parent par un sous-domaine (m1) ;
+ * les cookies `__Host-` ne peuvent pas porter de `Domain`, rien d'autre n'est concerné.
+ */
+export function clearSessionCookies(parentDomain?: string): string[] {
   return [
     serializeCookie(COOKIES.access, "", { maxAge: 0 }),
     serializeCookie(COOKIES.refresh, "", { maxAge: 0, path: REFRESH_PATH, sameSite: "Strict" }),
+    ...(parentDomain
+      ? [
+          serializeCookie(COOKIES.refresh, "", {
+            maxAge: 0,
+            path: REFRESH_PATH,
+            sameSite: "Strict",
+            domain: parentDomain,
+          }),
+        ]
+      : []),
     serializeCookie(COOKIES.session, "", { maxAge: 0 }),
     clearMfaCookie(),
   ];

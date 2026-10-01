@@ -5,5 +5,5 @@ import "server-only";
 
 export { COOKIES } from "./cookies.ts";
 export { createBff } from "./handlers.ts";
-export type { BffConfig, BffServer } from "./handlers.ts";
+export type { BffConfig, BffSecurityEvent, BffServer } from "./handlers.ts";
 export { REFRESH_LOCK, safeApiPath, safeNextPath } from "./paths.ts";
