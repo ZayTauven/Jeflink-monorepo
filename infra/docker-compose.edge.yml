@@ -1,0 +1,49 @@
+# Test de fumée du bord public (spec 001, infra 4), en local :
+#   docker compose -f infra/docker-compose.yml -f infra/docker-compose.edge.yml up -d edge api-asgi
+#   node infra/proxy/smoke.mjs
+# nginx (règles de production, sans TLS) devant uvicorn, qui ne fait confiance qu'à edge.
+
+services:
+  api-asgi:
+    build: ../apps/api
+    command: >
+      uv run --frozen uvicorn jeflink.asgi:application --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips 172.30.0.10
+    environment:
+      DJANGO_SETTINGS_MODULE: jeflink.settings.local
+      DJANGO_ENV: local
+      ALLOWED_HOSTS: edge.localhost,api
+      SECRET_KEY: local-dev-only-secret-key-not-secret-000
+      JWT_SIGNING_KEYS: dev1:local-dev-jwt-key-one-not-secret-1111111,dev2:local-dev-jwt-key-two-not-secret-2222222
+      OTP_HMAC_KEY: local-dev-otp-hmac-key-not-secret-3333333
+      MFA_ENCRYPTION_KEYS: bG9jYWwtZGV2LW1mYS1rZXktbm90LXNlY3JldC00NDQ=
+      BFF_SHARED_SECRETS: local-dev-bff-secret-not-secret-5555555555
+      PII_HMAC_KEY: local-dev-pii-hmac-key-not-secret-6666666
+      DATABASE_URL: postgis://jeflink:jeflink@db:5432/jeflink
+      REDIS_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
+      RATELIMIT_REDIS_URL: redis://:local-dev-redis-auth-not-secret@redis-auth:6379/0
+    volumes: ["../apps/api:/app"]
+    networks:
+      default: {}
+      edge: { ipv4_address: 172.30.0.20 }
+    depends_on: [db, redis, redis-auth]
+
+  edge:
+    image: nginx:1.27-alpine
+    environment:
+      API_PUBLIC_HOST: edge.localhost
+      API_UPSTREAM: api-asgi:8000
+    volumes:
+      - ./proxy/templates/jeflink-api-locations.inc.template:/etc/nginx/templates/jeflink-api-locations.inc.template:ro
+      - ./proxy/templates/smoke/api.conf.template:/etc/nginx/templates/api.conf.template:ro
+    ports: ["8088:80"]
+    networks:
+      edge: { ipv4_address: 172.30.0.10 }
+    depends_on: [api-asgi]
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

@@ -1,0 +1,28 @@
+# Règles communes du bord public de l'API (spec 001, infra 4). Incluses par le serveur TLS de
+# production et par le serveur HTTP du test de fumée : les deux appliquent exactement ces règles.
+#
+# Jamais servis publiquement : documentation OpenAPI (S24), routes internes, admin Django (S3).
+# nginx normalise l'URI (%2e, //, ..) avant de choisir le bloc : /api/../admin tombe ici.
+location ^~ /api/schema   { return 404; }
+location ^~ /api/docs     { return 404; }
+location ^~ /api/internal { return 404; }
+location ^~ /admin        { return 404; }
+
+location /api/ {
+    # En-têtes réservés au BFF (réseau interne) : jamais acceptés de l'extérieur (S9).
+    # Toute nouvelle valeur X-Jeflink-* du code doit être ajoutée ici (test test_edge_proxy).
+    proxy_set_header X-Jeflink-Bff "";
+    proxy_set_header X-Jeflink-Client-Ip "";
+    proxy_set_header X-Jeflink-App "";
+    # IP cliente : écrasée, jamais complétée. uvicorn la reprend de ce seul proxy.
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header Host $host;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    client_max_body_size 12m;
+    proxy_read_timeout 60s;
+    proxy_pass http://${API_UPSTREAM};
+}
+
+location / { return 404; }

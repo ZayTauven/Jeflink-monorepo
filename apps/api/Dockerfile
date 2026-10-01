@@ -19,4 +19,6 @@ RUN uv sync --frozen --no-install-project
 COPY . .
 
 EXPOSE 8000
-CMD ["uv", "run", "--frozen", "python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Production et staging : contrôles de déploiement puis uvicorn (infra 4). En local,
+# docker-compose remplace cette commande par runserver.
+CMD ["sh", "bin/start-production"]
