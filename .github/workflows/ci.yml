@@ -4,7 +4,7 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
 
 permissions:
@@ -18,19 +18,19 @@ jobs:
   gitleaks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0 # tout l'historique : un secret retiré depuis reste un secret publié
       - name: gitleaks (image officielle, sans action tierce ni licence)
         run: >
-          docker run --rm -v "$GITHUB_WORKSPACE:/repo" ghcr.io/gitleaks/gitleaks:v8.28.0
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo" ghcr.io/gitleaks/gitleaks:v8.28.0@sha256:cdbb7c955abce02001a9f6c9f602fb195b7fadc1e812065883f695d1eeaba854
           git /repo --redact --no-banner --config /repo/.gitleaks.toml
 
   api:
     runs-on: ubuntu-latest
     needs: gitleaks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Image de l'API (GDAL, PROJ) et services
         run: docker compose -f infra/docker-compose.yml up -d --build db redis
       - name: Lint et format
@@ -48,9 +48,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: gitleaks
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .node-version
           cache: pnpm
@@ -63,14 +63,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: gitleaks
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: En-têtes X-Jeflink-* retirés par le proxy
         run: node infra/proxy/check-headers.mjs
-      - name: Bord public (nginx + uvicorn), test de fumée
-        run: |
-          docker compose -f infra/docker-compose.yml -f infra/docker-compose.edge.yml up -d --build edge api-asgi
-          for i in $(seq 1 30); do
-            curl -sf -o /dev/null -H "Host: edge.localhost" http://127.0.0.1:8088/api/health/ && break
-            sleep 2
-          done
-          node infra/proxy/smoke.mjs
+      - name: Gabarits de production et interne (nginx -t)
+        run: node infra/proxy/validate-templates.mjs
+      - name: Bord public (nginx + API en réglages de production), test de fumée
+        run: node infra/proxy/run-smoke.mjs

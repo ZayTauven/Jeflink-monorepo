@@ -1,5 +1,5 @@
 # Règles communes du bord public de l'API (spec 001, infra 4). Incluses par le serveur TLS de
-# production et par le serveur HTTP du test de fumée : les deux appliquent exactement ces règles.
+# production et par le serveur du test de fumée : les deux appliquent exactement ces règles.
 #
 # Jamais servis publiquement : documentation OpenAPI (S24), routes internes, admin Django (S3).
 # nginx normalise l'URI (%2e, //, ..) avant de choisir le bloc : /api/../admin tombe ici.
@@ -10,13 +10,20 @@ location ^~ /admin        { return 404; }
 
 location /api/ {
     # En-têtes réservés au BFF (réseau interne) : jamais acceptés de l'extérieur (S9).
-    # Toute nouvelle valeur X-Jeflink-* du code doit être ajoutée ici (test test_edge_proxy).
+    # Toute nouvelle valeur X-Jeflink-* du code doit être ajoutée ici (garde-fou CI :
+    # infra/proxy/check-headers.mjs).
     proxy_set_header X-Jeflink-Bff "";
     proxy_set_header X-Jeflink-Client-Ip "";
     proxy_set_header X-Jeflink-App "";
+    # En-têtes d'identité du client : jamais transmis tels quels.
+    proxy_set_header Forwarded "";
+    proxy_set_header X-Forwarded-Host "";
+    proxy_set_header X-Forwarded-Port "";
+    proxy_set_header X-Real-IP "";
     # IP cliente : écrasée, jamais complétée. uvicorn la reprend de ce seul proxy.
     proxy_set_header X-Forwarded-For $remote_addr;
-    proxy_set_header X-Forwarded-Proto $scheme;
+    # Le bord public ne sert que du TLS (le port 80 redirige) : https, jamais $scheme.
+    proxy_set_header X-Forwarded-Proto https;
     proxy_set_header Host $host;
     proxy_http_version 1.1;
     proxy_set_header Connection "";

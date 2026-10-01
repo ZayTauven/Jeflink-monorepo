@@ -24,9 +24,11 @@ if not all(SMS_ANDROID_APP_HASH.values()):  # noqa: F405
 DEBUG = False
 SERVE_API_SCHEMA = False
 
-# Derrière le reverse proxy TLS.
+# Derrière les reverse proxies TLS (bord public, et écouteur interne du BFF et de l'admin).
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+# Seule la sonde de disponibilité de l'orchestrateur parle HTTP en direct (infra 4, I1).
+SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
 SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=60 * 60 * 24 * 365)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_CONTENT_TYPE_NOSNIFF = True

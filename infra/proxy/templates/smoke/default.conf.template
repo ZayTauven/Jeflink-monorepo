@@ -1,15 +1,18 @@
-# Test de fumée local du bord public (infra/docker-compose.edge.yml) : mêmes règles qu'en
+# Test de fumée local et CI du bord public (infra/docker-compose.edge.yml) : mêmes règles qu'en
 # production (fichier inclus), sans TLS.
+
+server_tokens off;
 
 server {
     listen 80 default_server;
+    listen [::]:80 default_server;
     return 444;
 }
 
 server {
     listen 80;
+    listen [::]:80;
     server_name ${API_PUBLIC_HOST};
-    server_tokens off;
 
     include /etc/nginx/conf.d/jeflink-api-locations.inc;
 }

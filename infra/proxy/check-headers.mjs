@@ -17,8 +17,13 @@ function walk(dir) {
     if (statSync(path).isDirectory()) {
       if (!["tests", "migrations", "__pycache__"].includes(name)) walk(path);
     } else if (name.endsWith(".py")) {
-      for (const m of readFileSync(path, "utf8").matchAll(/["'](X-Jeflink-[\w-]+)["']/gi)) {
+      const source = readFileSync(path, "utf8");
+      for (const m of source.matchAll(/["'](X-Jeflink-[\w-]+)["']/gi)) {
         used.add(m[1].toLowerCase());
+      }
+      // Forme META de Django : HTTP_X_JEFLINK_CLIENT_IP → x-jeflink-client-ip.
+      for (const m of source.matchAll(/HTTP_(X_JEFLINK_\w+)/g)) {
+        used.add(m[1].toLowerCase().replaceAll("_", "-"));
       }
     }
   }

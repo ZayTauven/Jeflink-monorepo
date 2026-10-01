@@ -18,6 +18,10 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project
 COPY . .
 
+# Sans privilèges : le code et le venv sont en lecture seule pour l'utilisateur de l'API.
+RUN useradd --create-home --uid 10001 app
+USER app
+
 EXPOSE 8000
 # Production et staging : contrôles de déploiement puis uvicorn (infra 4). En local,
 # docker-compose remplace cette commande par runserver.
