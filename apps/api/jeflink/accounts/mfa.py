@@ -65,6 +65,7 @@ class Stage:
     CONFIRM = "confirm"
     VERIFY = "verify"
     STEP_UP = "step_up"
+    ADMIN = "admin"
 
 
 @dataclass(frozen=True)

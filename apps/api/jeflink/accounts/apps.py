@@ -95,6 +95,11 @@ class AccountsConfig(AppConfig):
         register_audit_schema("accounts.user.deleted", {"reason": str})
         register_audit_schema("accounts.deletion.blocked", {"reasons": list})
         register_audit_schema("accounts.mfa.enrolled", {})
+        register_audit_schema("accounts.admin.logged_in", {})
+        register_audit_schema(
+            "accounts.admin.totp_issued",
+            {"operator": str, "second_operator": str, "reason_code": str},
+        )
         register_audit_schema("accounts.mfa.verified", {})
         register_audit_schema("accounts.mfa.step_up", {})
         register_audit_schema("accounts.mfa.enrollment_issued", {"operator": str})
