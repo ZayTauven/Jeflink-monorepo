@@ -17,7 +17,7 @@ Quatre fronts consomment la même API : deux apps Expo (client, pro) et deux Nex
 - **Session active vérifiée à chaque requête** : cache Redis `auth:sid:<sid>` (60 s, écrit en `on_commit`, supprimé à la révocation), repli sur la base. Le Redis d'auth est authentifié et sans éviction.
 - **Mobile** : refresh dans `expo-secure-store` (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), sauvegarde Android désactivée, access en mémoire.
 - **Web et console : BFF Next.**
-  - Jetons en cookies `__Host-jf_at` et `__Secure-jf_rt` (`Path=/api/auth`, jamais élargi). `mfa_token` en `__Host-jf_mfa`.
+  - Jetons en cookies `__Host-jf_at` et `__Secure-jf_rt` (`Path=/api/auth`, jamais élargi). `mfa_token` en `__Host-jf_mfa`. Témoin sans secret `__Host-jf_sess` (`Path=/`) pour que les pages sachent qu'un refresh est possible.
   - Le refresh n'a lieu que dans le route handler dédié, avec un verrou entre onglets.
   - Aucun état de module côté serveur, aucune mise en cache des données authentifiées.
   - Proxy durci : chemins, liste fermée d'en-têtes, préfixes interdits.
