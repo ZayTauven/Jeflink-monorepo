@@ -548,15 +548,42 @@ def _clear_restricted_cache(sid) -> None:
 def revoke_by_refresh(refresh: str) -> None:
     """Déconnexion par le refresh (RFC 7009) : marche même quand l'accès a expiré (web : la
     déconnexion arrive souvent plus de 15 min après le dernier rafraîchissement). Sans effet et
-    sans erreur pour un jeton inconnu : la réponse ne révèle rien."""
+    sans erreur pour un jeton inconnu : la réponse ne révèle rien.
+
+    Tout jeton de la chaîne de la session prouve sa possession (revue BFF, I-B) : courant ou
+    précédent (déconnexion pendant la rotation d'un autre onglet) révoquent en ``logout`` ; un
+    jeton retiré révoque en ``reuse_detected``, comme au refresh.
+    """
     if not refresh or not refresh.startswith(REFRESH_PREFIX):
         return
+    presented = hash_refresh(refresh)
+    reuse_detected: DeviceSession | None = None
     with transaction.atomic():
-        session = (
+        base = (
             DeviceSession.objects.select_for_update(of=("self",))
             .select_related("user")
-            .filter(refresh_hash=hash_refresh(refresh), revoked_at__isnull=True)
-            .first()
+            .filter(revoked_at__isnull=True)
+        )
+        session = (
+            base.filter(refresh_hash=presented).first()
+            or base.filter(previous_refresh_hash=presented).first()
         )
         if session is not None:
             revoke_session(session, reason=DeviceSession.RevokedReason.LOGOUT)
+            return
+        retired = RetiredRefreshToken.objects.filter(refresh_hash=presented).first()
+        if retired is None:
+            return
+        session = base.filter(pk=retired.session_id).first()
+        if session is None:
+            return
+        revoke_session(session, reason=DeviceSession.RevokedReason.REUSE_DETECTED)
+        reuse_detected = session
+    audit(
+        action="accounts.session.refresh_reuse_detected",
+        actor_kind=AuditEvent.ActorKind.SYSTEM,
+        target=reuse_detected.user,
+        session_public_id=reuse_detected.public_id,
+        metadata={"app": reuse_detected.app},
+        durable=True,
+    )

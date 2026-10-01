@@ -3,6 +3,7 @@ from django.urls import reverse
 
 from jeflink.accounts.models import DeviceSession
 from jeflink.accounts.sessions import create_session
+from jeflink.trust.models import AuditEvent
 
 pytestmark = pytest.mark.django_db
 
@@ -204,3 +205,40 @@ def test_revocation_par_refresh_inconnu_meme_reponse(api_client):
             reverse("auth-token-revoke"), {"refresh": refresh}, format="json"
         )
         assert response.status_code == 204
+
+
+def test_revocation_par_le_refresh_precedent_pendant_une_rotation(api_client, user_factory):
+    """Revue BFF, I-B : un autre onglet a fait tourner le refresh juste avant la déconnexion."""
+    pair = open_session(user_factory())
+    rotated = api_client.post(
+        reverse("auth-token-refresh"), {"refresh": pair.refresh}, format="json"
+    )
+    assert rotated.status_code == 200
+    response = api_client.post(
+        reverse("auth-token-revoke"), {"refresh": pair.refresh}, format="json"
+    )
+    assert response.status_code == 204
+    pair.session.refresh_from_db()
+    assert pair.session.revoked_reason == "logout"
+    refused = api_client.post(
+        reverse("auth-token-refresh"), {"refresh": rotated.json()["refresh"]}, format="json"
+    )
+    assert refused.status_code == 401
+
+
+# Audit durable (base `audit`, hors transaction du test).
+@pytest.mark.django_db(transaction=True, databases="__all__", serialized_rollback=True)
+def test_revocation_par_un_refresh_retire_vaut_reutilisation(api_client, user_factory):
+    pair = open_session(user_factory())
+    current = pair.refresh
+    for _ in range(2):  # deux rotations : le premier refresh est retiré
+        current = api_client.post(
+            reverse("auth-token-refresh"), {"refresh": current}, format="json"
+        ).json()["refresh"]
+    response = api_client.post(
+        reverse("auth-token-revoke"), {"refresh": pair.refresh}, format="json"
+    )
+    assert response.status_code == 204
+    pair.session.refresh_from_db()
+    assert pair.session.revoked_reason == "reuse_detected"
+    assert AuditEvent.objects.filter(action="accounts.session.refresh_reuse_detected").exists()

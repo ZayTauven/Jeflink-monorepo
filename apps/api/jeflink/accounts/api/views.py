@@ -72,7 +72,7 @@ class TokenRevokeView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
-    rate_limit_scope = "token_refresh"
+    rate_limit_scope = "token_revoke"  # distincte : marteler revoke n'épuise pas le refresh
 
     @extend_schema(
         tags=["auth"],
