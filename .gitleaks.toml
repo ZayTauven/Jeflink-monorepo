@@ -1,0 +1,20 @@
+# Configuration gitleaks (spec 001, S21) : règles par défaut + valeurs factices connues.
+# On n'exclut aucun dossier : seuls des motifs de valeurs publiques sont tolérés, pour qu'un vrai
+# secret glissé dans un test ou un fichier de dev reste détecté.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Valeurs publiques de développement et de test (voir jeflink.common.secrets)"
+regexTarget = "secret"
+regexes = [
+  # Marqueur des clés de dev de docker-compose et de settings/test.py.
+  '''not-secret''',
+  # MFA_ENCRYPTION_KEYS de test et de dev : base64 de « test-… » et « local-… ».
+  '''^dGVzdC1''',
+  '''^bG9jYWwt''',
+  # Clés d'idempotence et mot de passe factices des tests.
+  '''^cle-idempotence-''',
+  '''^mot-de-passe-long-et-unique-''',
+]

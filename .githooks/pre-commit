@@ -1,0 +1,3 @@
+#!/bin/sh
+# Hooks Git du dépôt (activés par `pnpm install` : core.hooksPath = .githooks).
+exec node "$(git rev-parse --show-toplevel)/.githooks/gitleaks-staged.mjs"

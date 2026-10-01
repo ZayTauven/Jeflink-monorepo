@@ -1,0 +1,59 @@
+# Intégration continue. gitleaks sur tout l'historique (spec 001, S21), puis les tests et
+# contrôles de l'API et des paquets TypeScript.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tout l'historique : un secret retiré depuis reste un secret publié
+      - name: gitleaks (image officielle, sans action tierce ni licence)
+        run: >
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo" ghcr.io/gitleaks/gitleaks:v8.28.0
+          git /repo --redact --no-banner --config /repo/.gitleaks.toml
+
+  api:
+    runs-on: ubuntu-latest
+    needs: gitleaks
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image de l'API (GDAL, PROJ) et services
+        run: docker compose -f infra/docker-compose.yml up -d --build db redis
+      - name: Lint et format
+        run: |
+          docker compose -f infra/docker-compose.yml run --rm --no-deps api uv run ruff check .
+          docker compose -f infra/docker-compose.yml run --rm --no-deps api uv run ruff format --check .
+      - name: Migrations à jour
+        run: >
+          docker compose -f infra/docker-compose.yml run --rm api
+          uv run python manage.py makemigrations --check --dry-run
+      - name: Tests
+        run: docker compose -f infra/docker-compose.yml run --rm api uv run pytest -q
+
+  typescript:
+    runs-on: ubuntu-latest
+    needs: gitleaks
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint

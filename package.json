@@ -12,7 +12,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "devDependencies": {
     "prettier": "^3.9.9",

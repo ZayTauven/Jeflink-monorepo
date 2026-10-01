@@ -11,8 +11,11 @@ Services pro à la demande au Sénégal. Commencer par `CLAUDE.md`, puis `docs/p
 | pnpm 12.8.1  | workspaces JS (version figée dans `packageManager`)           | `npm install -g pnpm@12.8.1` (`corepack enable` exige les droits admin sous Windows) |
 | uv           | Python de `apps/api` en local (ruff, hook de formatage)       | `scoop install uv` (ou `winget install --id=astral-sh.uv -e`)                        |
 | make         | raccourcis du `Makefile`                                      | `scoop install make` (ou `winget install ezwinports.make`)                           |
+| gitleaks     | détection de secrets au commit (hook `.githooks/pre-commit`)  | `scoop install gitleaks` ; sinon le hook passe par Docker                            |
 
 `jq` n'est pas nécessaire : les hooks `.claude/hooks/*.mjs` sont en Node.
+
+`pnpm install` active les hooks Git du dépôt (`core.hooksPath = .githooks`) : gitleaks vérifie chaque commit, avec la configuration `.gitleaks.toml`. Sans gitleaks ni Docker, le commit est refusé.
 
 ## Démarrage
 
