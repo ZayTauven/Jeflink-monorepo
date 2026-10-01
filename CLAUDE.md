@@ -103,4 +103,5 @@ Beaucoup de skills couvrant la stack sont installés **globalement** sur la mach
 - Décisions : `docs/adr/`
 - Données personnelles (registre des traitements, CDP) : `docs/compliance/`
 - Procédures du support et de l'Ops : `docs/ops/`
+- Images pour les fronts : banque locale `C:\Users\moham\Pictures\Banque` (lire son `CLAUDE.md`, chercher dans `_catalogue/INDEX.tsv`). Règles Jeflink (WebP/AVIF, provenance dans `docs/design/assets.md`, interdits) : DESIGN.md › Banque d'images
 - Références visuelles (locales) : `references/crafto/demo-marketing-strategy.html` (web public), `references/vireo/` (console), `references/assets-originaux/` (logo, illustrations : à optimiser en WebP/AVIF avant tout usage dans une app)
