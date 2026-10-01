@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./bff": "./src/bff/index.ts"
+    "./bff": "./src/bff/index.ts",
+    "./paths": "./src/bff/paths.ts"
   },
   "scripts": {
     "generate": "orval --config orval.config.ts",

@@ -2,7 +2,13 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { ApiError, configureApiClient, jeflinkFetch } from "./http.ts";
+import {
+  ApiError,
+  type Transport,
+  configureApiClient,
+  jeflinkFetch,
+  resetApiClientSession,
+} from "./http.ts";
 
 type Call = { url: string; headers: Headers; credentials: RequestCredentials | undefined };
 
@@ -55,11 +61,35 @@ describe("en-têtes", () => {
     assert.equal(call?.credentials, "omit");
   });
 
-  it("le jeton passé à l'appel est prioritaire (côté serveur, jamais le singleton)", async () => {
-    configureApiClient({ baseUrl: "", getAccessToken: () => "SINGLETON" });
-    responses.push(json(200, {}));
-    await jeflinkFetch("/api/me/", { accessToken: "PAR_APPEL" });
-    assert.equal(calls[0]?.headers.get("Authorization"), "Bearer PAR_APPEL");
+  it("transport serveur : ni jeton, ni langue, ni refresh du singleton (I7)", async () => {
+    let read = 0;
+    configureApiClient({
+      baseUrl: "https://ne-pas-utiliser.test",
+      getAccessToken: () => {
+        read += 1;
+        return "SINGLETON";
+      },
+      getLanguage: () => {
+        read += 1;
+        return "wo";
+      },
+      onUnauthorized: async () => {
+        read += 1;
+        return true;
+      },
+    });
+    const seen: Array<{ path: string; headers: Headers }> = [];
+    const transport: Transport = async (path, init) => {
+      seen.push({ path, headers: new Headers(init.headers) });
+      return json(401, { code: "token_expired" })();
+    };
+    await assert.rejects(jeflinkFetch("/api/me/", { transport }), ApiError);
+    assert.equal(read, 0);
+    assert.equal(calls.length, 0);
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0]?.path, "/api/me/");
+    assert.equal(seen[0]?.headers.get("Authorization"), null);
+    assert.equal(seen[0]?.headers.get("Accept-Language"), null);
   });
 
   it("sans jeton (web, console) : cookies du BFF, pas d'Authorization", async () => {
@@ -149,18 +179,52 @@ describe("401 et rafraîchissement", () => {
     assert.equal(calls.length, 2);
   });
 
-  it("jeton passé à l'appel : jamais de refresh automatique (BFF)", async () => {
-    let refreshes = 0;
+  it("pas de rejeu sous un autre compte : session changée pendant le refresh (M11)", async () => {
+    let token = "COMPTE_A";
     configureApiClient({
       baseUrl: "",
+      getAccessToken: () => token,
       onUnauthorized: async () => {
-        refreshes += 1;
+        // Déconnexion puis connexion d'un autre compte pendant le refresh.
+        resetApiClientSession();
+        token = "COMPTE_B";
         return true;
       },
     });
     responses.push(json(401, { code: "token_expired" }));
-    await assert.rejects(jeflinkFetch("/api/me/", { accessToken: "T" }), ApiError);
-    assert.equal(refreshes, 0);
+    await assert.rejects(jeflinkFetch("/api/me/", { method: "DELETE" }), ApiError);
+    assert.equal(calls.length, 1);
+  });
+
+  it("un refresh terminé n'efface pas celui lancé depuis (M11)", async () => {
+    let refreshes = 0;
+    const releases: Array<(value: boolean) => void> = [];
+    configureApiClient({
+      baseUrl: "",
+      getAccessToken: () => "T",
+      onUnauthorized: () => {
+        refreshes += 1;
+        return new Promise<boolean>((resolve) => releases.push(resolve));
+      },
+    });
+    responses.push(json(401, {}));
+    const first = jeflinkFetch("/api/a/");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    resetApiClientSession(); // le refresh en cours n'est plus partagé
+    responses.push(json(401, {}), json(401, {}));
+    const second = jeflinkFetch("/api/b/");
+    const third = jeflinkFetch("/api/c/");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    releases[0]?.(false); // fin du premier : ne doit pas libérer le second
+    await assert.rejects(first, ApiError);
+    responses.push(json(401, {}));
+    const fourth = jeflinkFetch("/api/d/"); // doit attendre le second refresh, pas en lancer un
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(refreshes, 2);
+    responses.push(json(200, {}), json(200, {}), json(200, {}));
+    releases[1]?.(true);
+    await Promise.all([second, third, fourth]);
+    assert.equal(refreshes, 2);
   });
 
   it("une erreur du refresh vaut un refus", async () => {

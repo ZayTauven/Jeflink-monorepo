@@ -1,57 +1,81 @@
 // BFF Next de Jeflink (spec 001, « BFF Next » ; ADR 0007 ; S4, S6, S9, S10, S20).
 //
 // Un seul point d'entrée, `handle(request)`, monté derrière la route attrape-tout de l'app
-// (`app/api/[...path]/route.ts`) : les endpoints qui émettent des jetons ont leurs gestionnaires,
-// tout le reste passe par le proxy durci. Aucun état de module : la configuration est figée par
-// `createBff`, et chaque requête porte ses propres cookies et en-têtes.
+// (`app/api/[...path]/route.ts`, runtime nodejs) : les endpoints qui émettent des jetons ont leurs
+// gestionnaires, tout le reste passe par le proxy durci. Aucun état de module : la configuration
+// est figée par `createBff`, et chaque requête porte ses propres cookies et en-têtes.
+//
+// Côté serveur (Server Components, actions), `server(request)` fournit un transport fermé : le
+// jeton et le secret restent dans une fermeture, jamais dans un objet lisible ou sérialisable.
 
+import { isIP } from "node:net";
+
+import type { Transport } from "../http.ts";
 import {
   COOKIES,
+  type CookieJar,
   accessCookie,
+  clearMfaCookie,
   clearSessionCookies,
   deviceCookie,
+  isDeviceId,
   mfaCookie,
   readCookies,
-  refreshCookie,
+  refreshCookies,
+  serializeCookie,
 } from "./cookies.ts";
-import { safeApiPath, safeNextPath } from "./paths.ts";
+import { REFRESH_LOCK, safeApiPath, safeNextPath } from "./paths.ts";
 
 export type BffConfig = {
   /** Contexte imposé à Django : jamais choisi par le navigateur (S10). */
   app: "web" | "console";
-  /** API Django sur le réseau interne, par son hôte interne (ex. http://api:8000). */
+  /** API Django sur le réseau interne, par son hôte interne (ex. https://api). */
   apiUrl: string;
   /** Origines exactes autorisées pour toute requête non GET (CSRF). */
   allowedOrigins: string[];
   /** Secret partagé avec Django (BFF_SHARED_SECRETS), jamais en NEXT_PUBLIC_. */
   bffSecret: string;
-  /** IP cliente lue depuis UNE source fiable de l'hébergeur ; jamais X-Forwarded-For brut. */
+  /**
+   * IP cliente lue depuis UNE source fiable de l'hébergeur ; jamais X-Forwarded-For brut. Une
+   * valeur qui n'est pas une adresse IP est ignorée.
+   */
   clientIp: (request: Request) => string | null;
   /** Durée du cookie de refresh : 30 j (web), 12 h (console). */
   refreshMaxAgeSeconds: number;
-  /** Page de connexion, cible des redirections après un refresh impossible. */
+  /** Page de connexion (chemin interne, sans requête), cible d'un refresh impossible. */
   loginPath: string;
 };
 
-export type ServerCallOptions = {
-  baseUrl: string;
-  accessToken?: string;
-  headers: Record<string, string>;
+/** Contexte serveur d'une requête : rien de secret n'y est lisible. */
+export type BffServer = {
+  /** Pas d'accès valide mais une session à rafraîchir : rediriger vers `refreshPath(courant)`. */
+  readonly needsRefresh: boolean;
+  /** À passer à chaque appel généré ou à `jeflinkFetch` côté serveur. */
+  readonly options: { readonly transport: Transport };
+  readonly refreshPath: (next: string) => string;
 };
 
-const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const REFRESH_ENDPOINT = "/api/auth/token/refresh/";
+const SAFE_METHODS = new Set(["GET", "HEAD"]);
+const PROXY_METHODS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]);
 const FORWARDED_REQUEST_HEADERS = ["accept-language", "content-type", "idempotency-key"];
-const FORWARDED_RESPONSE_HEADERS = ["content-type", "retry-after"];
 const MAX_BODY_BYTES = 64 * 1024;
 const LEAKED_KEYS = ["tokens", "access", "refresh", "mfa_token"];
+// Refresh, jeton MFA, jeton d'enrôlement, et JWT d'accès (en-tête et charge utile en base64url).
+const TOKEN_PATTERN = /jf[rme]_[A-Za-z0-9_-]{10,}|eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\./;
+// Endpoints qui émettent ou consomment des jetons : jamais par le transport serveur.
+const SERVER_ALLOWED_AUTH = new Set(["/api/auth/config/"]);
+const TOKEN_ISSUING = new Set(["/api/me/fresh-start/"]);
 
 type Ctx = {
   request: Request;
   url: URL;
-  cookies: Map<string, string>;
+  cookies: CookieJar;
   setCookies: string[];
   deviceId: string;
 };
+
+type Body = Record<string, unknown>;
 
 class BffRejection extends Error {
   readonly status: number;
@@ -64,10 +88,68 @@ class BffRejection extends Error {
   }
 }
 
+function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
+  if (body === undefined) return new Response(null, { status, headers });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...headers },
+  });
+}
+
+function parseObject(text: string): Body | null {
+  if (!text) return null;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Body)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Un jeton ne doit jamais atteindre le navigateur, quel que soit l'endroit du corps (M1). */
+function leaksToken(text: string): boolean {
+  if (TOKEN_PATTERN.test(text)) return true;
+  const parsed = parseObject(text);
+  return parsed !== null && LEAKED_KEYS.some((key) => key in parsed);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+function randomNonce(): string {
+  return btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(16))));
+}
+
+/** JSON sûr dans un <script> : aucune séquence ne peut fermer la balise. */
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+function htmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 export function createBff(config: BffConfig) {
   if (!config.allowedOrigins.length) throw new Error("BFF : allowedOrigins est vide.");
+  for (const origin of config.allowedOrigins) {
+    if (!/^https?:\/\/[^/]+$/.test(origin)) throw new Error("BFF : origine autorisée invalide.");
+  }
   if (config.bffSecret.length < 32) throw new Error("BFF : bffSecret trop court.");
   if (!/^https?:\/\/[^/]+$/.test(config.apiUrl)) throw new Error("BFF : apiUrl invalide.");
+  if (safeNextPath(config.loginPath, "") !== config.loginPath || /[?#]/.test(config.loginPath)) {
+    throw new Error("BFF : loginPath invalide.");
+  }
+  if (!(config.refreshMaxAgeSeconds > 0)) throw new Error("BFF : refreshMaxAgeSeconds invalide.");
   const settings = Object.freeze({ ...config, allowedOrigins: [...config.allowedOrigins] });
 
   // --- Réponses ------------------------------------------------------------------------------
@@ -76,143 +158,164 @@ export function createBff(config: BffConfig) {
     const headers = new Headers(response.headers);
     headers.set("Cache-Control", "private, no-store");
     headers.set("Vary", "Cookie, Authorization");
+    headers.set("X-Content-Type-Options", "nosniff");
     for (const cookie of ctx.setCookies) headers.append("Set-Cookie", cookie);
     return new Response(response.body, { status: response.status, headers });
   }
 
-  function json(status: number, body: unknown): Response {
-    return new Response(body === undefined ? null : JSON.stringify(body), {
-      status,
-      headers: body === undefined ? {} : { "Content-Type": "application/json" },
-    });
+  /**
+   * Réponse de Django rendue au navigateur : en-têtes en liste fermée, jamais de Set-Cookie ni de
+   * redirection, corps non JSON en texte brut (une page HTML d'amont ne s'affiche jamais sur
+   * notre origine), et aucun jeton.
+   */
+  function relay(response: Response, text: string): Response {
+    if (response.status >= 300 && response.status < 400) {
+      return json(502, { code: "bff_upstream_redirect" });
+    }
+    if (text && leaksToken(text)) return json(502, { code: "bff_token_leak" });
+    const headers = new Headers();
+    const retryAfter = response.headers.get("retry-after");
+    if (retryAfter) headers.set("Retry-After", retryAfter);
+    if (text) {
+      headers.set(
+        "Content-Type",
+        parseObject(text) !== null || /^\s*\[/.test(text)
+          ? "application/json"
+          : "text/plain; charset=utf-8",
+      );
+    }
+    const empty = !text || response.status === 204 || response.status === 304;
+    return new Response(empty ? null : text, { status: response.status, headers });
+  }
+
+  async function passThrough(response: Response): Promise<Response> {
+    return relay(response, await response.text());
   }
 
   // --- Appels à Django -----------------------------------------------------------------------
 
-  function djangoHeaders(ctx: Ctx | null, request: Request, accessToken?: string): Headers {
+  function clientIp(request: Request): string | null {
+    const ip = settings.clientIp(request);
+    return ip && isIP(ip) ? ip : null;
+  }
+
+  function baseHeaders(ip: string | null, deviceId: string | null, accessToken?: string): Headers {
     const headers = new Headers({
       Accept: "application/json",
       "X-Jeflink-Bff": settings.bffSecret,
       "X-Jeflink-App": settings.app,
     });
-    const ip = settings.clientIp(request);
     if (ip) headers.set("X-Jeflink-Client-Ip", ip);
-    if (ctx) headers.set("X-Install-Id", ctx.deviceId);
+    if (deviceId) headers.set("X-Install-Id", deviceId);
     if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-    // Liste fermée : rien d'autre du navigateur ne traverse (ni Cookie, ni X-Forwarded-*…).
-    for (const name of FORWARDED_REQUEST_HEADERS) {
-      const value = request.headers.get(name);
-      if (value) headers.set(name, value);
-    }
     return headers;
   }
 
   function callDjango(
     ctx: Ctx,
     path: string,
-    init: {
-      method: string;
-      body?: string;
-      accessToken?: string | undefined;
-      search?: string;
-    },
+    init: { method: string; body?: string; accessToken?: string | undefined; search?: string },
   ): Promise<Response> {
-    const headers = djangoHeaders(ctx, ctx.request, init.accessToken);
+    const headers = baseHeaders(clientIp(ctx.request), ctx.deviceId, init.accessToken);
+    // Liste fermée : rien d'autre du navigateur ne traverse (ni Cookie, ni X-Forwarded-*…).
+    for (const name of FORWARDED_REQUEST_HEADERS) {
+      const value = ctx.request.headers.get(name);
+      if (value) headers.set(name, value);
+    }
     if (init.body !== undefined) headers.set("Content-Type", "application/json");
+    else headers.delete("Content-Type");
     return fetch(`${settings.apiUrl}${path}${init.search ?? ""}`, {
       method: init.method,
       headers,
       ...(init.body !== undefined ? { body: init.body } : {}),
       redirect: "manual",
+      cache: "no-store",
     });
   }
 
-  async function readJsonBody(ctx: Ctx): Promise<Record<string, unknown>> {
+  /** Corps lu en flux, plafonné à 64 Kio quoi que dise Content-Length (I8). */
+  async function readText(request: Request): Promise<string> {
+    if (!request.body) return "";
+    if (Number(request.headers.get("content-length") ?? "0") > MAX_BODY_BYTES) {
+      throw new BffRejection(413, "bff_body_too_large");
+    }
+    const reader = request.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new BffRejection(413, "bff_body_too_large");
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    try {
+      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+      throw new BffRejection(400, "bff_json_invalid");
+    }
+  }
+
+  /** Corps JSON objet, ou null si la requête n'a pas de corps (JSON exigé dès qu'il y en a un). */
+  async function readJsonBody(ctx: Ctx): Promise<Body | null> {
+    const text = await readText(ctx.request);
+    if (!text) return null;
     const type = ctx.request.headers.get("content-type") ?? "";
     if (!type.toLowerCase().startsWith("application/json")) {
       throw new BffRejection(415, "bff_json_required");
     }
-    const declared = Number(ctx.request.headers.get("content-length") ?? "0");
-    if (declared > MAX_BODY_BYTES) throw new BffRejection(413, "bff_body_too_large");
-    const text = await ctx.request.text();
-    if (new TextEncoder().encode(text).length > MAX_BODY_BYTES) {
-      throw new BffRejection(413, "bff_body_too_large");
-    }
-    if (!text) return {};
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      throw new BffRejection(400, "bff_json_invalid");
-    }
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      throw new BffRejection(400, "bff_json_invalid");
-    }
-    return parsed as Record<string, unknown>;
-  }
-
-  async function passThrough(response: Response): Promise<Response> {
-    const text = await response.text();
-    if (text) {
-      try {
-        const parsed: unknown = JSON.parse(text);
-        if (
-          typeof parsed === "object" &&
-          parsed !== null &&
-          LEAKED_KEYS.some((key) => key in parsed)
-        ) {
-          // Défense en profondeur : un jeton ne doit jamais atteindre le navigateur.
-          return json(502, { code: "bff_token_leak" });
-        }
-      } catch {
-        // corps non JSON (page d'erreur) : transmis tel quel
-      }
-    }
-    const headers = new Headers();
-    for (const name of FORWARDED_RESPONSE_HEADERS) {
-      const value = response.headers.get(name);
-      if (value) headers.set(name, value);
-    }
-    // Les Set-Cookie de Django ne sont jamais transmis (S9).
-    return new Response(text || null, { status: response.status, headers });
+    const parsed = parseObject(text);
+    if (parsed === null) throw new BffRejection(400, "bff_json_invalid");
+    return parsed;
   }
 
   /** Réponse d'un endpoint qui émet des jetons : cookies posés, jetons retirés du corps. */
   async function tokenResponse(response: Response, ctx: Ctx): Promise<Response> {
     const text = await response.text();
-    let body: Record<string, unknown> | null = null;
-    try {
-      const parsed: unknown = text ? JSON.parse(text) : null;
-      if (typeof parsed === "object" && parsed !== null) body = parsed as Record<string, unknown>;
-    } catch {
-      body = null;
-    }
-    if (!response.ok || body === null) {
-      return new Response(text || null, {
-        status: response.status,
-        headers: { "Content-Type": response.headers.get("content-type") ?? "application/json" },
-      });
-    }
-    const tokens = body.tokens as
-      { access?: string; refresh?: string; access_expires_at?: string } | undefined;
-    if (tokens?.access && tokens.refresh && tokens.access_expires_at) {
-      ctx.setCookies.push(
+    const body = parseObject(text);
+    if (!response.ok || body === null) return relay(response, text);
+    const cookies: string[] = [];
+    const tokens = body.tokens as Record<string, unknown> | undefined;
+    if (
+      typeof tokens === "object" &&
+      tokens !== null &&
+      isString(tokens.access) &&
+      isString(tokens.refresh) &&
+      isString(tokens.access_expires_at)
+    ) {
+      cookies.push(
         accessCookie(tokens.access, tokens.access_expires_at),
-        refreshCookie(tokens.refresh, settings.refreshMaxAgeSeconds),
-        ...clearSessionCookies().slice(2), // jeton MFA consommé
+        ...refreshCookies(tokens.refresh, settings.refreshMaxAgeSeconds),
+        clearMfaCookie(), // jeton MFA consommé
       );
       body.access_expires_at = tokens.access_expires_at;
     }
-    if (typeof body.mfa_token === "string") ctx.setCookies.push(mfaCookie(body.mfa_token));
+    if (isString(body.mfa_token)) cookies.push(mfaCookie(body.mfa_token));
     for (const key of LEAKED_KEYS) delete body[key];
-    return json(response.status, body);
+    const sanitized = JSON.stringify(body);
+    // Un jeton resté ailleurs dans le corps : réponse refusée, aucun cookie posé.
+    if (leaksToken(sanitized)) return json(502, { code: "bff_token_leak" });
+    ctx.setCookies.push(...cookies);
+    return new Response(sanitized, {
+      status: response.status,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   // --- Gestionnaires -------------------------------------------------------------------------
 
   async function withDevice(ctx: Ctx, path: string): Promise<Response> {
     // Contexte d'appareil imposé par le BFF : plateforme web et identifiant du cookie.
-    const body = await readJsonBody(ctx);
+    const body = (await readJsonBody(ctx)) ?? {};
     const device = typeof body.device === "object" && body.device !== null ? body.device : {};
     body.device = { ...(device as object), platform: "web", install_id: ctx.deviceId };
     delete body.app;
@@ -221,93 +324,133 @@ export function createBff(config: BffConfig) {
   }
 
   async function withMfaToken(ctx: Ctx, path: string, issuesTokens: boolean): Promise<Response> {
-    const body = await readJsonBody(ctx);
+    const body = (await readJsonBody(ctx)) ?? {};
     body.mfa_token = ctx.cookies.get(COOKIES.mfa) ?? "";
     const response = await callDjango(ctx, path, { method: "POST", body: JSON.stringify(body) });
     return issuesTokens ? tokenResponse(response, ctx) : passThrough(response);
   }
 
   async function stepUp(ctx: Ctx): Promise<Response> {
-    const body = await readJsonBody(ctx);
+    const body = (await readJsonBody(ctx)) ?? {};
     const response = await callDjango(ctx, "/api/auth/mfa/totp/step-up/", {
       method: "POST",
       body: JSON.stringify(body),
       accessToken: ctx.cookies.get(COOKIES.access),
     });
-    if (!response.ok) return passThrough(response);
-    const data = (await response.json()) as { access: string; access_expires_at: string };
+    const text = await response.text();
+    if (!response.ok) return relay(response, text);
+    const data = parseObject(text);
+    if (!data || !isString(data.access) || !isString(data.access_expires_at)) {
+      return json(502, { code: "bff_upstream_invalid" });
+    }
     ctx.setCookies.push(accessCookie(data.access, data.access_expires_at));
     return json(200, { access_expires_at: data.access_expires_at });
   }
 
-  async function refresh(ctx: Ctx): Promise<{ ok: boolean; status: number; body: unknown }> {
+  /**
+   * POST du refresh. Un refresh absent n'efface que le témoin (rien à rafraîchir) ; seuls un 401
+   * de Django, ou un refresh en double (fixation, M5), effacent la session. Un 429 ou une panne
+   * ne déconnectent jamais (on réessaie).
+   */
+  async function refresh(ctx: Ctx): Promise<Response> {
+    if (ctx.cookies.duplicated(COOKIES.refresh)) {
+      ctx.setCookies.push(...clearSessionCookies());
+      return json(401, { code: "refresh_invalid" });
+    }
     const token = ctx.cookies.get(COOKIES.refresh);
     if (!token) {
-      ctx.setCookies.push(...clearSessionCookies());
-      return { ok: false, status: 401, body: { code: "refresh_invalid" } };
+      ctx.setCookies.push(serializeCookie(COOKIES.session, "", { maxAge: 0 }));
+      return json(401, { code: "refresh_missing" });
     }
-    const response = await callDjango(ctx, "/api/auth/token/refresh/", {
+    const response = await callDjango(ctx, REFRESH_ENDPOINT, {
       method: "POST",
       body: JSON.stringify({ refresh: token }),
     });
-    const body = (await response.json().catch(() => ({}))) as Record<string, string>;
-    if (response.ok && body.access && body.refresh && body.access_expires_at) {
+    const text = await response.text();
+    const body = parseObject(text);
+    if (
+      response.ok &&
+      body &&
+      isString(body.access) &&
+      isString(body.refresh) &&
+      isString(body.access_expires_at)
+    ) {
       ctx.setCookies.push(
         accessCookie(body.access, body.access_expires_at),
-        refreshCookie(body.refresh, settings.refreshMaxAgeSeconds),
+        ...refreshCookies(body.refresh, settings.refreshMaxAgeSeconds),
       );
-      return { ok: true, status: 200, body: { access_expires_at: body.access_expires_at } };
+      return json(200, { access_expires_at: body.access_expires_at });
     }
-    // 401 : session finie, cookies effacés. 429 ou 5xx : jamais une déconnexion (on réessaie).
-    if (response.status === 401) ctx.setCookies.push(...clearSessionCookies());
-    return { ok: false, status: response.status, body };
+    const code = isString(body?.code) ? body.code : "bff_refresh_failed";
+    if (response.status === 401 || (response.status === 400 && code === "refresh_invalid")) {
+      ctx.setCookies.push(...clearSessionCookies());
+    }
+    const status = response.ok ? 502 : response.status;
+    const retryAfter = response.headers.get("retry-after");
+    return json(status, { code }, retryAfter ? { "Retry-After": retryAfter } : {});
   }
 
-  async function refreshRedirect(ctx: Ctx): Promise<Response> {
+  /**
+   * GET du refresh : navigation d'une page dont l'accès a expiré. Aucun changement d'état ici
+   * (I2) : une petite page fait le POST, sous verrou entre onglets (I3), puis revient à `next`.
+   */
+  function refreshBounce(ctx: Ctx): Response {
     const next = safeNextPath(ctx.url.searchParams.get("next"));
-    const result = await refresh(ctx);
-    const target = result.ok
-      ? next
-      : `${settings.loginPath}?next=${encodeURIComponent(next)}${
-          result.status === 401 ? "" : "&raison=indisponible"
-        }`;
-    return new Response(null, { status: 303, headers: { Location: target } });
+    const login = `${settings.loginPath}?next=${encodeURIComponent(next)}`;
+    const data = { endpoint: REFRESH_ENDPOINT, lock: REFRESH_LOCK, next, login };
+    const nonce = randomNonce();
+    const script = `(function(){var d=${scriptJson(data)};function go(u){location.replace(u)}function run(){return fetch(d.endpoint,{method:"POST",headers:{"X-Requested-With":"jeflink"},credentials:"same-origin",cache:"no-store"}).then(function(r){go(r.ok?d.next:r.status===401?d.login:d.login+"&raison=indisponible")},function(){go(d.login+"&raison=indisponible")})}if(navigator.locks&&navigator.locks.request){navigator.locks.request(d.lock,run)}else{run()}})();`;
+    const html = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="robots" content="noindex"><noscript><meta http-equiv="refresh" content="0;url=${htmlAttribute(login)}"></noscript><script nonce="${nonce}">${script}</script></head><body></body></html>`;
+    return new Response(html, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Security-Policy": `default-src 'none'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+        "Referrer-Policy": "same-origin",
+      },
+    });
   }
 
+  /**
+   * Déconnexion : révoque par le refresh (marche même si l'accès a expiré, I5), et par l'accès
+   * s'il est là. Les cookies sont effacés même si Django ne répond pas.
+   */
   async function logout(ctx: Ctx): Promise<Response> {
+    const refreshToken = ctx.cookies.get(COOKIES.refresh);
     const access = ctx.cookies.get(COOKIES.access);
-    if (access) {
-      await callDjango(ctx, "/api/auth/logout/", { method: "POST", accessToken: access }).catch(
-        () => undefined,
-      );
-    }
+    await Promise.allSettled([
+      refreshToken
+        ? callDjango(ctx, "/api/auth/token/revoke/", {
+            method: "POST",
+            body: JSON.stringify({ refresh: refreshToken }),
+          })
+        : null,
+      access ? callDjango(ctx, "/api/auth/logout/", { method: "POST", accessToken: access }) : null,
+    ]);
     ctx.setCookies.push(...clearSessionCookies());
     return new Response(null, { status: 204 });
   }
 
-  async function proxy(ctx: Ctx, path: string): Promise<Response> {
-    const method = ctx.request.method.toUpperCase();
-    const body = UNSAFE_METHODS.has(method) ? JSON.stringify(await readJsonBody(ctx)) : undefined;
+  async function proxy(ctx: Ctx, path: string, method: string): Promise<Response> {
+    const body = SAFE_METHODS.has(method) ? null : await readJsonBody(ctx);
     const response = await callDjango(ctx, path, {
       method,
-      ...(body !== undefined && method !== "DELETE" ? { body } : {}),
+      ...(body !== null ? { body: JSON.stringify(body) } : {}),
       accessToken: ctx.cookies.get(COOKIES.access),
       search: ctx.url.search,
     });
     return passThrough(response);
   }
 
-  async function route(ctx: Ctx): Promise<Response> {
-    const path = ctx.url.pathname.endsWith("/") ? ctx.url.pathname : `${ctx.url.pathname}/`;
-    const method = ctx.request.method.toUpperCase();
+  async function route(ctx: Ctx, method: string): Promise<Response> {
+    const pathname = ctx.url.pathname;
+    const path = pathname.endsWith("/") ? pathname : `${pathname}/`;
     const post = method === "POST";
     switch (path) {
-      case "/api/auth/token/refresh/": {
-        if (method === "GET") return refreshRedirect(ctx);
-        if (!post) break;
-        const result = await refresh(ctx);
-        return json(result.status, result.body);
-      }
+      case REFRESH_ENDPOINT:
+        if (method === "GET") return refreshBounce(ctx);
+        if (post) return refresh(ctx);
+        break;
       case "/api/auth/logout/":
         if (post) return logout(ctx);
         break;
@@ -317,7 +460,7 @@ export function createBff(config: BffConfig) {
       case "/api/auth/otp/request/":
       case "/api/auth/otp/resend/":
         if (post) {
-          const body = await readJsonBody(ctx);
+          const body = (await readJsonBody(ctx)) ?? {};
           delete body.app; // imposé par l'en-tête du BFF
           return passThrough(await callDjango(ctx, path, { method, body: JSON.stringify(body) }));
         }
@@ -338,18 +481,22 @@ export function createBff(config: BffConfig) {
         break;
       case "/api/me/fresh-start/":
         if (post) {
+          const body = await readJsonBody(ctx);
           const response = await callDjango(ctx, path, {
             method,
+            ...(body !== null ? { body: JSON.stringify(body) } : {}),
             accessToken: ctx.cookies.get(COOKIES.access),
           });
           return tokenResponse(response, ctx);
         }
         break;
       default: {
-        if (path.startsWith("/api/auth/")) break; // aucun autre endpoint d'auth via le proxy
-        const safe = safeApiPath(ctx.url.pathname);
+        // Aucun autre endpoint d'auth via le proxy, quelle que soit la casse.
+        if (path.toLowerCase().startsWith("/api/auth/")) break;
+        const safe = safeApiPath(pathname);
         if (!safe) return json(404, { code: "not_found" });
-        return proxy(ctx, safe);
+        if (!PROXY_METHODS.has(method)) break;
+        return proxy(ctx, safe, method);
       }
     }
     return json(405, { code: "method_not_allowed" });
@@ -360,19 +507,21 @@ export function createBff(config: BffConfig) {
   async function handle(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const cookies = readCookies(request);
+    const existingDevice = cookies.get(COOKIES.device);
     const ctx: Ctx = {
       request,
       url,
       cookies,
       setCookies: [],
-      deviceId: cookies.get(COOKIES.device) ?? crypto.randomUUID(),
+      // Identifiant d'appareil : un UUID, sinon régénéré (M6).
+      deviceId: isDeviceId(existingDevice) ? existingDevice : crypto.randomUUID(),
     };
-    if (!cookies.has(COOKIES.device)) ctx.setCookies.push(deviceCookie(ctx.deviceId));
+    if (ctx.deviceId !== existingDevice) ctx.setCookies.push(deviceCookie(ctx.deviceId));
     try {
       const method = request.method.toUpperCase();
       const isRefreshNavigation =
-        method === "GET" && url.pathname.replace(/\/?$/, "/") === "/api/auth/token/refresh/";
-      if (UNSAFE_METHODS.has(method)) {
+        method === "GET" && url.pathname.replace(/\/?$/, "/") === REFRESH_ENDPOINT;
+      if (!SAFE_METHODS.has(method)) {
         // CSRF : Origin exact, y compris sur /api/auth/* (spec 001, « BFF Next »).
         const origin = request.headers.get("origin");
         if (!origin || !settings.allowedOrigins.includes(origin)) {
@@ -382,7 +531,7 @@ export function createBff(config: BffConfig) {
       if (!isRefreshNavigation && request.headers.get("x-requested-with") !== "jeflink") {
         throw new BffRejection(403, "bff_requested_with_missing");
       }
-      return finalize(await route(ctx), ctx);
+      return finalize(await route(ctx, method), ctx);
     } catch (error) {
       if (error instanceof BffRejection) {
         return finalize(json(error.status, { code: error.code }), ctx);
@@ -391,35 +540,54 @@ export function createBff(config: BffConfig) {
     }
   }
 
-  /**
-   * Options d'appel côté serveur (Server Components, actions) : à passer à chaque appel
-   * `jeflinkFetch` ou hook généré. `needsRefresh` : pas d'accès valide, rediriger vers
-   * `refreshRedirectPath(cheminCourant)`.
-   */
-  function serverCallOptions(request: Request): {
-    options: ServerCallOptions;
-    needsRefresh: boolean;
-  } {
-    const cookies = readCookies(request);
-    const accessToken = cookies.get(COOKIES.access);
-    const headers = Object.fromEntries(djangoHeaders(null, request, undefined).entries());
-    delete headers["accept-language"];
-    delete headers["content-type"];
-    delete headers["idempotency-key"];
-    const lang = request.headers.get("accept-language");
-    if (lang) headers["accept-language"] = lang;
-    const device = cookies.get(COOKIES.device);
-    if (device) headers["x-install-id"] = device;
-    return {
-      options: { baseUrl: settings.apiUrl, ...(accessToken ? { accessToken } : {}), headers },
-      needsRefresh: !accessToken && cookies.has(COOKIES.refresh),
-    };
+  function refreshRedirectPath(next: string): string {
+    return `${REFRESH_ENDPOINT}?next=${encodeURIComponent(safeNextPath(next))}`;
   }
 
-  return {
-    handle,
-    serverCallOptions,
-    refreshRedirectPath: (next: string) =>
-      `/api/auth/token/refresh/?next=${encodeURIComponent(safeNextPath(next))}`,
-  };
+  /**
+   * Contexte serveur d'une requête de page (I6). Le transport n'accepte que des chemins d'API sûrs
+   * hors endpoints de jetons, impose `no-store` et la liste fermée d'en-têtes ; le jeton d'accès
+   * et le secret ne sortent jamais de la fermeture.
+   */
+  function server(request: Request): BffServer {
+    const cookies = readCookies(request);
+    const access = cookies.get(COOKIES.access);
+    const device = cookies.get(COOKIES.device);
+    const ip = clientIp(request);
+    const language = request.headers.get("accept-language");
+    const transport: Transport = (path, init) => {
+      const target = new URL(path, "https://bff.invalid");
+      const safe = target.origin === "https://bff.invalid" ? safeApiPath(target.pathname) : null;
+      const lowered = target.pathname.toLowerCase();
+      if (
+        !safe ||
+        TOKEN_ISSUING.has(lowered) ||
+        (lowered.startsWith("/api/auth/") && !SERVER_ALLOWED_AUTH.has(lowered))
+      ) {
+        return Promise.reject(new Error("BFF : chemin refusé pour un appel serveur."));
+      }
+      const given = new Headers(init.headers);
+      const headers = baseHeaders(ip, isDeviceId(device) ? device : null, access);
+      for (const name of FORWARDED_REQUEST_HEADERS) {
+        const value = given.get(name);
+        if (value) headers.set(name, value);
+      }
+      if (!headers.has("accept-language") && language) headers.set("accept-language", language);
+      return fetch(`${settings.apiUrl}${safe}${target.search}`, {
+        method: init.method ?? "GET",
+        headers,
+        ...(init.body !== undefined && init.body !== null ? { body: init.body } : {}),
+        ...(init.signal ? { signal: init.signal } : {}),
+        redirect: "manual",
+        cache: "no-store",
+      });
+    };
+    return Object.freeze({
+      needsRefresh: !access && cookies.has(COOKIES.session),
+      options: Object.freeze({ transport }),
+      refreshPath: refreshRedirectPath,
+    });
+  }
+
+  return Object.freeze({ handle, server, refreshRedirectPath });
 }
