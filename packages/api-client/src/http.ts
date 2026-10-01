@@ -25,6 +25,8 @@ export type ApiClientConfig = {
 export type JeflinkRequestInit = RequestInit & {
   /** Jeton d'accès de CET appel, prioritaire sur la configuration. Jamais de refresh automatique. */
   accessToken?: string;
+  /** Origine de CET appel (côté serveur : l'API Django interne), prioritaire sur la configuration. */
+  baseUrl?: string;
 };
 
 let config: ApiClientConfig = { baseUrl: "" };
@@ -69,7 +71,7 @@ function refreshOnce(error: ApiError): Promise<boolean> {
 }
 
 async function send(url: string, options: JeflinkRequestInit): Promise<Response> {
-  const { accessToken, ...init } = options;
+  const { accessToken, baseUrl, ...init } = options;
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   headers.set("Accept-Language", config.getLanguage?.() ?? "fr");
@@ -78,7 +80,7 @@ async function send(url: string, options: JeflinkRequestInit): Promise<Response>
   const token = accessToken ?? (await config.getAccessToken?.());
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const usesBearer = accessToken !== undefined || config.getAccessToken !== undefined;
-  return fetch(`${config.baseUrl}${url}`, {
+  return fetch(`${baseUrl ?? config.baseUrl}${url}`, {
     ...init,
     headers,
     credentials: usesBearer ? "omit" : "include",
