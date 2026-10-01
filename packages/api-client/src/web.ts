@@ -83,6 +83,20 @@ async function underLock(deps: WebSessionDeps, run: () => Promise<boolean>): Pro
   }
 }
 
+async function errorCode(response: Response): Promise<string | undefined> {
+  try {
+    const body: unknown = await response.json();
+    return typeof body === "object" &&
+      body !== null &&
+      "code" in body &&
+      typeof body.code === "string"
+      ? body.code
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function post(deps: WebSessionDeps, path: string): Promise<Response | null> {
   try {
     return await deps.fetch(path, {
@@ -97,12 +111,27 @@ async function post(deps: WebSessionDeps, path: string): Promise<Response | null
   }
 }
 
-/** Fin de session : plus aucun rejeu sous ce compte ici, et les autres onglets sont prévenus. */
+type Listener = (reason: SessionEndReason) => void;
+
+// Écouteurs de CET onglet, prévenus directement : la fin de session ne dépend pas de
+// BroadcastChannel ici (revue web 1, m-1). Le canal ne sert qu'aux autres onglets ; un message
+// portant l'identifiant de cet onglet est ignoré.
+const localListeners = new Set<Listener>();
+const TAB_ID = Math.random().toString(36).slice(2);
+
+/** Fin de session : plus aucun rejeu sous ce compte, cet onglet et les autres sont prévenus. */
 function endSession(deps: WebSessionDeps, reason: SessionEndReason): void {
   deps.resetSession();
+  for (const listener of [...localListeners]) {
+    try {
+      listener(reason);
+    } catch {
+      // un écouteur en erreur n'empêche pas les autres
+    }
+  }
   try {
     const channel = deps.openChannel?.();
-    channel?.postMessage({ type: "session-ended", reason });
+    channel?.postMessage({ type: "session-ended", reason, tab: TAB_ID });
     channel?.close();
   } catch {
     // canal indisponible : les autres onglets le verront à leur prochain 401
@@ -111,8 +140,9 @@ function endSession(deps: WebSessionDeps, reason: SessionEndReason): void {
 
 /**
  * Rafraîchit la session par le BFF. `true` : l'accès est neuf, la requête peut être rejouée.
- * `false` : session finie (401, et le client est remis à zéro), limite atteinte (429), panne
- * ou délai dépassé ; un 429 ou une panne ne déconnectent jamais (le BFF n'efface rien).
+ * `false` : session finie (401 ou 400 refresh_invalid : client remis à zéro, fin annoncée),
+ * aucune session (refresh_missing), limite atteinte (429), panne ou délai dépassé ; un 429 ou une
+ * panne ne déconnectent jamais (le BFF n'efface rien).
  */
 export function refreshWebSession(deps: WebSessionDeps = browserDeps()): Promise<boolean> {
   const startedAt = deps.now();
@@ -124,11 +154,14 @@ export function refreshWebSession(deps: WebSessionDeps = browserDeps()): Promise
     if (at >= startedAt && at <= deps.now()) return true;
     const response = await post(deps, REFRESH_ENDPOINT);
     if (!response) return false;
-    if (response.status === 401) {
-      endSession(deps, "expired");
+    if (!response.ok) {
+      const code = await errorCode(response);
+      // Aucune session à rafraîchir (visiteur anonyme) : rien ne se termine (revue web 1, m-2).
+      if (code === "refresh_missing") return false;
+      // Refresh refusé : le BFF a effacé la session, en 401 comme en 400 refresh_invalid (m-3).
+      if (response.status === 401 || code === "refresh_invalid") endSession(deps, "expired");
       return false;
     }
-    if (!response.ok) return false;
     try {
       deps.storage?.setItem(REFRESHED_AT_KEY, String(deps.now()));
     } catch {
@@ -151,15 +184,22 @@ export function logoutWebSession(deps: WebSessionDeps = browserDeps()): Promise<
   });
 }
 
-/** Écoute la fin de session annoncée par un autre onglet. Renvoie la fonction de désabonnement. */
-export function onWebSessionEnded(listener: (reason: SessionEndReason) => void): () => void {
-  if (typeof BroadcastChannel !== "function") return () => undefined;
+/**
+ * Écoute la fin de session, dans cet onglet (directement) et dans les autres (BroadcastChannel).
+ * Renvoie la fonction de désabonnement.
+ */
+export function onWebSessionEnded(listener: Listener): () => void {
+  localListeners.add(listener);
+  if (typeof BroadcastChannel !== "function") return () => void localListeners.delete(listener);
   const channel = new BroadcastChannel(SESSION_CHANNEL);
   channel.onmessage = (event: MessageEvent<unknown>) => {
-    const data = event.data as { type?: unknown; reason?: unknown } | null;
-    if (data?.type !== "session-ended") return;
+    const data = event.data as { type?: unknown; reason?: unknown; tab?: unknown } | null;
+    if (data?.type !== "session-ended" || data.tab === TAB_ID) return;
     resetApiClientSession(); // aucune requête de cet onglet n'est rejouée sous l'ancien compte
     listener(data.reason === "logout" ? "logout" : "expired");
   };
-  return () => channel.close();
+  return () => {
+    localListeners.delete(listener);
+    channel.close();
+  };
 }

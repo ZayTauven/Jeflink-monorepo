@@ -6,8 +6,10 @@ import { describe, it } from "node:test";
 import { REFRESH_ENDPOINT, REFRESH_LOCK } from "./bff/paths.ts";
 import {
   REFRESHED_AT_KEY,
+  SESSION_CHANNEL,
   type WebSessionDeps,
   logoutWebSession,
+  onWebSessionEnded,
   refreshWebSession,
 } from "./web.ts";
 
@@ -76,6 +78,11 @@ function setup(respond: () => Promise<Response>, overrides: Partial<WebSessionDe
 }
 
 const status = (code: number) => async () => new Response(null, { status: code });
+const coded = (code: number, body: string) => async () =>
+  new Response(JSON.stringify({ code: body }), {
+    status: code,
+    headers: { "Content-Type": "application/json" },
+  });
 
 describe("refreshWebSession", () => {
   it("fait un POST au BFF, avec X-Requested-With et un délai, sous le verrou partagé", async () => {
@@ -100,8 +107,25 @@ describe("refreshWebSession", () => {
     const { deps, resets, messages } = setup(status(401), { storage });
     assert.equal(await refreshWebSession(deps), false);
     assert.equal(resets.length, 1);
-    assert.deepEqual(messages, [{ type: "session-ended", reason: "expired" }]);
+    assert.deepEqual(
+      messages.map((m) => ({ ...(m as object), tab: undefined })),
+      [{ type: "session-ended", reason: "expired", tab: undefined }],
+    );
     assert.equal(storage.values.has(REFRESHED_AT_KEY), false);
+  });
+
+  it("400 refresh_invalid : fin de session, comme un 401", async () => {
+    const { deps, resets, messages } = setup(coded(400, "refresh_invalid"));
+    assert.equal(await refreshWebSession(deps), false);
+    assert.equal(resets.length, 1);
+    assert.deepEqual(messages.length, 1);
+  });
+
+  it("401 refresh_missing (visiteur sans session) : false, aucune fin de session", async () => {
+    const { deps, resets, messages } = setup(coded(401, "refresh_missing"));
+    assert.equal(await refreshWebSession(deps), false);
+    assert.equal(resets.length, 0);
+    assert.equal(messages.length, 0);
   });
 
   for (const code of [429, 502]) {
@@ -196,7 +220,10 @@ describe("logoutWebSession", () => {
     assert.equal(calls[0]?.init?.method, "POST");
     assert.equal(new Headers(calls[0]?.init?.headers).get("x-requested-with"), "jeflink");
     assert.equal(resets.length, 1);
-    assert.deepEqual(messages, [{ type: "session-ended", reason: "logout" }]);
+    assert.deepEqual(
+      messages.map((m) => ({ ...(m as object), tab: undefined })),
+      [{ type: "session-ended", reason: "logout", tab: undefined }],
+    );
   });
 
   it("attend la fin d'un refresh en cours avant de déconnecter", async () => {
@@ -224,5 +251,56 @@ describe("logoutWebSession", () => {
     assert.equal(await logoutWebSession(deps), false);
     assert.equal(resets.length, 0);
     assert.equal(messages.length, 0);
+  });
+});
+
+describe("onWebSessionEnded", () => {
+  it("cet onglet est prévenu directement, même sans BroadcastChannel", async () => {
+    const reasons: string[] = [];
+    const stop = onWebSessionEnded((reason) => reasons.push(reason));
+    try {
+      const { deps } = setup(status(401), { openChannel: undefined });
+      await refreshWebSession(deps);
+      assert.deepEqual(reasons, ["expired"]);
+    } finally {
+      stop();
+    }
+  });
+
+  it("le message de cet onglet sur le canal n'est pas compté deux fois", async () => {
+    const reasons: string[] = [];
+    const stop = onWebSessionEnded((reason) => reasons.push(reason));
+    try {
+      const { deps } = setup(status(204), {
+        openChannel: () => new BroadcastChannel(SESSION_CHANNEL),
+      });
+      await logoutWebSession(deps);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.deepEqual(reasons, ["logout"]);
+    } finally {
+      stop();
+    }
+  });
+
+  it("un autre onglet annonce la fin : écouteur prévenu", async () => {
+    const reasons: string[] = [];
+    const stop = onWebSessionEnded((reason) => reasons.push(reason));
+    const other = new BroadcastChannel(SESSION_CHANNEL);
+    try {
+      other.postMessage({ type: "session-ended", reason: "expired", tab: "autre-onglet" });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      assert.deepEqual(reasons, ["expired"]);
+    } finally {
+      other.close();
+      stop();
+    }
+  });
+
+  it("désabonné : plus rien n'arrive", async () => {
+    const reasons: string[] = [];
+    onWebSessionEnded((reason) => reasons.push(reason))();
+    const { deps } = setup(status(401), { openChannel: undefined });
+    await refreshWebSession(deps);
+    assert.deepEqual(reasons, []);
   });
 });
