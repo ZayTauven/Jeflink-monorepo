@@ -191,6 +191,7 @@ Chacune livrable et testable seule, dans l'ordre.
   8. **Démo locale** : `seed_demo_pros` (3 pros vérifiés `is_demo`, métiers et zones du seed 002, idempotent) et `demo_pro` (`list`, `quote`, `autoquote`, `withdraw`, `confirm`, `cancel`), tous deux via les services, refusés hors `local`. Cible `make demo`.
      **Fait :** `seed_demo_pros` (3 pros `is_demo` vérifiés, tout le catalogue et toutes les zones, idempotent), `demo_pro` (`list`, `quote` avec `--visit`, `autoquote`, `withdraw`, `confirm`, `cancel`), cible `make demo` ; refusés hors `DJANGO_ENV=local`. `providers.services.set_status` accepte `actor=None` (événement système). Parcours vérifié en local : demande créée par l'API, 3 devis par `autoquote`, acceptation, `demo_pro confirm`, réservation `scheduled` avec le numéro du pro.
   9. **Documentation** : ARCHITECTURE.md (deux diagrammes, ADR 0010), `apps/api/CLAUDE.md` (permissions), `chantier-prod.md` à jour.
+     **Fait :** ARCHITECTURE.md (deux diagrammes, règles de la demande et de la réservation, tableau des domaines, ADR 0010), `apps/api/CLAUDE.md` (permissions `IsVerifiedPro`, `IsProOwner`, conventions de la spec 003), `chantier-prod.md` (6 besoins prod relevés).
 - web :
   1. **Nouvelle demande** (`/demande`, session exigée), via une Server Action et le BFF :
      - métiers et zones du catalogue, recherche hors ligne `@jeflink/api-client/search`, « Autre quartier » ;
