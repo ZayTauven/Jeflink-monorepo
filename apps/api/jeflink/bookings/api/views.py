@@ -28,7 +28,9 @@ from jeflink.bookings.selectors import (
 from jeflink.bookings.services import (
     cancel_booking,
     confirm_booking,
+    contest_no_show,
     create_from_quote,
+    declare_no_show,
     mark_arrived,
     mark_en_route,
     start_work,
@@ -41,6 +43,7 @@ from jeflink.requests.selectors import quote_for_client
 
 from .serializers import (
     ClientBookingSerializer,
+    ContestNoShowSerializer,
     OccurredAtSerializer,
     ProBookingSerializer,
     StartSerializer,
@@ -51,6 +54,11 @@ ERRORS = {
     403: OpenApiResponse(description="profile_incomplete, role_required, provider_not_verified"),
     404: OpenApiResponse(description="not_found"),
 }
+
+
+def error(description: str) -> OpenApiResponse:
+    """Erreur métier : ``{"code": "..."}``, typée (``ApiError``) dans le client."""
+    return OpenApiResponse(ApiErrorSerializer, description=description)
 
 
 class AcceptQuoteView(APIView):
@@ -134,12 +142,28 @@ class BookingCancelView(APIView):
         return Response(ClientBookingSerializer(booking).data)
 
 
+class BookingNoShowView(APIView):
+    permission_classes = [IsClient]
+
+    @extend_schema(
+        tags=["bookings"],
+        operation_id="bookings_no_show",
+        request=None,
+        responses={
+            200: ClientBookingSerializer,
+            409: error("no_show_too_early, transition_not_allowed"),
+            **ERRORS,
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        """« Le pro n'est pas venu » : après la fin du créneau plus une marge. Rejoué : 200."""
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        declare_no_show(booking=booking, actor=request.user)
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        return Response(ClientBookingSerializer(booking).data)
+
+
 # --- Côté pro ----------------------------------------------------------------------------------
-
-
-def error(description: str) -> OpenApiResponse:
-    """Erreur métier : ``{"code": "..."}``, typée (``ApiError``) dans le client."""
-    return OpenApiResponse(ApiErrorSerializer, description=description)
 
 
 def owned_provider(request: Request) -> Provider:
@@ -311,3 +335,29 @@ class ProBookingStartView(ProBookingProgressView):
             photos_pending=data["photos_pending"],
             occurred_at=data["occurred_at"],
         )
+
+
+class ProBookingContestNoShowView(APIView):
+    # Un pro suspendu peut contester : c'est sa défense, pas une nouvelle activité.
+    permission_classes = [HasOwnerRole, IsProOwner]
+
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_bookings_contest_no_show",
+        request=ContestNoShowSerializer,
+        responses={
+            200: ProBookingSerializer,
+            409: error("no_show_contest_closed, transition_not_allowed"),
+            422: error("note_invalid"),
+            **ERRORS,
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        provider = owned_provider(request)
+        booking = booking_for_provider(provider=provider, public_id=public_id)
+        self.check_object_permissions(request, booking)
+        serializer = ContestNoShowSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contest_no_show(booking=booking, actor=request.user, note=serializer.validated_data["note"])
+        booking = booking_for_provider(provider=provider, public_id=public_id)
+        return Response(ProBookingSerializer(booking).data)

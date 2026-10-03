@@ -66,6 +66,8 @@ DISCLOSED_STATUSES = frozenset(
 # Un désistement du pro compte à partir de ``scheduled`` ; parti ou arrivé, il est toujours tardif.
 PRO_FAULT_FROM = (Status.SCHEDULED, Status.EN_ROUTE, Status.ON_SITE)
 ALWAYS_LATE_FROM = (Status.EN_ROUTE, Status.ON_SITE)
+PRO_NO_SHOW = "pro_no_show"  # le client déclare que le pro n'est pas venu (acteur client)
+NO_SHOW_WEIGHT = 3  # poids d'un no-show, appliqué à la confirmation seulement
 CLIENT_ABSENT = "client_absent"  # le pro est sur place et le client n'y est pas : poids 0, tracé
 
 
@@ -85,6 +87,8 @@ def reliability_weight(
     - Client : jamais rien contre le pro, ``price`` compris. Une annulation tardive du client
       est tracée (``late``), sans pénalité.
     - Système (non-confirmation, suspension) : 0.
+    - ``pro_no_show`` (déclaré par le client) : 0 à la déclaration. Le poids ``NO_SHOW_WEIGHT``
+      est journalisé à la confirmation (après 24 h sans contestation, ou décision de l'Ops).
     """
     if to_status != Status.CANCELLED or actor_kind != PRO:
         return 0

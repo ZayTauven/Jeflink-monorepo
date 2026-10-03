@@ -42,4 +42,14 @@ urlpatterns = [
         views.ProBookingStartView.as_view(),
         name="pro-booking-start",
     ),
+    path(
+        "bookings/<uuid:public_id>/no-show/",
+        views.BookingNoShowView.as_view(),
+        name="booking-no-show",
+    ),
+    path(
+        "pro/bookings/<uuid:public_id>/contest-no-show/",
+        views.ProBookingContestNoShowView.as_view(),
+        name="pro-booking-contest-no-show",
+    ),
 ]

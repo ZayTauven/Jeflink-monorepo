@@ -6,11 +6,17 @@ renvoyé qu'à partir de ``scheduled`` (``DISCLOSED_STATUSES``), jamais après u
 
 from typing import Any
 
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from jeflink.bookings.machine import DISCLOSED_STATUSES, Actor
-from jeflink.bookings.models import Booking
+from jeflink.bookings.models import Booking, NoShowReport
+from jeflink.bookings.services import (
+    can_report_no_show,
+    contest_deadline,
+    no_show_available_at,
+)
 from jeflink.requests.api.refs import (
     ServiceRefSerializer,
     TradeRefSerializer,
@@ -28,6 +34,26 @@ TIMELINE_FIELDS = (
     "closed_at",
     "dispute_deadline",
 )
+
+
+class NoShowStateSerializer(serializers.Serializer):
+    """État d'un « le pro n'est pas venu ». Le pro voit en plus l'échéance de contestation."""
+
+    status = serializers.ChoiceField(choices=NoShowReport.Status.choices)
+    contest_deadline = serializers.DateTimeField(allow_null=True)
+    can_contest = serializers.BooleanField()
+
+
+def no_show_state(booking: Booking, *, for_pro: bool) -> dict | None:
+    report = getattr(booking, "no_show", None)
+    if report is None:
+        return None
+    pending = report.status == NoShowReport.Status.PENDING
+    return {
+        "status": report.status,
+        "contest_deadline": contest_deadline(report) if for_pro and pending else None,
+        "can_contest": for_pro and pending and timezone.now() <= contest_deadline(report),
+    }
 
 
 class ClientProviderSerializer(serializers.Serializer):
@@ -56,6 +82,9 @@ class ClientBookingSerializer(serializers.ModelSerializer):
     contact = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField()
     cancel_reason = serializers.SerializerMethodField()
+    can_report_no_show = serializers.SerializerMethodField()
+    no_show_available_at = serializers.SerializerMethodField()
+    no_show = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -73,6 +102,9 @@ class ClientBookingSerializer(serializers.ModelSerializer):
             "confirm_deadline",
             "contact",
             "payment",
+            "can_report_no_show",
+            "no_show_available_at",
+            "no_show",
             *TIMELINE_FIELDS,
             "cancelled_by",
             "cancel_reason",
@@ -87,6 +119,19 @@ class ClientBookingSerializer(serializers.ModelSerializer):
         if booking.cancelled_by in {Actor.PRO, Actor.SYSTEM}:
             return "pro_withdrew"
         return booking.cancel_reason
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_can_report_no_show(self, booking: Booking) -> bool:
+        return can_report_no_show(booking)
+
+    @extend_schema_field(serializers.DateTimeField())
+    def get_no_show_available_at(self, booking: Booking) -> Any:
+        """Heure (UTC) dès laquelle « Il n'est pas venu » est permis : fin du créneau + marge."""
+        return no_show_available_at(booking)
+
+    @extend_schema_field(NoShowStateSerializer(allow_null=True))
+    def get_no_show(self, booking: Booking) -> dict | None:
+        return no_show_state(booking, for_pro=False)
 
     @extend_schema_field(ClientContactSerializer(allow_null=True))
     def get_contact(self, booking: Booking) -> dict[str, str] | None:
@@ -130,6 +175,7 @@ class ProBookingSerializer(serializers.ModelSerializer):
     client = serializers.SerializerMethodField()
     landmark = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
+    no_show = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -149,12 +195,17 @@ class ProBookingSerializer(serializers.ModelSerializer):
             "client",
             "landmark",
             "location",
+            "no_show",
             *TIMELINE_FIELDS,
             "cancelled_by",
             "cancel_reason",
             "created_at",
         ]
         read_only_fields = fields
+
+    @extend_schema_field(NoShowStateSerializer(allow_null=True))
+    def get_no_show(self, booking: Booking) -> dict | None:
+        return no_show_state(booking, for_pro=True)
 
     @staticmethod
     def _disclosed(booking: Booking) -> bool:
@@ -193,3 +244,8 @@ class OccurredAtSerializer(serializers.Serializer):
 class StartSerializer(OccurredAtSerializer):
     # La file de l'appareil enverra les photos « avant » plus tard.
     photos_pending = serializers.BooleanField(required=False, default=False)
+
+
+class ContestNoShowSerializer(serializers.Serializer):
+    # Longueur et numéros vérifiés par le service (422 note_invalid).
+    note = serializers.CharField(max_length=500, allow_blank=True)

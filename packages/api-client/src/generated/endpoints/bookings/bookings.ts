@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ApiError,
   BookingsListParams,
   ClientBooking,
   PaginatedClientBookingList,
@@ -431,6 +432,110 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getBookingsCancelMutationOptions(options), queryClient);
+    }
+    export type bookingsNoShowResponse200 = {
+  data: ClientBooking
+  status: 200
+}
+
+export type bookingsNoShowResponse401 = {
+  data: void
+  status: 401
+}
+
+export type bookingsNoShowResponse403 = {
+  data: void
+  status: 403
+}
+
+export type bookingsNoShowResponse404 = {
+  data: void
+  status: 404
+}
+
+export type bookingsNoShowResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type bookingsNoShowResponseSuccess = (bookingsNoShowResponse200) & {
+  headers: Headers;
+};
+export type bookingsNoShowResponseError = (bookingsNoShowResponse401 | bookingsNoShowResponse403 | bookingsNoShowResponse404 | bookingsNoShowResponse409) & {
+  headers: Headers;
+};
+
+export type bookingsNoShowResponse = (bookingsNoShowResponseSuccess | bookingsNoShowResponseError)
+
+export const getBookingsNoShowUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/bookings/${encodeURIComponent(String(publicId))}/no-show/`
+}
+
+/**
+ * « Le pro n'est pas venu » : après la fin du créneau plus une marge. Rejoué : 200.
+ */
+export const bookingsNoShow = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsNoShowResponse> => {
+
+  return jeflinkFetch<bookingsNoShowResponse>(getBookingsNoShowUrl(publicId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBookingsNoShowMutationKey = () => ['bookingsNoShow'] as const;
+
+export const getBookingsNoShowMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsNoShow>>, TError,BookingsNoShowMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bookingsNoShow>>, TError,BookingsNoShowMutationVariables, TContext> => {
+
+const mutationKey = getBookingsNoShowMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bookingsNoShow>>, BookingsNoShowMutationVariables> = (props) => {
+          const {publicId} = props ?? {};
+
+          return  bookingsNoShow(publicId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BookingsNoShowMutationResult = NonNullable<Awaited<ReturnType<typeof bookingsNoShow>>>
+
+    export type BookingsNoShowMutationError = ErrorType<void | ApiError>
+    export type BookingsNoShowMutationVariables = {publicId: string}
+
+    export const useBookingsNoShow = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsNoShow>>, TError,BookingsNoShowMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bookingsNoShow>>,
+        TError,
+        BookingsNoShowMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBookingsNoShowMutationOptions(options), queryClient);
     }
     export type quotesAcceptResponse200 = {
   data: ClientBooking

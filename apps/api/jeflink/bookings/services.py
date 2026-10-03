@@ -21,7 +21,7 @@ from jeflink.providers.models import Provider
 from jeflink.requests import quotes as quote_services
 from jeflink.requests import services as request_services
 from jeflink.requests.models import Quote, ServiceRequest
-from jeflink.requests.reasons import CLIENT_REASONS, PRO_REASONS, check_reason
+from jeflink.requests.reasons import CLIENT_REASONS, PRO_REASONS, check_reason, clean_note
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
@@ -29,13 +29,15 @@ from .machine import (
     ALWAYS_LATE_FROM,
     CLIENT_ABSENT,
     DECLARED,
+    NO_SHOW_WEIGHT,
+    PRO_NO_SHOW,
     Actor,
     Status,
     confirm_deadline,
     is_late,
     reliability_weight,
 )
-from .models import Booking, BookingEvent
+from .models import Booking, BookingEvent, NoShowReport
 
 # Clés permises dans ``BookingEvent.metadata`` (schéma fermé). Jamais de texte libre, de numéro,
 # de code de fin ni de position.
@@ -491,6 +493,149 @@ def remind_disputes(*, now: datetime | None = None) -> int:
     return sent
 
 
+# --- No-show : « le pro n'est pas venu » (spec 004) ----------------------------------------------
+
+
+def no_show_available_at(booking: Booking) -> datetime:
+    """Heure à partir de laquelle le client peut déclarer un no-show : fin du créneau + marge."""
+    return booking.slot_end + settings.BOOKING_NO_SHOW_GRACE
+
+
+def can_report_no_show(booking: Booking, *, now: datetime | None = None) -> bool:
+    return booking.status in {Status.SCHEDULED, Status.EN_ROUTE} and (
+        (now or timezone.now()) >= no_show_available_at(booking)
+    )
+
+
+def _is_no_show(booking: Booking) -> bool:
+    return booking.status == Status.CANCELLED and booking.cancel_reason == PRO_NO_SHOW
+
+
+@transaction.atomic
+def declare_no_show(*, booking: Booking, actor: User) -> Booking:
+    """Le client déclare que le pro n'est pas venu : ``scheduled`` ou ``en_route`` à ``cancelled``
+    (acteur client, motif ``pro_no_show``), avec les effets d'un désistement du pro.
+
+    Possible à partir de ``slot_end`` + ``BOOKING_NO_SHOW_GRACE`` (``409 no_show_too_early``).
+    Rejoué : l'état courant. Le poids de fiabilité attend la confirmation (``NoShowReport``).
+    """
+    provider, request, booking = _lock_for_booking(booking)
+    if booking.client_id != actor.id:
+        raise DomainError("not_found", status=404)
+    if _is_no_show(booking) and booking.cancelled_by == Actor.CLIENT:
+        return booking
+    if booking.status not in {Status.SCHEDULED, Status.EN_ROUTE}:
+        raise DomainError("transition_not_allowed", status=409)
+    if not can_report_no_show(booking):
+        raise DomainError("no_show_too_early", status=409)
+    booking = _cancel(
+        booking, request, provider, actor=actor, actor_kind=Actor.CLIENT, reason=PRO_NO_SHOW
+    )
+    NoShowReport.objects.create(booking=booking)
+    return booking
+
+
+def contest_deadline(report: NoShowReport) -> datetime:
+    return report.created_at + settings.BOOKING_NO_SHOW_CONTEST_WINDOW
+
+
+@transaction.atomic
+def contest_no_show(*, booking: Booking, actor: User, note: str) -> Booking:
+    """Le pro conteste, en un geste et avec une note (numéros refusés), dans les 24 h.
+
+    ``409 no_show_contest_closed`` après la fenêtre ou une décision ; ``422 note_invalid``. Un
+    pro suspendu peut contester. Rejoué : l'état courant. La note n'est jamais journalisée.
+    """
+    booking = _lock_for_pro(booking, actor, verified=False)
+    report = NoShowReport.objects.select_for_update().filter(booking=booking).first()
+    if report is None:
+        raise DomainError("transition_not_allowed", status=409)
+    if report.status == NoShowReport.Status.CONTESTED:
+        return booking
+    if report.status != NoShowReport.Status.PENDING or timezone.now() > contest_deadline(report):
+        raise DomainError("no_show_contest_closed", status=409)
+    clean = clean_note(note)
+    if not clean:
+        raise DomainError("note_invalid", status=422)
+    report.status = NoShowReport.Status.CONTESTED
+    report.contest_note = clean
+    report.contested_at = timezone.now()
+    report.save(update_fields=["status", "contest_note", "contested_at", "updated_at"])
+    audit(action="bookings.no_show.contested", actor=actor, target=booking)
+    events.notify(events.NO_SHOW_CONTESTED, [booking.client], booking.public_id)
+    return booking
+
+
+def _decide(report: NoShowReport, *, to: str, operator: User | None) -> None:
+    weight = NO_SHOW_WEIGHT if to == NoShowReport.Status.CONFIRMED else 0
+    report.status = to
+    report.decided_by = operator
+    report.decided_at = timezone.now()
+    report.save(update_fields=["status", "decided_by", "decided_at", "updated_at"])
+    audit(
+        action="bookings.no_show.decided",
+        actor=operator,
+        actor_kind=AuditEvent.ActorKind.OPS if operator else AuditEvent.ActorKind.SYSTEM,
+        target=report,
+        metadata={"decision": to, "reliability_weight": weight},
+    )
+
+
+def confirm_no_shows(*, now: datetime | None = None) -> int:
+    """Confirme les no-shows sans contestation après 24 h : c'est là que le poids 3 s'applique.
+    Idempotent."""
+    now = now or timezone.now()
+    cutoff = now - settings.BOOKING_NO_SHOW_CONTEST_WINDOW
+    due = NoShowReport.objects.filter(status=NoShowReport.Status.PENDING, created_at__lte=cutoff)
+    confirmed = 0
+    for pk in list(due.values_list("pk", flat=True)):
+        with transaction.atomic():
+            report = NoShowReport.objects.select_for_update().get(pk=pk)
+            if report.status != NoShowReport.Status.PENDING:
+                continue  # contesté entre-temps
+            _decide(report, to=NoShowReport.Status.CONFIRMED, operator=None)
+            confirmed += 1
+    return confirmed
+
+
+@transaction.atomic
+def decide_no_show(*, report: NoShowReport, decision: str, operator: User) -> NoShowReport:
+    """L'Ops confirme ou écarte un no-show (en attente ou contesté). Journalisé."""
+    if decision not in {NoShowReport.Status.CONFIRMED, NoShowReport.Status.DISMISSED}:
+        raise DomainError("decision_invalid", status=422)
+    report = NoShowReport.objects.select_for_update().get(pk=report.pk)
+    if report.status not in {NoShowReport.Status.PENDING, NoShowReport.Status.CONTESTED}:
+        raise DomainError("transition_not_allowed", status=409)
+    _decide(report, to=decision, operator=operator)
+    return report
+
+
+def no_show_check(*, now: datetime | None = None) -> int:
+    """Interroge le client, une seule fois, quand le pro n'a rien saisi après le créneau.
+
+    Aucune annulation automatique : le pro est peut-être venu sans rien saisir.
+    """
+    now = now or timezone.now()
+    due = Booking.objects.filter(
+        status__in=(Status.SCHEDULED, Status.EN_ROUTE),
+        no_show_check_sent_at__isnull=True,
+        slot_end__lte=now - settings.BOOKING_NO_SHOW_GRACE,
+    )
+    sent = 0
+    for pk in list(due.values_list("pk", flat=True)):
+        with transaction.atomic():
+            locked = Booking.objects.select_for_update().select_related("client").get(pk=pk)
+            if locked.status not in {Status.SCHEDULED, Status.EN_ROUTE}:
+                continue
+            if locked.no_show_check_sent_at:
+                continue
+            locked.no_show_check_sent_at = now
+            locked.save(update_fields=["no_show_check_sent_at", "updated_at"])
+            events.notify(events.NO_SHOW_CHECK, [locked.client], locked.public_id)
+            sent += 1
+    return sent
+
+
 # --- Annulations ------------------------------------------------------------------------------
 
 
@@ -510,7 +655,9 @@ def _cancel(
         booking, to=Status.CANCELLED, actor=actor, actor_kind=actor_kind, reason=reason, note=note
     )
     event = booking.events.order_by("-id").first()
-    if actor_kind == Actor.CLIENT:
+    # La partie fautive décide des effets : un no-show déclaré par le client est un désistement
+    # du pro (demande rouverte, pro exclu), pas une annulation du client.
+    if actor_kind == Actor.CLIENT and reason != PRO_NO_SHOW:
         request_services.release_after_client_cancel(request=request, reason=reason)
     else:
         quote_services.release_after_pro_cancel(
@@ -621,7 +768,9 @@ def deletion_blocker(user: User) -> str | None:
 
 
 def anonymize_bookings(user: User) -> None:
-    """Anonymiseur : les notes libres des événements de ses réservations sont effacées."""
+    """Anonymiseur : les notes libres des événements et des contestations sont effacées."""
     BookingEvent.objects.filter(
         Q(actor=user) | Q(booking__client=user) | Q(booking__provider__owner=user)
     ).wipe_notes()
+    # La note de contestation d'un no-show est un texte libre du pro.
+    NoShowReport.objects.filter(booking__provider__owner=user).update(contest_note="")

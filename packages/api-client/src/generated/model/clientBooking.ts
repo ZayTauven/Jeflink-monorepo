@@ -9,6 +9,7 @@ import type { BookingStatusEnum } from './bookingStatusEnum.ts';
 import type { CancelledByEnum } from './cancelledByEnum.ts';
 import type { ClientContact } from './clientContact.ts';
 import type { ClientProvider } from './clientProvider.ts';
+import type { NoShowState } from './noShowState.ts';
 import type { TradeRef } from './tradeRef.ts';
 import type { ZoneRef } from './zoneRef.ts';
 
@@ -26,6 +27,9 @@ export interface ClientBooking {
   readonly confirm_deadline: string;
   readonly contact: ClientContact | null;
   readonly payment: string;
+  readonly can_report_no_show: boolean;
+  readonly no_show_available_at: string;
+  readonly no_show: NoShowState | null;
   /** @nullable */
   readonly en_route_at: string | null;
   /** @nullable */

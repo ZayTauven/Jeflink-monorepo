@@ -74,6 +74,8 @@ class Booking(BaseModel):
     # Fin de la fenêtre de contestation, posée à ``completed`` ; la clôture suit.
     dispute_deadline = models.DateTimeField(null=True, blank=True)
     dispute_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    # « Le pro est-il venu ? » envoyé au client (une seule fois), le créneau et la marge passés.
+    no_show_check_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "réservation"
@@ -105,6 +107,39 @@ class Booking(BaseModel):
 
     def __str__(self) -> str:
         return f"réservation {self.status}"
+
+
+class NoShowReport(BaseModel):
+    """« Le pro n'est pas venu » déclaré par le client (spec 004).
+
+    La réservation est annulée tout de suite et la demande rouverte, mais le poids de fiabilité du
+    pro ne s'applique qu'à la confirmation : après 24 h sans contestation, ou sur décision de
+    l'Ops. La note de contestation est un texte libre : jamais dans un log ni un audit.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "En attente de contestation"
+        CONTESTED = "contested", "Contesté par le pro"
+        CONFIRMED = "confirmed", "Confirmé"
+        DISMISSED = "dismissed", "Écarté"
+
+    booking = models.OneToOneField(Booking, on_delete=models.PROTECT, related_name="no_show")
+    status = models.CharField(max_length=9, choices=Status.choices, default=Status.PENDING)
+    contest_note = models.CharField(max_length=NOTE_MAX_LENGTH, blank=True)
+    contested_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "no-show"
+        ordering = ("-created_at",)
+        permissions = [("decide_noshowreport", "Médiation : trancher un no-show")]
+        indexes = [models.Index(fields=("status", "created_at"))]
+
+    def __str__(self) -> str:
+        return f"no-show {self.status}"
 
 
 class BookingEventQuerySet(models.QuerySet):

@@ -26,6 +26,7 @@ import type {
 
 import type {
   ApiError,
+  ContestNoShowRequest,
   OccurredAtRequest,
   PaginatedProBookingList,
   PaginatedProQuoteList,
@@ -669,6 +670,127 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getProBookingsConfirmMutationOptions(options), queryClient);
+    }
+    export type proBookingsContestNoShowResponse200 = {
+  data: ProBooking
+  status: 200
+}
+
+export type proBookingsContestNoShowResponse401 = {
+  data: void
+  status: 401
+}
+
+export type proBookingsContestNoShowResponse403 = {
+  data: void
+  status: 403
+}
+
+export type proBookingsContestNoShowResponse404 = {
+  data: void
+  status: 404
+}
+
+export type proBookingsContestNoShowResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type proBookingsContestNoShowResponse422 = {
+  data: ApiError
+  status: 422
+}
+
+export type proBookingsContestNoShowResponseSuccess = (proBookingsContestNoShowResponse200) & {
+  headers: Headers;
+};
+export type proBookingsContestNoShowResponseError = (proBookingsContestNoShowResponse401 | proBookingsContestNoShowResponse403 | proBookingsContestNoShowResponse404 | proBookingsContestNoShowResponse409 | proBookingsContestNoShowResponse422) & {
+  headers: Headers;
+};
+
+export type proBookingsContestNoShowResponse = (proBookingsContestNoShowResponseSuccess | proBookingsContestNoShowResponseError)
+
+export const getProBookingsContestNoShowUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/pro/bookings/${encodeURIComponent(String(publicId))}/contest-no-show/`
+}
+
+export const proBookingsContestNoShow = async (publicId: string,
+    contestNoShowRequest: ContestNoShowRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<proBookingsContestNoShowResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<proBookingsContestNoShowResponse>(getProBookingsContestNoShowUrl(publicId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(contestNoShowRequest)
+  }
+);}
+
+
+
+
+
+export const getProBookingsContestNoShowMutationKey = () => ['proBookingsContestNoShow'] as const;
+
+export const getProBookingsContestNoShowMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsContestNoShow>>, TError,ProBookingsContestNoShowMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof proBookingsContestNoShow>>, TError,ProBookingsContestNoShowMutationVariables, TContext> => {
+
+const mutationKey = getProBookingsContestNoShowMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof proBookingsContestNoShow>>, ProBookingsContestNoShowMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  proBookingsContestNoShow(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProBookingsContestNoShowMutationResult = NonNullable<Awaited<ReturnType<typeof proBookingsContestNoShow>>>
+    export type ProBookingsContestNoShowMutationBody = BodyType<ContestNoShowRequest>
+    export type ProBookingsContestNoShowMutationError = ErrorType<void | ApiError>
+    export type ProBookingsContestNoShowMutationVariables = {publicId: string;data: BodyType<ContestNoShowRequest>}
+
+    export const useProBookingsContestNoShow = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsContestNoShow>>, TError,ProBookingsContestNoShowMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof proBookingsContestNoShow>>,
+        TError,
+        ProBookingsContestNoShowMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProBookingsContestNoShowMutationOptions(options), queryClient);
     }
     export type proBookingsEnRouteResponse200 = {
   data: ProBooking

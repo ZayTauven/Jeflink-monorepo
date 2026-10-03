@@ -22,3 +22,17 @@ def close_due() -> int:
 def remind_disputes() -> int:
     """Prévient le client avant la fin de la fenêtre de contestation ; toutes les 5 minutes."""
     return services.remind_disputes()
+
+
+@shared_task(acks_late=True)
+def confirm_no_shows() -> int:
+    """Confirme les no-shows non contestés dans les 24 h (le poids de fiabilité s'applique alors) ;
+    toutes les 5 minutes."""
+    return services.confirm_no_shows()
+
+
+@shared_task(acks_late=True)
+def no_show_check() -> int:
+    """Demande au client si le pro est venu, une fois le créneau et la marge passés ; toutes les
+    5 minutes. La réservation n'est jamais annulée seule : le pro est peut-être venu."""
+    return services.no_show_check()

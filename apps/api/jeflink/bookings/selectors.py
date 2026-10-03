@@ -22,7 +22,7 @@ def _alive(now: datetime) -> Q:
 def bookings_for_client(*, user: User, now: datetime | None = None) -> QuerySet[Booking]:
     return (
         Booking.objects.filter(_alive(now or timezone.now()), client=user)
-        .select_related("provider", "request__trade", "request__zone", "quote")
+        .select_related("provider", "request__trade", "request__zone", "quote", "no_show")
         .prefetch_related("quote__lines")
     )
 
@@ -38,7 +38,7 @@ def bookings_for_provider(*, provider: Provider, now: datetime | None = None) ->
     """Les réservations d'une fiche, suspendue comprise : elle lit encore, sans écrire."""
     return (
         Booking.objects.filter(_alive(now or timezone.now()), provider=provider)
-        .select_related("client", "request__trade", "request__zone", "quote")
+        .select_related("client", "request__trade", "request__zone", "quote", "no_show")
         .prefetch_related("quote__lines")
     )
 

@@ -429,6 +429,39 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/bookings/{public_id}/no-show/:
+    post:
+      operationId: bookings_no_show
+      description: '« Le pro n''est pas venu » : après la fin du créneau plus une
+        marge. Rejoué : 200.'
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: no_show_too_early, transition_not_allowed
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
   /api/catalog/trades/:
     get:
       operationId: catalog_trades_list
@@ -1345,6 +1378,55 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/pro/bookings/{public_id}/contest-no-show/:
+    post:
+      operationId: pro_bookings_contest_no_show
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContestNoShowRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContestNoShowRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContestNoShowRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: no_show_contest_closed, transition_not_allowed
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: note_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
   /api/pro/bookings/{public_id}/en-route/:
     post:
       operationId: pro_bookings_en_route
@@ -2041,6 +2123,18 @@ components:
         payment:
           type: string
           readOnly: true
+        can_report_no_show:
+          type: boolean
+          readOnly: true
+        no_show_available_at:
+          type: string
+          format: date-time
+          readOnly: true
+        no_show:
+          allOf:
+          - $ref: '#/components/schemas/NoShowState'
+          nullable: true
+          readOnly: true
         en_route_at:
           type: string
           format: date-time
@@ -2084,6 +2178,7 @@ components:
           readOnly: true
       required:
       - amount_xof
+      - can_report_no_show
       - cancel_reason
       - cancelled_by
       - closed_at
@@ -2093,6 +2188,8 @@ components:
       - created_at
       - dispute_deadline
       - en_route_at
+      - no_show
+      - no_show_available_at
       - on_site_at
       - payment
       - provider
@@ -2343,6 +2440,14 @@ components:
       - trade
       - urgent
       - zone
+    ContestNoShowRequest:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 500
+      required:
+      - note
     DeletionConfirmRequest:
       type: object
       properties:
@@ -2575,6 +2680,35 @@ components:
       - restricted
       - restriction_kind
       - roles
+    NoShowState:
+      type: object
+      description: État d'un « le pro n'est pas venu ». Le pro voit en plus l'échéance
+        de contestation.
+      properties:
+        status:
+          $ref: '#/components/schemas/NoShowStateStatusEnum'
+        contest_deadline:
+          type: string
+          format: date-time
+          nullable: true
+        can_contest:
+          type: boolean
+      required:
+      - can_contest
+      - contest_deadline
+      - status
+    NoShowStateStatusEnum:
+      enum:
+      - pending
+      - contested
+      - confirmed
+      - dismissed
+      type: string
+      description: |-
+        * `pending` - En attente de contestation
+        * `contested` - Contesté par le pro
+        * `confirmed` - Confirmé
+        * `dismissed` - Écarté
     NullEnum:
       enum:
       - null
@@ -3365,6 +3499,11 @@ components:
           - $ref: '#/components/schemas/LocationOut'
           nullable: true
           readOnly: true
+        no_show:
+          allOf:
+          - $ref: '#/components/schemas/NoShowState'
+          nullable: true
+          readOnly: true
         en_route_at:
           type: string
           format: date-time
@@ -3420,6 +3559,7 @@ components:
       - en_route_at
       - landmark
       - location
+      - no_show
       - on_site_at
       - public_id
       - request

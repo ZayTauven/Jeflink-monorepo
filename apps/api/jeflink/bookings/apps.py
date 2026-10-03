@@ -33,6 +33,10 @@ class BookingsConfig(AppConfig):
             "bookings.booking.progressed", {"from_status": str, "to_status": str, "chained": bool}
         )
         register_audit_schema("bookings.booking.closed", {"reason": str})
+        register_audit_schema("bookings.no_show.contested", {})
+        register_audit_schema(
+            "bookings.no_show.decided", {"decision": str, "reliability_weight": int}
+        )
         register_anonymizer("bookings", anonymize_bookings)
         register_deletion_blocker("bookings", deletion_blocker)
         register_suspension_handler("bookings", cancel_for_suspended_provider)

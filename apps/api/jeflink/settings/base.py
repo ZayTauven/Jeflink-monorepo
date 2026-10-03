@@ -319,6 +319,16 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 300,
         "options": {"expires": 240},
     },
+    "bookings-confirm-no-shows": {
+        "task": "jeflink.bookings.tasks.confirm_no_shows",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    "bookings-no-show-check": {
+        "task": "jeflink.bookings.tasks.no_show_check",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
     "requests-purge-locations": {
         "task": "jeflink.requests.tasks.purge_locations",
         "schedule": 24 * 3600,
@@ -358,6 +368,10 @@ BOOKING_LATE_CANCEL_WINDOW = timedelta(hours=2)  # annulation « tardive » avan
 # Déroulé de l'intervention, clôture et litige (spec 004).
 BOOKING_DISPUTE_WINDOW = timedelta(hours=48)  # contestation possible après « terminé »
 BOOKING_DISPUTE_REMINDER = timedelta(hours=12)  # rappel au client avant la fin de la fenêtre
+# No-show : le client le déclare après la fin du créneau plus cette marge ; le pro a 24 h pour
+# contester, après quoi le poids de fiabilité s'applique (sauf décision de l'Ops).
+BOOKING_NO_SHOW_GRACE = timedelta(minutes=60)
+BOOKING_NO_SHOW_CONTEST_WINDOW = timedelta(hours=24)
 # Heure de l'appareil acceptée pour une action rejouée plus tard (file hors ligne, étape 6).
 OCCURRED_AT_MAX_SKEW = timedelta(hours=24)
 # Plages de la journée (heure de Dakar) : (début, fin) en heures, pour les créneaux des devis.

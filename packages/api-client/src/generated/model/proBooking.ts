@@ -8,6 +8,7 @@
 import type { BookingStatusEnum } from './bookingStatusEnum.ts';
 import type { CancelledByEnum } from './cancelledByEnum.ts';
 import type { LocationOut } from './locationOut.ts';
+import type { NoShowState } from './noShowState.ts';
 import type { ProClientContact } from './proClientContact.ts';
 import type { ServiceRef } from './serviceRef.ts';
 import type { TradeRef } from './tradeRef.ts';
@@ -34,6 +35,7 @@ export interface ProBooking {
   /** @nullable */
   readonly landmark: string | null;
   readonly location: LocationOut | null;
+  readonly no_show: NoShowState | null;
   /** @nullable */
   readonly en_route_at: string | null;
   /** @nullable */
