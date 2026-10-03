@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { LocationRequest } from './locationRequest.ts';
+import type { PreferredPeriodEnum } from './preferredPeriodEnum.ts';
+import type { PreferredWhenEnum } from './preferredWhenEnum.ts';
 
 export interface RequestCreateRequest {
   /**
@@ -37,16 +39,8 @@ export interface RequestCreateRequest {
   description?: string;
   /** @nullable */
   urgent?: boolean | null;
-  /**
-     * @minLength 1
-     * @maxLength 8
-     */
-  preferred_when?: string;
+  preferred_when?: PreferredWhenEnum;
   /** @nullable */
   preferred_date?: string | null;
-  /**
-     * @minLength 1
-     * @maxLength 12
-     */
-  preferred_period?: string;
+  preferred_period?: PreferredPeriodEnum;
 }

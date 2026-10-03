@@ -74,7 +74,11 @@ class BookingListView(generics.ListAPIView):
     def get_queryset(self):
         return bookings_for_client(user=self.request.user)
 
-    @extend_schema(tags=["bookings"], operation_id="bookings_list", responses=ERRORS)
+    @extend_schema(
+        tags=["bookings"],
+        operation_id="bookings_list",
+        responses={200: ClientBookingSerializer(many=True), **ERRORS},
+    )
     def get(self, request: Request, *args, **kwargs) -> Response:
         return super().get(request, *args, **kwargs)
 
@@ -138,7 +142,11 @@ class ProBookingListView(generics.ListAPIView):
             return Booking.objects.none()
         return bookings_for_provider(provider=owned_provider(self.request))
 
-    @extend_schema(tags=["pro"], operation_id="pro_bookings_list", responses=ERRORS)
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_bookings_list",
+        responses={200: ProBookingSerializer(many=True), **ERRORS},
+    )
     def get(self, request: Request, *args, **kwargs) -> Response:
         return super().get(request, *args, **kwargs)
 

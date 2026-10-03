@@ -39,4 +39,5 @@ export interface ClientRequest {
   readonly first_quoted_at: string | null;
   readonly quotes: readonly ClientQuote[];
   readonly booking: ClientBooking | null;
+  readonly withdrawn_by_provider: boolean;
 }

@@ -19,7 +19,7 @@ from jeflink.accounts.permissions import (
     RequiresCompleteProfile,
 )
 from jeflink.bookings.machine import DISCLOSED_STATUSES
-from jeflink.bookings.selectors import active_booking_for_request
+from jeflink.bookings.selectors import active_booking_for_request, withdrawn_by_provider
 from jeflink.common.api.idempotency import IDEMPOTENCY_PARAMETER, idempotency_key
 from jeflink.common.client_ip import is_trusted_bff_request
 from jeflink.requests.drafts import RequestDraft
@@ -37,6 +37,7 @@ from jeflink.requests.selectors import (
 from jeflink.requests.services import cancel_request, create_request
 
 from .serializers import (
+    ApiErrorSerializer,
     ClientRequestSerializer,
     ClientRequestSummarySerializer,
     ProQuoteSerializer,
@@ -60,6 +61,7 @@ def request_detail_data(request_obj: ServiceRequest) -> dict[str, Any]:
     context = {
         "quotes": quotes_for_client_request(request_obj),
         "booking": booking,
+        "withdrawn_by_provider": withdrawn_by_provider(request_obj, active=booking),
         # Les numéros d'un message de devis ne sont rendus qu'une fois ce pro confirmé.
         "disclosed_quotes": {booking.quote_id} if disclosed else set(),
     }
@@ -104,7 +106,11 @@ class RequestListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return requests_for_client(user=self.request.user)
 
-    @extend_schema(tags=["requests"], operation_id="requests_list", responses=ERRORS)
+    @extend_schema(
+        tags=["requests"],
+        operation_id="requests_list",
+        responses={200: ClientRequestSummarySerializer(many=True), **ERRORS},
+    )
     def get(self, request: Request, *args, **kwargs) -> Response:
         return super().get(request, *args, **kwargs)
 
@@ -119,12 +125,13 @@ class RequestListCreateView(generics.ListCreateAPIView):
             400: OpenApiResponse(description="invalid, idempotency_key_required"),
             409: OpenApiResponse(description="request_limit_reached, idempotency_key_reused"),
             422: OpenApiResponse(
+                ApiErrorSerializer,
                 description=(
                     "zone_ambiguous (+ candidates), trade_not_in_zone, out_of_area, "
                     "trade_not_found, trade_inactive, zone_not_found, zone_inactive, "
                     "zone_required, service_not_in_trade, landmark_or_location_required, "
                     "description_required, slot_invalid"
-                )
+                ),
             ),
             429: OpenApiResponse(description="request_rate_limited (+ retry_after)"),
             **ERRORS,
@@ -200,7 +207,11 @@ class ProRequestListView(generics.ListAPIView):
             return ServiceRequest.objects.none()
         return requests_for_provider(provider=self.request.provider)
 
-    @extend_schema(tags=["pro"], operation_id="pro_requests_list", responses=ERRORS)
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_requests_list",
+        responses={200: ProRequestSerializer(many=True), **ERRORS},
+    )
     def get(self, request: Request, *args, **kwargs) -> Response:
         return super().get(request, *args, **kwargs)
 
@@ -278,7 +289,11 @@ class ProQuoteListView(generics.ListAPIView):
             return Quote.objects.none()
         return quotes_for_provider(provider=self.request.provider)
 
-    @extend_schema(tags=["pro"], operation_id="pro_quotes_list", responses=ERRORS)
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_quotes_list",
+        responses={200: ProQuoteSerializer(many=True), **ERRORS},
+    )
     def get(self, request: Request, *args, **kwargs) -> Response:
         return super().get(request, *args, **kwargs)
 

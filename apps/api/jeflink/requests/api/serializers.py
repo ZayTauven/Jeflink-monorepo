@@ -48,11 +48,28 @@ class RequestCreateSerializer(serializers.Serializer):
     )
     # Absent : celui du service choisi.
     urgent = serializers.BooleanField(required=False, allow_null=True, default=None)
-    # Valeurs vérifiées par le service (422 slot_invalid) : asap | date, morning | afternoon |
-    # evening | any.
-    preferred_when = serializers.CharField(max_length=8, required=False, default="asap")
+    # Valeurs hors liste : 400 invalid ; le jour souhaité est vérifié par le service (422).
+    preferred_when = serializers.ChoiceField(
+        choices=ServiceRequest.When.choices, required=False, default="asap"
+    )
     preferred_date = serializers.DateField(required=False, allow_null=True, default=None)
-    preferred_period = serializers.CharField(max_length=12, required=False, default="any")
+    preferred_period = serializers.ChoiceField(
+        choices=ServiceRequest.Period.choices, required=False, default="any"
+    )
+
+
+class ErrorCandidateSerializer(serializers.Serializer):
+    slug = serializers.CharField()
+    name = serializers.CharField()
+
+
+class ApiErrorSerializer(serializers.Serializer):
+    """Erreur métier : ``code`` stable ; ``candidates`` pour ``zone_ambiguous`` ; ``retry_after``
+    pour un 429."""
+
+    code = serializers.CharField()
+    candidates = ErrorCandidateSerializer(many=True, required=False)
+    retry_after = serializers.IntegerField(required=False)
 
 
 class ReasonSerializer(serializers.Serializer):
@@ -133,6 +150,7 @@ class ClientRequestSerializer(ClientRequestSummarySerializer):
     has_location = serializers.SerializerMethodField()
     quotes = serializers.SerializerMethodField()
     booking = serializers.SerializerMethodField()
+    withdrawn_by_provider = serializers.SerializerMethodField()
 
     class Meta(ClientRequestSummarySerializer.Meta):
         fields = [
@@ -147,11 +165,17 @@ class ClientRequestSerializer(ClientRequestSummarySerializer):
             "first_quoted_at",
             "quotes",
             "booking",
+            "withdrawn_by_provider",
         ]
         read_only_fields = fields
 
     def get_has_location(self, request: ServiceRequest) -> bool:
         return request.location is not None
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_withdrawn_by_provider(self, request: ServiceRequest) -> bool:
+        """Vrai si le pro s'est désisté et que la demande a retrouvé ses devis (aucun motif)."""
+        return bool(self.context.get("withdrawn_by_provider", False))
 
     @extend_schema_field(ClientQuoteSerializer(many=True))
     def get_quotes(self, request: ServiceRequest) -> list[dict[str, Any]]:

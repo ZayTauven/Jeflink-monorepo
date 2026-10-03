@@ -50,6 +50,21 @@ def booking_for_provider(*, provider: Provider, public_id, now: datetime | None 
     return booking
 
 
+def withdrawn_by_provider(request: ServiceRequest, *, active: Booking | None) -> bool:
+    """Le pro (ou le système) s'est désisté et la demande est revenue à ``open`` ou ``quoted``.
+
+    Une requête au plus, et seulement si la demande est revenue sans réservation active. Aucun
+    motif, aucun nom : le client lit « Le pro ne peut plus venir, voici vos autres devis ».
+    """
+    if active is not None or request.status not in {
+        ServiceRequest.Status.OPEN,
+        ServiceRequest.Status.QUOTED,
+    }:
+        return False
+    last = Booking.objects.filter(request=request).order_by("-created_at", "-id").first()
+    return last is not None and last.cancelled_by in {Booking.Actor.PRO, Booking.Actor.SYSTEM}
+
+
 def active_booking_for_request(
     request: ServiceRequest, *, now: datetime | None = None
 ) -> Booking | None:

@@ -25,7 +25,9 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ApiError,
   ClientRequest,
+  PaginatedClientRequestSummaryList,
   ReasonRequest,
   RequestCreateRequest,
   RequestsListParams
@@ -58,6 +60,11 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export type requestsListResponse200 = {
+  data: PaginatedClientRequestSummaryList
+  status: 200
+}
+
 export type requestsListResponse401 = {
   data: void
   status: 401
@@ -73,12 +80,14 @@ export type requestsListResponse404 = {
   status: 404
 }
 
-;
+export type requestsListResponseSuccess = (requestsListResponse200) & {
+  headers: Headers;
+};
 export type requestsListResponseError = (requestsListResponse401 | requestsListResponse403 | requestsListResponse404) & {
   headers: Headers;
 };
 
-export type requestsListResponse = (requestsListResponseError)
+export type requestsListResponse = (requestsListResponseSuccess | requestsListResponseError)
 
 export const getRequestsListUrl = (params?: RequestsListParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -220,7 +229,7 @@ export type requestsCreateResponse409 = {
 }
 
 export type requestsCreateResponse422 = {
-  data: void
+  data: ApiError
   status: 422
 }
 
@@ -280,7 +289,7 @@ return jeflinkFetch<requestsCreateResponse>(getRequestsCreateUrl(),
 
 export const getRequestsCreateMutationKey = () => ['requestsCreate'] as const;
 
-export const getRequestsCreateMutationOptions = <TError = ErrorType<void>,
+export const getRequestsCreateMutationOptions = <TError = ErrorType<void | ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestsCreate>>, TError,RequestsCreateMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof requestsCreate>>, TError,RequestsCreateMutationVariables, TContext> => {
 
@@ -309,10 +318,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RequestsCreateMutationResult = NonNullable<Awaited<ReturnType<typeof requestsCreate>>>
     export type RequestsCreateMutationBody = BodyType<RequestCreateRequest>
-    export type RequestsCreateMutationError = ErrorType<void>
+    export type RequestsCreateMutationError = ErrorType<void | ApiError>
     export type RequestsCreateMutationVariables = {data: BodyType<RequestCreateRequest>}
 
-    export const useRequestsCreate = <TError = ErrorType<void>,
+    export const useRequestsCreate = <TError = ErrorType<void | ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestsCreate>>, TError,RequestsCreateMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof requestsCreate>>,

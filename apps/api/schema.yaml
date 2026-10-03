@@ -351,6 +351,12 @@ paths:
       tags:
       - bookings
       responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedClientBookingList'
+          description: ''
         '401':
           description: not_authenticated
         '403':
@@ -1182,6 +1188,12 @@ paths:
       tags:
       - pro
       responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProBookingList'
+          description: ''
         '401':
           description: not_authenticated
         '403':
@@ -1310,6 +1322,12 @@ paths:
       tags:
       - pro
       responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProQuoteList'
+          description: ''
         '401':
           description: not_authenticated
         '403':
@@ -1358,6 +1376,12 @@ paths:
       tags:
       - pro
       responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProRequestList'
+          description: ''
         '401':
           description: not_authenticated
         '403':
@@ -1493,6 +1517,12 @@ paths:
       tags:
       - requests
       responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedClientRequestSummaryList'
+          description: ''
         '401':
           description: not_authenticated
         '403':
@@ -1543,6 +1573,10 @@ paths:
         '409':
           description: request_limit_reached, idempotency_key_reused
         '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
           description: zone_ambiguous (+ candidates), trade_not_in_zone, out_of_area,
             trade_not_found, trade_inactive, zone_not_found, zone_inactive, zone_required,
             service_not_in_trade, landmark_or_location_required, description_required,
@@ -1691,6 +1725,22 @@ components:
       required:
       - access
       - access_expires_at
+    ApiError:
+      type: object
+      description: |-
+        Erreur métier : ``code`` stable ; ``candidates`` pour ``zone_ambiguous`` ; ``retry_after``
+        pour un 429.
+      properties:
+        code:
+          type: string
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorCandidate'
+        retry_after:
+          type: integer
+      required:
+      - code
     AppD8cEnum:
       enum:
       - client
@@ -2036,6 +2086,9 @@ components:
           - $ref: '#/components/schemas/ClientBooking'
           nullable: true
           readOnly: true
+        withdrawn_by_provider:
+          type: boolean
+          readOnly: true
       required:
       - booking
       - channel
@@ -2050,6 +2103,48 @@ components:
       - preferred_when
       - public_id
       - quotes
+      - service
+      - status
+      - trade
+      - urgent
+      - withdrawn_by_provider
+      - zone
+    ClientRequestSummary:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          type: string
+          readOnly: true
+        trade:
+          $ref: '#/components/schemas/TradeRef'
+        service:
+          allOf:
+          - $ref: '#/components/schemas/ServiceRef'
+          nullable: true
+        zone:
+          allOf:
+          - $ref: '#/components/schemas/ZoneRef'
+          nullable: true
+        urgent:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - created_at
+      - expires_at
+      - public_id
       - service
       - status
       - trade
@@ -2157,6 +2252,16 @@ components:
         * `android` - Android
         * `ios` - iOS
         * `web` - Web
+    ErrorCandidate:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+      - name
+      - slug
     Health:
       type: object
       properties:
@@ -2679,6 +2784,44 @@ components:
         * `authenticated` - authenticated
         * `mfa_required` - mfa_required
         * `mfa_enrollment_required` - mfa_enrollment_required
+    PaginatedClientBookingList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientBooking'
+    PaginatedClientRequestSummaryList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientRequestSummary'
     PaginatedDeviceSessionList:
       type: object
       required:
@@ -2736,6 +2879,63 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PhoneChangeRequest'
+    PaginatedProBookingList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProBooking'
+    PaginatedProQuoteList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProQuote'
+    PaginatedProRequestList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProRequest'
     PatchedMeUpdateRequest:
       type: object
       properties:
@@ -3362,19 +3562,17 @@ components:
           type: boolean
           nullable: true
         preferred_when:
-          type: string
-          minLength: 1
+          allOf:
+          - $ref: '#/components/schemas/PreferredWhenEnum'
           default: asap
-          maxLength: 8
         preferred_date:
           type: string
           format: date
           nullable: true
         preferred_period:
-          type: string
-          minLength: 1
+          allOf:
+          - $ref: '#/components/schemas/PreferredPeriodEnum'
           default: any
-          maxLength: 12
       required:
       - trade_slug
     RestrictionKindEnum:

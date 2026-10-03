@@ -27,6 +27,7 @@ import type {
 import type {
   BookingsListParams,
   ClientBooking,
+  PaginatedClientBookingList,
   ReasonRequest
 } from '../../model';
 
@@ -57,6 +58,11 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export type bookingsListResponse200 = {
+  data: PaginatedClientBookingList
+  status: 200
+}
+
 export type bookingsListResponse401 = {
   data: void
   status: 401
@@ -72,12 +78,14 @@ export type bookingsListResponse404 = {
   status: 404
 }
 
-;
+export type bookingsListResponseSuccess = (bookingsListResponse200) & {
+  headers: Headers;
+};
 export type bookingsListResponseError = (bookingsListResponse401 | bookingsListResponse403 | bookingsListResponse404) & {
   headers: Headers;
 };
 
-export type bookingsListResponse = (bookingsListResponseError)
+export type bookingsListResponse = (bookingsListResponseSuccess | bookingsListResponseError)
 
 export const getBookingsListUrl = (params?: BookingsListParams,) => {
   const normalizedParams = new URLSearchParams();

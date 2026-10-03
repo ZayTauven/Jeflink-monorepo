@@ -133,6 +133,8 @@ SPECTACULAR_SETTINGS = {
         "RequestStatusEnum": "jeflink.requests.models.ServiceRequest.Status",
         "QuoteStatusEnum": "jeflink.requests.models.Quote.Status",
         "QuoteKindEnum": "jeflink.requests.models.Quote.Kind",
+        "PreferredWhenEnum": "jeflink.requests.models.ServiceRequest.When",
+        "PreferredPeriodEnum": "jeflink.requests.models.ServiceRequest.Period",
         "QuoteLineKindEnum": "jeflink.requests.models.QuoteLine.Kind",
         "BookingStatusEnum": "jeflink.bookings.models.Booking.Status",
         "ProviderStatusEnum": "jeflink.providers.models.Provider.Status",

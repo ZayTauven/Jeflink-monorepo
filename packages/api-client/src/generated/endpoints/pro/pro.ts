@@ -25,6 +25,9 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  PaginatedProBookingList,
+  PaginatedProQuoteList,
+  PaginatedProRequestList,
   ProBooking,
   ProBookingsListParams,
   ProProvider,
@@ -63,6 +66,11 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
+export type proBookingsListResponse200 = {
+  data: PaginatedProBookingList
+  status: 200
+}
+
 export type proBookingsListResponse401 = {
   data: void
   status: 401
@@ -78,12 +86,14 @@ export type proBookingsListResponse404 = {
   status: 404
 }
 
-;
+export type proBookingsListResponseSuccess = (proBookingsListResponse200) & {
+  headers: Headers;
+};
 export type proBookingsListResponseError = (proBookingsListResponse401 | proBookingsListResponse403 | proBookingsListResponse404) & {
   headers: Headers;
 };
 
-export type proBookingsListResponse = (proBookingsListResponseError)
+export type proBookingsListResponse = (proBookingsListResponseSuccess | proBookingsListResponseError)
 
 export const getProBookingsListUrl = (params?: ProBookingsListParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -649,6 +659,11 @@ export function useProMeRetrieve<TData = Awaited<ReturnType<typeof proMeRetrieve
 
 
 
+export type proQuotesListResponse200 = {
+  data: PaginatedProQuoteList
+  status: 200
+}
+
 export type proQuotesListResponse401 = {
   data: void
   status: 401
@@ -664,12 +679,14 @@ export type proQuotesListResponse404 = {
   status: 404
 }
 
-;
+export type proQuotesListResponseSuccess = (proQuotesListResponse200) & {
+  headers: Headers;
+};
 export type proQuotesListResponseError = (proQuotesListResponse401 | proQuotesListResponse403 | proQuotesListResponse404) & {
   headers: Headers;
 };
 
-export type proQuotesListResponse = (proQuotesListResponseError)
+export type proQuotesListResponse = (proQuotesListResponseSuccess | proQuotesListResponseError)
 
 export const getProQuotesListUrl = (params?: ProQuotesListParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -873,7 +890,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getProQuotesWithdrawMutationOptions(options), queryClient);
     }
-    export type proRequestsListResponse401 = {
+    export type proRequestsListResponse200 = {
+  data: PaginatedProRequestList
+  status: 200
+}
+
+export type proRequestsListResponse401 = {
   data: void
   status: 401
 }
@@ -888,12 +910,14 @@ export type proRequestsListResponse404 = {
   status: 404
 }
 
-;
+export type proRequestsListResponseSuccess = (proRequestsListResponse200) & {
+  headers: Headers;
+};
 export type proRequestsListResponseError = (proRequestsListResponse401 | proRequestsListResponse403 | proRequestsListResponse404) & {
   headers: Headers;
 };
 
-export type proRequestsListResponse = (proRequestsListResponseError)
+export type proRequestsListResponse = (proRequestsListResponseSuccess | proRequestsListResponseError)
 
 export const getProRequestsListUrl = (params?: ProRequestsListParams,) => {
   const normalizedParams = new URLSearchParams();
