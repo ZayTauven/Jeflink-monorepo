@@ -378,6 +378,16 @@ def attach_zone(*, request: ServiceRequest, zone: Zone, operator: User) -> Servi
     return request
 
 
+def release_after_client_cancel(*, request: ServiceRequest, reason: str) -> ServiceRequest:
+    """Le client annule sa réservation : la demande est annulée et les devis en attente refusés.
+
+    Appelée par ``bookings.services`` sur la demande **déjà verrouillée**.
+    """
+    transition_request(request, Status.CANCELLED, reason=reason)
+    _on_close(request, outcome=Quote.Status.DECLINED)
+    return request
+
+
 def _on_close(request: ServiceRequest, *, outcome: str) -> None:
     """Effets d'une clôture sur les devis, sous le verrou de la demande : refusés si le client
     annule, expirés si la demande expire."""
@@ -426,7 +436,11 @@ def purge_locations(*, now: datetime | None = None) -> int:
     cutoff = now - timedelta(days=settings.REQUEST_LOCATION_RETENTION_DAYS)
     return (
         ServiceRequest.objects.filter(
-            status__in=(Status.EXPIRED, Status.CANCELLED), closed_at__lte=cutoff
+            status__in=(Status.EXPIRED, Status.CANCELLED),
+            closed_at__lte=cutoff,
+            # Une demande qui a eu une réservation garde ses données jusqu'à la durée fixée à
+            # l'étape 4 (garantie, litiges).
+            bookings__isnull=True,
         )
         .exclude(landmark="", location__isnull=True)
         .update(landmark="", location=None, updated_at=now)

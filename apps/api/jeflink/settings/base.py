@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "jeflink.providers",
     "jeflink.analytics",
     "jeflink.requests",
+    "jeflink.bookings",
 ]
 
 MIDDLEWARE = [
@@ -288,6 +289,11 @@ CELERY_BEAT_SCHEDULE = {
     # Demande, devis, réservation (spec 003) : idempotentes. Expiration toutes les 5 minutes.
     "requests-expire-due": {
         "task": "jeflink.requests.tasks.expire_due",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    "bookings-cancel-unconfirmed": {
+        "task": "jeflink.bookings.tasks.cancel_unconfirmed",
         "schedule": 300,
         "options": {"expires": 240},
     },

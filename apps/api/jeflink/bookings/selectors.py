@@ -1,0 +1,63 @@
+"""Lectures des réservations (spec 003). Toute liste prend ``user`` ou ``provider`` : la
+réservation d'un autre répond 404. Une réservation ``accepted`` dont l'échéance de confirmation
+est passée n'est plus montrée : un retard de la tâche d'annulation ne la fait pas revivre."""
+
+from datetime import datetime
+
+from django.db.models import Q, QuerySet
+from django.utils import timezone
+
+from jeflink.accounts.models import User
+from jeflink.common.errors import DomainError
+from jeflink.providers.models import Provider
+from jeflink.requests.models import ServiceRequest
+
+from .models import Booking
+
+
+def _alive(now: datetime) -> Q:
+    return ~Q(status=Booking.Status.ACCEPTED, confirm_deadline__lte=now)
+
+
+def bookings_for_client(*, user: User, now: datetime | None = None) -> QuerySet[Booking]:
+    return (
+        Booking.objects.filter(_alive(now or timezone.now()), client=user)
+        .select_related("provider", "request__trade", "request__zone", "quote")
+        .prefetch_related("quote__lines")
+    )
+
+
+def booking_for_client(*, user: User, public_id, now: datetime | None = None) -> Booking:
+    booking = bookings_for_client(user=user, now=now).filter(public_id=public_id).first()
+    if booking is None:
+        raise DomainError("not_found", status=404)
+    return booking
+
+
+def bookings_for_provider(*, provider: Provider, now: datetime | None = None) -> QuerySet[Booking]:
+    """Les réservations d'une fiche, suspendue comprise : elle lit encore, sans écrire."""
+    return (
+        Booking.objects.filter(_alive(now or timezone.now()), provider=provider)
+        .select_related("client", "request__trade", "request__zone", "quote")
+        .prefetch_related("quote__lines")
+    )
+
+
+def booking_for_provider(*, provider: Provider, public_id, now: datetime | None = None) -> Booking:
+    booking = bookings_for_provider(provider=provider, now=now).filter(public_id=public_id).first()
+    if booking is None:
+        raise DomainError("not_found", status=404)
+    return booking
+
+
+def active_booking_for_request(
+    request: ServiceRequest, *, now: datetime | None = None
+) -> Booking | None:
+    """La réservation active de la demande (une seule, ADR 0010), s'il y en a une."""
+    return (
+        Booking.objects.filter(_alive(now or timezone.now()), request=request)
+        .exclude(status=Booking.Status.CANCELLED)
+        .select_related("provider", "quote")
+        .prefetch_related("quote__lines")
+        .first()
+    )
