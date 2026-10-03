@@ -31,3 +31,13 @@ def api_client():
     from rest_framework.test import APIClient
 
     return APIClient()
+
+
+@pytest.fixture(autouse=True)
+def _stockage_photos_vide():
+    """Chaque test part d'un stockage d'objets vide (``InMemoryStorage``, aucun réseau)."""
+    from django.core.files.storage import storages
+    from django.core.files.storage.memory import InMemoryDirNode
+
+    storages["photos"]._root = InMemoryDirNode()
+    yield

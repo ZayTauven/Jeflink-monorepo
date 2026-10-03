@@ -26,3 +26,9 @@ PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 CELERY_TASK_ALWAYS_EAGER = True
 PAYMENT_GATEWAY = "fake"
 SMS_GATEWAY = "fake"
+# Aucun appel réseau : le stockage de photos est en mémoire (vidé entre les tests, conftest).
+STORAGES = {
+    **STORAGES,  # noqa: F405
+    "photos": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
+}
+S3_PUBLIC_ENDPOINT = "http://storage.test"

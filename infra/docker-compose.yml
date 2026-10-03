@@ -19,8 +19,13 @@ x-api-env: &api-env
   # Dev : le BFF de `pnpm dev --filter web` tourne sur l'hôte et appelle http://localhost:8000.
   # Le secret BFF et le réseau de confiance restent exigés ; en production, seul « api ».
   INTERNAL_API_HOSTS: api,localhost
+  # Stockage d'objets de dev (SeaweedFS, sans authentification) : identifiants factices et publics.
+  # S3_ENDPOINT est l'hôte vu par l'API ; S3_PUBLIC_ENDPOINT, celui du navigateur (URL signées).
   S3_ENDPOINT: http://s3:8333
+  S3_PUBLIC_ENDPOINT: http://localhost:8333
   S3_BUCKET: jeflink-dev
+  S3_ACCESS_KEY: local-dev-s3-access-not-secret
+  S3_SECRET_KEY: local-dev-s3-secret-not-secret
   TIME_ZONE: Africa/Dakar
 
 x-api-env-file: &api-env-file

@@ -347,6 +347,38 @@ BOOKING_LATE_CANCEL_WINDOW = timedelta(hours=2)  # annulation « tardive » avan
 # Plages de la journée (heure de Dakar) : (début, fin) en heures, pour les créneaux des devis.
 SLOT_PERIODS = {"morning": (8, 12), "afternoon": (12, 17), "evening": (17, 21)}
 
+# --- Stockage d'objets (ADR 0011) : bucket privé, URL signées courtes --------------------------
+# S3_ENDPOINT : hôte vu par l'API (réseau Docker) ; S3_PUBLIC_ENDPOINT : hôte vu par le
+# navigateur, celui pour lequel les URL sont signées. Identifiants factices en local.
+S3_ENDPOINT = env("S3_ENDPOINT", default="")
+S3_PUBLIC_ENDPOINT = env("S3_PUBLIC_ENDPOINT", default="")
+S3_BUCKET = env("S3_BUCKET", default="")
+S3_ACCESS_KEY = env("S3_ACCESS_KEY", default="")
+S3_SECRET_KEY = env("S3_SECRET_KEY", default="")
+S3_REGION = env("S3_REGION", default="us-east-1")
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "photos": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": S3_BUCKET,
+            "endpoint_url": S3_ENDPOINT or None,
+            "access_key": S3_ACCESS_KEY or None,
+            "secret_key": S3_SECRET_KEY or None,
+            "region_name": S3_REGION,
+            "signature_version": "s3v4",
+            "addressing_style": "path",
+            "default_acl": None,
+            "querystring_auth": True,
+            "file_overwrite": True,
+        },
+    },
+}
+# Taille décodée maximale d'une image envoyée (anti « bombe de décompression »).
+IMAGE_MAX_PIXELS = 40_000_000
+BOOKING_PHOTO_URL_TTL = 600  # secondes : validité d'une URL signée de photo
+
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")
 AI_MODEL_FAST = env("AI_MODEL_FAST", default="")

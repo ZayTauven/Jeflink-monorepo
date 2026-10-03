@@ -31,8 +31,31 @@ def _fernet_problems() -> list[str]:
     return problems
 
 
-def secret_problems() -> list[str]:
+def _storage_problems() -> list[str]:
+    """Stockage d'objets (ADR 0011) : hors local et test, point d'accès, bucket et identifiants
+    sont obligatoires, l'hôte public est en HTTPS et les identifiants ne sont pas ceux de dev."""
+    if settings.DJANGO_ENV in NON_PROD_ENVS:
+        return []
     problems = []
+    for name in (
+        "S3_ENDPOINT",
+        "S3_PUBLIC_ENDPOINT",
+        "S3_BUCKET",
+        "S3_ACCESS_KEY",
+        "S3_SECRET_KEY",
+    ):
+        if not getattr(settings, name):
+            problems.append(f"{name} : absent")
+    if settings.S3_PUBLIC_ENDPOINT and not settings.S3_PUBLIC_ENDPOINT.startswith("https://"):
+        problems.append("S3_PUBLIC_ENDPOINT : HTTPS obligatoire")
+    for name in ("S3_ACCESS_KEY", "S3_SECRET_KEY"):
+        if any(marker in getattr(settings, name) for marker in PUBLIC_VALUE_MARKERS):
+            problems.append(f"{name} : valeur publique de dev ou de test interdite ici")
+    return problems
+
+
+def secret_problems() -> list[str]:
+    problems = _storage_problems()
     if settings.DJANGO_ENV not in settings.DJANGO_ENVS:
         problems.append("DJANGO_ENV : valeur inconnue")
     if len(settings.SECRET_KEY.encode()) < MIN_BYTES:
