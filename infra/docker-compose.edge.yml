@@ -1,0 +1,85 @@
+# Test de fumée du bord public (spec 001, infra 4). Ne pas lancer à la main : passer par
+#   node infra/proxy/run-smoke.mjs
+# qui génère des secrets aléatoires (SMOKE_*), démarre ces services, vérifie, puis les retire.
+#
+# - edge : nginx avec les règles de production, devant l'API en réglages de production
+#   (DJANGO_ENV=staging, bin/start-production : check --deploy puis uvicorn) ;
+# - edge-echo : le même nginx devant un amont qui renvoie les en-têtes reçus (contrôle exact de
+#   ce que l'API recevrait) ;
+# - redis-smoke : Redis d'auth au mot de passe aléatoire, noeviction.
+
+x-smoke-api-env: &smoke-api-env
+  DJANGO_SETTINGS_MODULE: jeflink.settings.production
+  DJANGO_ENV: staging
+  ALLOWED_HOSTS: edge.localhost,api
+  INTERNAL_API_HOSTS: api
+  # Aucun BFF dans ce test : réseau qui ne recouvre aucun proxy.
+  BFF_TRUSTED_NETWORKS: 10.99.0.0/24
+  FORWARDED_ALLOW_IPS: 172.30.0.10
+  SECRET_KEY: ${SMOKE_SECRET_KEY:?}
+  JWT_SIGNING_KEYS: smoke1:${SMOKE_JWT_KEY:?}
+  OTP_HMAC_KEY: ${SMOKE_OTP_KEY:?}
+  MFA_ENCRYPTION_KEYS: ${SMOKE_MFA_KEY:?}
+  BFF_SHARED_SECRETS: ${SMOKE_BFF_SECRET:?}
+  PII_HMAC_KEY: ${SMOKE_PII_KEY:?}
+  DATABASE_URL: postgis://jeflink:jeflink@db:5432/jeflink
+  REDIS_URL: redis://redis:6379/0
+  REDIS_CACHE_URL: redis://redis:6379/1
+  RATELIMIT_REDIS_URL: redis://:${SMOKE_REDIS_PASSWORD:?}@redis-smoke:6379/0
+  AUTH_REDIS_PRIVATE_HOSTS: redis-smoke
+  SMS_ANDROID_APP_HASH_CLIENT: SmokeHash01
+  SMS_ANDROID_APP_HASH_PRO: SmokeHash02
+  WEB_CONCURRENCY: "1"
+
+services:
+  redis-smoke:
+    image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    command: >
+      redis-server --requirepass ${SMOKE_REDIS_PASSWORD:?}
+      --maxmemory-policy noeviction --appendonly yes --appendfsync everysec
+
+  api-asgi:
+    build: ../apps/api
+    # Commande de l'image : bin/start-production (aucun montage du code : image telle quelle).
+    environment: *smoke-api-env
+    networks:
+      default: {}
+      edge: { ipv4_address: 172.30.0.20 }
+    depends_on: [db, redis, redis-smoke]
+
+  echo:
+    image: python:3.13-alpine
+    command: ["python", "/echo.py"]
+    volumes: ["./proxy/echo.py:/echo.py:ro"]
+    networks:
+      edge: { ipv4_address: 172.30.0.30 }
+
+  edge:
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+    environment:
+      API_PUBLIC_HOST: edge.localhost
+      API_UPSTREAM: api-asgi:8000
+    volumes: &edge-templates
+      - ./proxy/templates/jeflink-api-locations.inc.template:/etc/nginx/templates/jeflink-api-locations.inc.template:ro
+      - ./proxy/templates/smoke/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports: ["8088:80"]
+    networks:
+      edge: { ipv4_address: 172.30.0.10 }
+    depends_on: [api-asgi]
+
+  edge-echo:
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+    environment:
+      API_PUBLIC_HOST: edge.localhost
+      API_UPSTREAM: echo:8000
+    volumes: *edge-templates
+    ports: ["8089:80"]
+    networks:
+      edge: { ipv4_address: 172.30.0.11 }
+    depends_on: [echo]
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

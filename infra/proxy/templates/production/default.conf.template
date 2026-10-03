@@ -1,0 +1,36 @@
+# Bord public de l'API en production (spec 001, infra 4) — image nginx officielle, gabarits
+# traités par envsubst au démarrage. Nommé default.conf : il remplace la page d'accueil de
+# l'image. Variables : API_PUBLIC_HOST (ex. api.jeflink.sn), API_UPSTREAM (ex. api:8000, réseau
+# privé), TLS_CERT, TLS_KEY.
+
+server_tokens off;
+
+# Hôte inconnu (y compris « api », réservé au réseau interne) : connexion fermée sans réponse.
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    ssl_reject_handshake on;
+    return 444;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${API_PUBLIC_HOST};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${API_PUBLIC_HOST};
+
+    ssl_certificate     ${TLS_CERT};
+    ssl_certificate_key ${TLS_KEY};
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    include /etc/nginx/conf.d/jeflink-api-locations.inc;
+}

@@ -11,6 +11,8 @@ export default defineConfig({
       client: "react-query",
       httpClient: "fetch",
       clean: true,
+      // Paramètres de chemin encodés : `../x` devient `..%2Fx`, refusé ensuite (revue BFF, I-C).
+      urlEncodeParameters: true,
       override: {
         mutator: { path: "src/http.ts", name: "jeflinkFetch" },
       },

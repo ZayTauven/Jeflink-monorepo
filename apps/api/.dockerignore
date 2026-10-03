@@ -1,4 +1,6 @@
-.env
+# Aucun fichier d'environnement dans l'image (secrets) : seul l'exemple, aux valeurs vides.
+.env*
+!.env.example
 .venv/
 __pycache__/
 .pytest_cache/

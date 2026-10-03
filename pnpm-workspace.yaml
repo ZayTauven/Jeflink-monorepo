@@ -6,3 +6,6 @@ packages:
   - "packages/*"
 allowBuilds:
   esbuild: true
+  # Tirés par next-intl ; binaires livrés en dépendances optionnelles, scripts inutiles.
+  "@parcel/watcher": false
+  "@swc/core": false

@@ -8,15 +8,16 @@ Quatre fronts consomment la même API : deux apps Expo (client, pro) et deux Nex
 
 ## Décision
 
-- **Access** : JWT simplejwt, HS256, clé choisie par `kid` parmi 2 clés en rotation. Durée de 15 min, 10 min pour les Ops. Claims : `sub`, `sid`, `auth_time`, `mfa`, `mfa_at`. Aucun rôle dans le jeton.
+- **Access** : JWT signé avec PyJWT (simplejwt écarté : notre table de sessions, la rotation et le `kid` sont à nous, il n'apporterait qu'une couche inutilisée), HS256, clé choisie par `kid` parmi 2 clés en rotation. Durée de 15 min, 10 min pour les Ops. Claims : `sub`, `sid`, `auth_time`, `mfa`, `mfa_at`. Aucun rôle dans le jeton.
 - **Refresh** : jeton opaque haché dans `accounts.DeviceSession`, une ligne par appareil, rotation à chaque usage.
-  - **Grâce** : l'ancien refresh est accepté une seule fois par rotation (verrou de ligne), seulement si le refresh courant n'a jamais été présenté, et pendant 24 h au plus. La grâce renvoie le refresh courant, sans nouvelle rotation.
+  - **Grâce** : l'ancien refresh est accepté une seule fois par rotation (verrou de ligne), pendant 24 h au plus. Elle émet un nouveau refresh et retire le courant (voir la précision ci-dessous).
   - Toute autre présentation d'un ancien refresh est une réutilisation : la session est révoquée et un `AuditEvent` est écrit.
-  - Le compromis 24 h contre 60 s est soumis à Zay.
+  - Le compromis 24 h contre 60 s est tranché : 24 h (Q15).
+  - Précision d'implémentation (2026-09-30) : le refresh n'étant stocké qu'en empreinte, la grâce ne peut pas « renvoyer le refresh courant ». Elle émet un nouveau refresh et **retire** le courant. Si un voleur utilise la grâce, le vrai client présente ensuite le courant retiré : réutilisation détectée, session révoquée pour tous. Les refresh retirés sont gardés (`RetiredRefreshToken`) pour détecter toute réutilisation, même ancienne.
 - **Session active vérifiée à chaque requête** : cache Redis `auth:sid:<sid>` (60 s, écrit en `on_commit`, supprimé à la révocation), repli sur la base. Le Redis d'auth est authentifié et sans éviction.
 - **Mobile** : refresh dans `expo-secure-store` (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`), sauvegarde Android désactivée, access en mémoire.
 - **Web et console : BFF Next.**
-  - Jetons en cookies `__Host-jf_at` et `__Secure-jf_rt` (`Path=/api/auth`, jamais élargi). `mfa_token` en `__Host-jf_mfa`.
+  - Jetons en cookies `__Host-jf_at` et `__Secure-jf_rt` (`Path=/api/auth`, jamais élargi). `mfa_token` en `__Host-jf_mfa`. Témoin sans secret `__Host-jf_sess` (`Path=/`) pour que les pages sachent qu'un refresh est possible.
   - Le refresh n'a lieu que dans le route handler dédié, avec un verrou entre onglets.
   - Aucun état de module côté serveur, aucune mise en cache des données authentifiées.
   - Proxy durci : chemins, liste fermée d'en-têtes, préfixes interdits.
@@ -39,7 +40,7 @@ Quatre fronts consomment la même API : deux apps Expo (client, pro) et deux Nex
 - − Nous maintenons notre propre table de sessions, la rotation et la grâce : du code sensible, avec revue sécurité obligatoire.
 - − Une lecture Redis par requête authentifiée, et une base Redis dédiée à configurer en production.
 - − Le BFF est une pièce de plus à héberger, avec des règles strictes (cache, en-têtes, proxy) à tester.
-- − La vérification multi-clés par `kid` est une surcouche à simplejwt.
+- − La vérification multi-clés par `kid` est notre code (quelques lignes sur PyJWT), testée.
 
 ## Alternatives écartées
 

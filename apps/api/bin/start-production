@@ -1,0 +1,21 @@
+#!/bin/sh
+# Démarrage de l'API en staging et en production (spec 001, infra 4).
+#
+# 1. Contrôles Django de déploiement, base comprise : secrets, Redis d'auth (noeviction, TLS),
+#    proxys de confiance (FORWARDED_ALLOW_IPS), compte de revue des stores (E101 à E105). Une
+#    erreur empêche le démarrage.
+# 2. uvicorn (ASGI). L'IP cliente n'est reprise de X-Forwarded-For que pour les connexions venant
+#    des reverse proxies déclarés (FORWARDED_ALLOW_IPS : IP exactes, contrôlées en 1).
+#
+# Le venv est utilisé directement : l'image tourne sans privilèges et ne doit rien écrire.
+set -eu
+
+: "${FORWARDED_ALLOW_IPS:?FORWARDED_ALLOW_IPS (IP exactes des reverse proxies) est obligatoire}"
+
+/opt/venv/bin/python manage.py check --deploy --database default
+
+exec /opt/venv/bin/uvicorn jeflink.asgi:application \
+  --host 0.0.0.0 --port "${PORT:-8000}" \
+  --workers "${WEB_CONCURRENCY:-2}" \
+  --proxy-headers --forwarded-allow-ips "$FORWARDED_ALLOW_IPS" \
+  --no-server-header

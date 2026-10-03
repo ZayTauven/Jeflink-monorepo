@@ -13,6 +13,7 @@ Skills globaux (installés sur la machine) : invoque-les via l'outil `Skill` san
 - Données via `@jeflink/api-client` + TanStack Query persisté.
 - App Pro : toute action terrain (statut, photos, code de fin) passe par la file hors-ligne et conserve l'horodatage d'origine.
 - Images compressées et redimensionnées avant upload ; upload reprenable.
+- Images : banque `C:\Users\moham\Pictures\Banque` (lire son `CLAUDE.md`, chercher dans `_catalogue/INDEX.tsv`, regarder les planches). Appliquer DESIGN.md › Banque d'images : scènes sénégalaises d'abord, copie dans l'app convertie en WebP/AVIF aux tailles affichées, ligne de provenance dans `docs/design/assets.md`, jamais `references/`, `photos/equipes-projets/`, faux témoignage ni logo de partenaire inexistant.
 - Voix : bouton micro de premier rang ; l'audio est envoyé au backend, jamais transcrit côté app.
 - Cibles tactiles ≥ 48 px, icône + libellé, pas de couleur seule pour porter un sens.
 - Tester mentalement le parcours sur réseau coupé à chaque étape et le décrire dans le résumé.

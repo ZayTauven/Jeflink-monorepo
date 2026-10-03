@@ -12,6 +12,7 @@ class HealthView(APIView):
 
     permission_classes = [AllowAny]
     authentication_classes = []
+    rate_limit_scope = "health"
 
     @extend_schema(
         operation_id="health",

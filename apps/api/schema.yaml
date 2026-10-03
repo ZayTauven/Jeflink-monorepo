@@ -5,6 +5,339 @@ info:
   description: Contrat unique des fronts et apps Jeflink (client TS généré depuis
     ce schéma).
 paths:
+  /api/auth/config/:
+    get:
+      operationId: auth_config
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthConfig'
+          description: ''
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout
+      tags:
+      - auth
+      responses:
+        '204':
+          description: No response body
+  /api/auth/mfa/totp/confirm/:
+    post:
+      operationId: auth_mfa_totp_confirm
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '400':
+          description: mfa_invalid (+ attempts_remaining)
+        '401':
+          description: mfa_token_invalid
+        '403':
+          description: mfa_locked, mfa_enrollment_not_authorized
+  /api/auth/mfa/totp/setup/:
+    post:
+      operationId: auth_mfa_totp_setup
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpSetupRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TotpSetupRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TotpSetupRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpSetupResponse'
+          description: ''
+        '400':
+          description: mfa_invalid (+ attempts_remaining)
+        '401':
+          description: mfa_token_invalid
+        '403':
+          description: mfa_locked, mfa_enrollment_not_authorized
+  /api/auth/mfa/totp/step-up/:
+    post:
+      operationId: auth_mfa_totp_step_up
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StepUpRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StepUpRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StepUpRequestRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+          description: ''
+        '400':
+          description: mfa_invalid
+        '403':
+          description: ops_forbidden, mfa_locked
+  /api/auth/mfa/totp/verify/:
+    post:
+      operationId: auth_mfa_totp_verify
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TotpCodeRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '400':
+          description: mfa_invalid (+ attempts_remaining)
+        '401':
+          description: mfa_token_invalid
+        '403':
+          description: mfa_locked, mfa_enrollment_not_authorized
+  /api/auth/otp/request/:
+    post:
+      operationId: auth_otp_request
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie du numéro (16 à 64 caractères) : même clé,
+          même réponse.'
+        required: true
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpChallengeResponse'
+          description: ''
+        '400':
+          description: phone_invalid, phone_not_mobile, phone_region_not_supported
+        '429':
+          description: otp_rate_limited (+ retry_after)
+        '503':
+          description: otp_temporarily_unavailable
+  /api/auth/otp/resend/:
+    post:
+      operationId: auth_otp_resend
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpResendRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpResendRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpResendRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpChallengeResponse'
+          description: ''
+  /api/auth/otp/verify/:
+    post:
+      operationId: auth_otp_verify
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '400':
+          description: otp_invalid (+ attempts_remaining), otp_expired, otp_challenge_invalid,
+            terms_not_accepted
+        '403':
+          description: account_disabled, account_not_allowed
+        '409':
+          description: otp_already_used
+        '429':
+          description: otp_locked
+  /api/auth/phone-change/confirm/:
+    post:
+      operationId: auth_phone_change_confirm
+      description: '« J''ai changé de numéro » : l''utilisateur saisit le code reçu
+        sur le nouveau numéro.'
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeConfirmRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '400':
+          description: otp_invalid, terms_not_accepted, phone_invalid
+        '403':
+          description: account_disabled
+        '409':
+          description: otp_already_used, phone_in_use
+  /api/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+          description: ''
+        '401':
+          description: refresh_invalid, session_revoked
+  /api/auth/token/revoke/:
+    post:
+      operationId: auth_token_revoke
+      description: Déconnexion par le refresh, sans accès valide (BFF web, apps hors
+        ligne longtemps).
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshRequestRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '204':
+          description: No response body
   /api/health/:
     get:
       operationId: health
@@ -20,8 +353,869 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/me/:
+    get:
+      operationId: me_retrieve
+      description: Profil du compte. Une session restreinte lit un profil minimal
+        mais ne modifie rien.
+      tags:
+      - me
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+    patch:
+      operationId: me_update
+      description: Profil du compte. Une session restreinte lit un profil minimal
+        mais ne modifie rien.
+      tags:
+      - me
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMeUpdateRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+          description: ''
+        '400':
+          description: display_name_length, display_name_invalid, display_name_reserved
+        '403':
+          description: session_restricted
+  /api/me/deletion/:
+    post:
+      operationId: me_deletion
+      tags:
+      - me
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeletionConfirmRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DeletionConfirmRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DeletionConfirmRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: otp_invalid (+ attempts_remaining), otp_expired, otp_challenge_invalid
+        '403':
+          description: session_restricted, account_disabled
+        '409':
+          description: account_deletion_blocked (+ reasons), otp_already_used
+        '429':
+          description: otp_locked
+  /api/me/deletion/otp/:
+    post:
+      operationId: me_deletion_otp
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie du numéro (16 à 64 caractères) : même clé,
+          même réponse.'
+        required: true
+      tags:
+      - me
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpChallengeResponse'
+          description: ''
+        '400':
+          description: idempotency_key_required
+        '403':
+          description: session_restricted, account_disabled
+        '409':
+          description: account_deletion_blocked (+ reasons)
+        '429':
+          description: otp_rate_limited (+ retry_after)
+        '503':
+          description: otp_temporarily_unavailable
+  /api/me/fresh-start/:
+    post:
+      operationId: me_fresh_start
+      description: 'Session restreinte (compte dormant, client) : « Repartir de zéro
+        ».'
+      tags:
+      - me
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpVerifyResponse'
+          description: ''
+        '403':
+          description: fresh_start_not_allowed, reauth_required, account_disabled
+        '409':
+          description: account_deletion_blocked (+ reasons)
+  /api/me/invitations/:
+    get:
+      operationId: me_invitations_list
+      description: Invitations en attente pour le numéro du compte (S19).
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - me
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvitationList'
+          description: ''
+  /api/me/invitations/{public_id}/accept/:
+    post:
+      operationId: me_invitations_accept
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - me
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+      responses:
+        '204':
+          description: 'Acceptée (rejouer une acceptation faite : 204)'
+        '400':
+          description: display_name_length, display_name_reserved…
+        '403':
+          description: profile_incomplete, role_not_allowed
+        '404':
+          description: not_found (autre numéro, close ou expirée)
+        '503':
+          description: invitation_unavailable
+  /api/me/invitations/{public_id}/decline/:
+    post:
+      operationId: me_invitations_decline
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - me
+      responses:
+        '204':
+          description: No response body
+        '404':
+          description: not_found
+  /api/me/sessions/:
+    get:
+      operationId: me_sessions_list
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - me
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDeviceSessionList'
+          description: ''
+  /api/me/sessions/{public_id}/:
+    delete:
+      operationId: me_sessions_revoke
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - me
+      responses:
+        '204':
+          description: No response body
+  /api/me/sessions/revoke-others/:
+    post:
+      operationId: me_sessions_revoke_others
+      tags:
+      - me
+      responses:
+        '204':
+          description: No response body
+  /api/ops/accounts/{public_id}/:
+    get:
+      operationId: ops_accounts_retrieve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpsAccountDetail'
+          description: ''
+        '400':
+          description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/clear-dormant/:
+    post:
+      operationId: ops_accounts_clear_dormant
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsClearDormantRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsClearDormantRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsClearDormantRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/deactivate/:
+    post:
+      operationId: ops_accounts_deactivate
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsDeactivateRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsDeactivateRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsDeactivateRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/phone-change/:
+    post:
+      operationId: ops_accounts_phone_change
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneChangeRequest'
+          description: ''
+        '400':
+          description: phone_invalid, phone_unchanged, reason_invalid, note_invalid
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_second_operator_required
+        '404':
+          description: not_found
+        '409':
+          description: phone_in_use, phone_change_in_progress, account_disabled
+        '429':
+          description: otp_rate_limited, phone_change_codes_exhausted
+  /api/ops/accounts/{public_id}/reactivate/:
+    post:
+      operationId: ops_accounts_reactivate
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsReactivateRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsReactivateRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsReactivateRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/reveal-phone/:
+    post:
+      operationId: ops_accounts_reveal_phone
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsRevealPhoneRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsRevealPhoneRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsRevealPhoneRequestRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevealedPhone'
+          description: ''
+        '400':
+          description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/revoke-sessions/:
+    post:
+      operationId: ops_accounts_revoke_sessions
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsRevokeSessionsRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsRevokeSessionsRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsRevokeSessionsRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
+        '404':
+          description: not_found
+  /api/ops/accounts/{public_id}/unblock-otp/:
+    post:
+      operationId: ops_accounts_unblock_otp
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsUnblockOtpRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsUnblockOtpRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsUnblockOtpRequestRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: reason_invalid, note_invalid
+        '409':
+          description: account_already_inactive, account_already_active, otp_not_blocked,
+            account_not_dormant
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_admin_required
+        '429':
+          description: ops_rate_limited (+ retry_after)
+        '404':
+          description: not_found
+  /api/ops/accounts/search/:
+    post:
+      operationId: ops_accounts_search
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpsSearchRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OpsSearchRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OpsSearchRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OpsSearchResult'
+          description: ''
+        '400':
+          description: phone_invalid
+  /api/ops/phone-changes/:
+    get:
+      operationId: ops_phone_changes_list
+      description: Demandes ouvertes, pour que le second Ops trouve celles à approuver.
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - ops-accounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPhoneChangeRequestList'
+          description: ''
+  /api/ops/phone-changes/{public_id}/approve/:
+    post:
+      operationId: ops_phone_changes_approve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeApproveRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeApproveRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeApproveRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '400':
+          description: phone_change_mismatch
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_second_operator_required
+        '404':
+          description: not_found
+        '409':
+          description: phone_change_closed
+        '429':
+          description: otp_rate_limited, phone_change_codes_exhausted
+  /api/ops/phone-changes/{public_id}/reject/:
+    post:
+      operationId: ops_phone_changes_reject
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeRejectRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeRejectRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhoneChangeRejectRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_second_operator_required
+        '404':
+          description: not_found
+        '409':
+          description: phone_change_closed
+        '429':
+          description: otp_rate_limited, phone_change_codes_exhausted
+  /api/ops/phone-changes/{public_id}/resend-code/:
+    post:
+      operationId: ops_phone_changes_resend_code
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - ops-accounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhoneChangeRequest'
+          description: ''
+        '403':
+          description: ops_forbidden, ops_step_up_required, ops_target_forbidden,
+            ops_second_operator_required
+        '404':
+          description: not_found
+        '409':
+          description: phone_change_closed
+        '429':
+          description: otp_rate_limited, phone_change_codes_exhausted
 components:
   schemas:
+    AcceptInvitationRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          default: ''
+          maxLength: 256
+    AccessToken:
+      type: object
+      properties:
+        access:
+          type: string
+        access_expires_at:
+          type: string
+          format: date-time
+      required:
+      - access
+      - access_expires_at
+    AppD8cEnum:
+      enum:
+      - client
+      - pro
+      type: string
+      description: |-
+        * `client` - client
+        * `pro` - pro
+    AuthConfig:
+      type: object
+      properties:
+        regions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Region'
+        code_length:
+          type: integer
+        client_challenge_required:
+          type: boolean
+        terms_version:
+          type: string
+      required:
+      - client_challenge_required
+      - code_length
+      - regions
+      - terms_version
+    AuthUser:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        phone_display:
+          type: string
+        display_name:
+          type: string
+        profile_status:
+          type: string
+        preferred_language:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+      required:
+      - display_name
+      - phone_display
+      - preferred_language
+      - profile_status
+      - public_id
+      - roles
+    DeletionConfirmRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        challenge_secret:
+          type: string
+          minLength: 1
+          maxLength: 64
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+      required:
+      - challenge_id
+      - challenge_secret
+      - code
+    DevicePlatformEnum:
+      enum:
+      - android
+      - ios
+      - web
+      type: string
+      description: |-
+        * `android` - android
+        * `ios` - ios
+        * `web` - web
+    DeviceRequest:
+      type: object
+      properties:
+        platform:
+          $ref: '#/components/schemas/DevicePlatformEnum'
+        label:
+          type: string
+          default: ''
+          maxLength: 120
+        install_id:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - platform
+    DeviceSession:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        app:
+          allOf:
+          - $ref: '#/components/schemas/DeviceSessionAppEnum'
+          readOnly: true
+        platform:
+          allOf:
+          - $ref: '#/components/schemas/DeviceSessionPlatformEnum'
+          readOnly: true
+        device_label:
+          type: string
+          readOnly: true
+        last_seen_at:
+          type: string
+          format: date-time
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        is_current:
+          type: boolean
+          readOnly: true
+      required:
+      - app
+      - created_at
+      - device_label
+      - is_current
+      - last_seen_at
+      - platform
+      - public_id
+    DeviceSessionAppEnum:
+      enum:
+      - client
+      - pro
+      - web
+      - console
+      type: string
+      description: |-
+        * `client` - App client
+        * `pro` - App Pro
+        * `web` - Web
+        * `console` - Console
+    DeviceSessionPlatformEnum:
+      enum:
+      - android
+      - ios
+      - web
+      type: string
+      description: |-
+        * `android` - Android
+        * `ios` - iOS
+        * `web` - Web
     Health:
       type: object
       properties:
@@ -29,3 +1223,793 @@ components:
           type: string
       required:
       - status
+    Invitation:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        invited_by_name:
+          type: string
+        display_name_hint:
+          type: string
+        context_ref:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - context_ref
+      - display_name_hint
+      - expires_at
+      - invited_by_name
+      - public_id
+      - role
+    Me:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+        phone_display:
+          type: string
+        display_name:
+          type: string
+        email:
+          type: string
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+        profile_status:
+          $ref: '#/components/schemas/ProfileStatusEnum'
+        roles:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        restricted:
+          type: boolean
+        restriction_kind:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RestrictionKindEnum'
+          - $ref: '#/components/schemas/NullEnum'
+      required:
+      - created_at
+      - display_name
+      - email
+      - phone
+      - phone_display
+      - preferred_language
+      - profile_status
+      - public_id
+      - restricted
+      - restriction_kind
+      - roles
+    NullEnum:
+      enum:
+      - null
+    OpsAccountDetail:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        phone_masked:
+          type: string
+        display_name:
+          type: string
+        profile_status:
+          type: string
+        is_active:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+        preferred_language:
+          type: string
+        deactivation_reason:
+          type: string
+        deleted:
+          type: boolean
+        dormant_restricted:
+          type: boolean
+        otp_blocked_until:
+          type: string
+          format: date-time
+          nullable: true
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpsSession'
+        created_at:
+          type: string
+          format: date-time
+        phone_verified_at:
+          type: string
+          format: date-time
+          nullable: true
+        phone_changed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - deactivation_reason
+      - deleted
+      - display_name
+      - dormant_restricted
+      - is_active
+      - otp_blocked_until
+      - phone_changed_at
+      - phone_masked
+      - phone_verified_at
+      - preferred_language
+      - profile_status
+      - public_id
+      - roles
+      - sessions
+    OpsAccountSummary:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        phone_masked:
+          type: string
+        display_name:
+          type: string
+        profile_status:
+          type: string
+        is_active:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+      required:
+      - display_name
+      - is_active
+      - phone_masked
+      - profile_status
+      - public_id
+      - roles
+    OpsClearDormantRequestReasonCodeEnum:
+      enum:
+      - owner_verified
+      - kyc_verified
+      type: string
+      description: |-
+        * `owner_verified` - owner_verified
+        * `kyc_verified` - kyc_verified
+    OpsClearDormantRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsClearDormantRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsDeactivateRequestReasonCodeEnum:
+      enum:
+      - fraud
+      - user_request
+      - ops_other
+      type: string
+      description: |-
+        * `fraud` - fraud
+        * `user_request` - user_request
+        * `ops_other` - ops_other
+    OpsDeactivateRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsDeactivateRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsReactivateRequestReasonCodeEnum:
+      enum:
+      - user_verified
+      - error_correction
+      type: string
+      description: |-
+        * `user_verified` - user_verified
+        * `error_correction` - error_correction
+    OpsReactivateRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsReactivateRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsRevealPhoneRequestReasonCodeEnum:
+      enum:
+      - support_call
+      - kyc_review
+      - dispute
+      - legal_request
+      type: string
+      description: |-
+        * `support_call` - support_call
+        * `kyc_review` - kyc_review
+        * `dispute` - dispute
+        * `legal_request` - legal_request
+    OpsRevealPhoneRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsRevealPhoneRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsRevokeSessionsRequestReasonCodeEnum:
+      enum:
+      - device_lost
+      - account_compromised
+      - user_request
+      type: string
+      description: |-
+        * `device_lost` - device_lost
+        * `account_compromised` - account_compromised
+        * `user_request` - user_request
+    OpsRevokeSessionsRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsRevokeSessionsRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OpsSearchRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+      required:
+      - phone
+    OpsSearchResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OpsAccountSummary'
+      required:
+      - results
+    OpsSession:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        app:
+          type: string
+        platform:
+          type: string
+        device_label:
+          type: string
+        restricted:
+          type: boolean
+        last_seen_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - app
+      - created_at
+      - device_label
+      - last_seen_at
+      - platform
+      - public_id
+      - restricted
+    OpsUnblockOtpRequestReasonCodeEnum:
+      enum:
+      - user_verified
+      - false_positive
+      type: string
+      description: |-
+        * `user_verified` - user_verified
+        * `false_positive` - false_positive
+    OpsUnblockOtpRequestRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/OpsUnblockOtpRequestReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    OtherSession:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        app:
+          type: string
+        device_label:
+          type: string
+        last_seen_at:
+          type: string
+          format: date-time
+      required:
+      - app
+      - device_label
+      - last_seen_at
+      - public_id
+    OtpChallengeResponse:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        challenge_secret:
+          type: string
+        phone_display:
+          type: string
+        code_length:
+          type: integer
+        expires_at:
+          type: string
+          format: date-time
+        resend_available_at:
+          type: string
+          format: date-time
+        deliveries_remaining:
+          type: integer
+      required:
+      - challenge_id
+      - code_length
+      - deliveries_remaining
+      - expires_at
+      - phone_display
+      - resend_available_at
+    OtpRequestRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+        app:
+          $ref: '#/components/schemas/AppD8cEnum'
+        client_challenge_token:
+          type: string
+          minLength: 1
+          default: ''
+          maxLength: 4096
+      required:
+      - phone
+    OtpResendRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        challenge_secret:
+          type: string
+          minLength: 1
+          maxLength: 64
+      required:
+      - challenge_id
+      - challenge_secret
+    OtpVerifyRequest:
+      type: object
+      properties:
+        challenge_id:
+          type: string
+          format: uuid
+        challenge_secret:
+          type: string
+          minLength: 1
+          maxLength: 64
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+        terms_version:
+          type: string
+          minLength: 1
+          maxLength: 16
+        device:
+          $ref: '#/components/schemas/DeviceRequest'
+        app:
+          $ref: '#/components/schemas/AppD8cEnum'
+      required:
+      - challenge_id
+      - challenge_secret
+      - code
+      - device
+      - terms_version
+    OtpVerifyResponse:
+      type: object
+      description: |-
+        ``authenticated`` : session ouverte. ``mfa_required`` / ``mfa_enrollment_required`` (Ops
+        sur la console) : seulement ``mfa_token``, à présenter aux endpoints ``mfa/totp/*``.
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        mfa_token:
+          type: string
+        user:
+          $ref: '#/components/schemas/AuthUser'
+        is_new_user:
+          type: boolean
+        restricted:
+          type: boolean
+        restriction_kind:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/RestrictionKindEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        other_sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OtherSession'
+        pending_invitations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invitation'
+        tokens:
+          $ref: '#/components/schemas/TokenPair'
+      required:
+      - status
+    PaginatedDeviceSessionList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceSession'
+    PaginatedInvitationList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invitation'
+    PaginatedPhoneChangeRequestList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PhoneChangeRequest'
+    PatchedMeUpdateRequest:
+      type: object
+      properties:
+        display_name:
+          type: string
+          maxLength: 256
+        email:
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+        preferred_language:
+          $ref: '#/components/schemas/PreferredLanguageEnum'
+    PhoneChangeApproveRequest:
+      type: object
+      properties:
+        new_phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+      required:
+      - new_phone
+    PhoneChangeConfirmRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+        terms_version:
+          type: string
+          minLength: 1
+          maxLength: 16
+        device:
+          $ref: '#/components/schemas/DeviceRequest'
+        app:
+          $ref: '#/components/schemas/AppD8cEnum'
+      required:
+      - code
+      - device
+      - phone
+      - terms_version
+    PhoneChangeCreateReasonCodeEnum:
+      enum:
+      - sim_lost_new_number
+      - number_changed
+      - operator_change
+      type: string
+      description: |-
+        * `sim_lost_new_number` - sim_lost_new_number
+        * `number_changed` - number_changed
+        * `operator_change` - operator_change
+    PhoneChangeCreateRequest:
+      type: object
+      properties:
+        new_phone:
+          type: string
+          minLength: 1
+          maxLength: 32
+        reason_code:
+          $ref: '#/components/schemas/PhoneChangeCreateReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - new_phone
+      - reason_code
+    PhoneChangeRejectReasonCodeEnum:
+      enum:
+      - proof_insufficient
+      - suspected_fraud
+      - request_error
+      type: string
+      description: |-
+        * `proof_insufficient` - proof_insufficient
+        * `suspected_fraud` - suspected_fraud
+        * `request_error` - request_error
+    PhoneChangeRejectRequest:
+      type: object
+      properties:
+        reason_code:
+          $ref: '#/components/schemas/PhoneChangeRejectReasonCodeEnum'
+        note:
+          type: string
+          default: ''
+          maxLength: 400
+      required:
+      - reason_code
+    PhoneChangeRequest:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        account:
+          type: string
+          format: uuid
+        current_phone_masked:
+          type: string
+          readOnly: true
+        new_phone_masked:
+          type: string
+          readOnly: true
+        requested_by:
+          type: string
+          format: uuid
+        requires_approval:
+          type: boolean
+        reason_code:
+          type: string
+        status:
+          type: string
+        codes_sent:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - account
+      - codes_sent
+      - created_at
+      - current_phone_masked
+      - expires_at
+      - new_phone_masked
+      - public_id
+      - reason_code
+      - requested_by
+      - requires_approval
+      - status
+    PreferredLanguageEnum:
+      enum:
+      - fr
+      - wo
+      type: string
+      description: |-
+        * `fr` - Français
+        * `wo` - Wolof
+    ProfileStatusEnum:
+      enum:
+      - guest
+      - complete
+      type: string
+      description: |-
+        * `guest` - Invité
+        * `complete` - Complet
+    RefreshRequestRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - refresh
+    Region:
+      type: object
+      properties:
+        region:
+          type: string
+        dial_code:
+          type: string
+        label:
+          type: string
+      required:
+      - dial_code
+      - label
+      - region
+    RestrictionKindEnum:
+      enum:
+      - client
+      - pro
+      type: string
+      description: |-
+        * `client` - client
+        * `pro` - pro
+    RevealedPhone:
+      type: object
+      properties:
+        phone:
+          type: string
+      required:
+      - phone
+    RoleEnum:
+      enum:
+      - owner
+      - technician
+      type: string
+      description: |-
+        * `owner` - owner
+        * `technician` - technician
+    StatusEnum:
+      enum:
+      - authenticated
+      - mfa_required
+      - mfa_enrollment_required
+      type: string
+      description: |-
+        * `authenticated` - authenticated
+        * `mfa_required` - mfa_required
+        * `mfa_enrollment_required` - mfa_enrollment_required
+    StepUpRequestRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+      required:
+      - code
+    TokenPair:
+      type: object
+      properties:
+        access:
+          type: string
+        refresh:
+          type: string
+        access_expires_at:
+          type: string
+          format: date-time
+      required:
+      - access
+      - access_expires_at
+      - refresh
+    TotpCodeRequestRequest:
+      type: object
+      properties:
+        mfa_token:
+          type: string
+          minLength: 1
+          maxLength: 128
+        code:
+          type: string
+          minLength: 1
+          pattern: ^[0-9]{6}$
+      required:
+      - code
+      - mfa_token
+    TotpSetupRequestRequest:
+      type: object
+      properties:
+        mfa_token:
+          type: string
+          minLength: 1
+          maxLength: 128
+        enrollment_token:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - enrollment_token
+      - mfa_token
+    TotpSetupResponse:
+      type: object
+      properties:
+        secret:
+          type: string
+        otpauth_uri:
+          type: string
+      required:
+      - otpauth_uri
+      - secret

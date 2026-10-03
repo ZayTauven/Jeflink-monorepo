@@ -18,6 +18,7 @@ Source de vérité : `docs/design/DESIGN.md`. Ce skill en est le mode d'emploi.
 - On regarde le template pour la composition, les proportions et le rythme. On ne copie ni leur HTML, ni leur JS, ni leurs plugins jQuery.
 - Reconstruire en composants Tailwind basés sur `@jeflink/ui-tokens`.
 - Remplacer toute donnée de démo par des données Jeflink plausibles (quartiers de Dakar, montants en F CFA, métiers réels).
+- Remplacer les images du template par celles de la banque `C:\Users\moham\Pictures\Banque` (scènes réelles au Sénégal d'abord), selon DESIGN.md › Banque d'images : copie optimisée en WebP/AVIF dans l'app, provenance dans `docs/design/assets.md`.
 
 ## Copie
 
@@ -32,3 +33,4 @@ Source de vérité : `docs/design/DESIGN.md`. Ce skill en est le mode d'emploi.
 - [ ] Chaînes dans i18n
 - [ ] Contraste AA, cibles ≥ 48 px sur mobile, sens pas porté par la couleur seule
 - [ ] États vide / chargement / erreur / hors-ligne traités
+- [ ] Images en WebP/AVIF aux tailles affichées, chacune listée dans `docs/design/assets.md` avec sa licence

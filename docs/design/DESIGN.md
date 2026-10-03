@@ -13,6 +13,18 @@ Page de référence (décision Zay, 2026-09-30) : **`references/crafto/demo-mark
 
 **On remplace** : toutes les illustrations et photos par des scènes réelles au Sénégal (artisans, intérieurs, quartiers de Dakar). La copie « agence marketing » par un ton direct et chaleureux. La vidéo hero lourde par une image forte (vidéo en lecture à la demande).
 
+## Banque d'images
+
+Zay tient une banque d'images locale : **`C:\Users\moham\Pictures\Banque`** (hors dépôt, environ 1 800 images décrites). Avant toute recherche, lire son propre mode d'emploi, `C:\Users\moham\Pictures\Banque\CLAUDE.md`. On cherche dans l'index (`_catalogue/INDEX.tsv`, grep/awk) et on regarde les planches-contact (`_catalogue/planches/`) ; on n'ouvre pas les images une à une.
+
+Règles Jeflink, en plus de celles de la banque :
+
+- **Scènes réelles au Sénégal d'abord.** Sources à privilégier : `photos/metiers-services` (plomberie, électricité, froid, ménage…), `photos/culture-senegal`, `photos/commerce-marche`, `photos/personnes`, `photos/immobilier` (intérieurs). Les visuels génériques des `ui-kits/` (Crafto, Cuba, Ridy) servent au prototypage seulement, et jamais là où DESIGN.md demande une scène sénégalaise.
+- **Aucune image n'est référencée par son chemin absolu.** On copie le fichier retenu dans l'app (`apps/web/public/images/…`, `apps/client/assets/images/…`, `apps/pro/assets/images/…`), **converti en WebP ou AVIF et redimensionné** aux tailles réellement affichées (règle 9 : réseau faible, téléphones modestes). Jamais un original de plusieurs Mo.
+- **Provenance tracée** : chaque image copiée a sa ligne dans `docs/design/assets.md` (chemin dans la banque, `source` et `nom_origine` du catalogue, licence, fichier livré). Une image sans licence claire n'entre pas en production.
+- **Interdits** : `references/` (jamais livré) ; `photos/equipes-projets/` (personnes réelles d'un autre projet) ; un portrait de la banque présenté comme un vrai client, un vrai pro ou un témoignage (faux avis) ; un logo de `logos/tiers/` qui suggère un partenariat inexistant. Les logos de moyens de paiement (Wave, Orange Money…) ne s'affichent que pour un moyen réellement proposé, selon la charte de la marque. Les logos des autres projets de Zay (`logos/projets/`) ne servent pas pour Jeflink.
+- **Dans l'interface**, les avatars restent des initiales (voir « Interdit ») ; une photo de profil est celle de l'utilisateur.
+
 ## Console — dé-vibecoder Vireo
 
 Référence locale : `references/vireo/` (Next 15, Tailwind v4, langage « Aurora » sur tokens `--ax-*`). On y lit la structure ; l'habillage Aurora et ses tokens ne sont pas repris.
@@ -72,7 +84,7 @@ Source unique : `packages/ui-tokens`. Accent et polices **validés** (direction 
 
 Pourquoi `#FF6600` et pas le `#F55608` de Crafto : c'est l'orange exact du logo (flèche orange de `references/assets-originaux/Jeflink-illustrations (2).png`). Même direction, une seule couleur de marque.
 
-**Piège AA** : l'orange vif avec un libellé blanc (2,9:1) échoue. Le CTA principal est donc soit `accent` + libellé `on-accent` (sombre, écho au logo noir + orange), soit `accent-strong` + libellé blanc. Choisir l'un des deux et s'y tenir partout.
+**Piège AA** : l'orange vif avec un libellé blanc (2,9:1) échoue. Le CTA principal est donc soit `accent` + libellé `on-accent` (sombre, écho au logo noir + orange), soit `accent-strong` + libellé blanc. Choisir l'un des deux et s'y tenir partout. **Retenu (2026-10-01, à valider par Zay)** : `accent` + libellé `on-accent`, survol en `accent-strong` + libellé `surface` (`apps/web/src/components/ui/button.tsx`).
 
 Mode sombre (console uniquement) : mêmes noms de tokens redéfinis. `accent` reste `#FF6600` (5,6:1 sur `#1B1F26`, utilisable en texte), `ink-muted` devient `#A3A9B5` (7,0:1). Jamais de couleur en dur dans un composant.
 

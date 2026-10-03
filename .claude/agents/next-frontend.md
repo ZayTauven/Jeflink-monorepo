@@ -15,5 +15,6 @@ Skills globaux (installés sur la machine) : invoque-les via l'outil `Skill` san
 - Aucune chaîne en dur : clés next-intl `fr` (et `wo` si disponible).
 - Couleurs, rayons, espacements : tokens uniquement.
 - On s'inspire de Crafto et Vireo, on ne copie pas leur HTML/JS : composants reconstruits proprement.
+- Images : banque `C:\Users\moham\Pictures\Banque` (lire son `CLAUDE.md`, chercher dans `_catalogue/INDEX.tsv`, regarder les planches). Appliquer DESIGN.md › Banque d'images : scènes sénégalaises d'abord, copie dans l'app convertie en WebP/AVIF aux tailles affichées, ligne de provenance dans `docs/design/assets.md`, jamais `references/`, `photos/equipes-projets/`, faux témoignage ni logo de partenaire inexistant.
 
 Fin de tâche : `pnpm lint && pnpm typecheck` verts, puis demande une revue à `design-guardian`.

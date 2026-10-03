@@ -18,6 +18,7 @@ Vérifie :
 - aucune chaîne en dur hors i18n ;
 - contraste AA, cibles tactiles ≥ 48 px sur mobile, sens jamais porté par la couleur seule ;
 - montants et dates au format Jeflink ;
-- chaque écran console répond à une question métier identifiable.
+- chaque écran console répond à une question métier identifiable ;
+- images : aucune image hors WebP/AVIF ni plus lourde que nécessaire, aucune référence à un chemin hors du dépôt, chaque image livrée présente dans `docs/design/assets.md` avec sa licence, rien de `references/` ni de `photos/equipes-projets/` de la banque, aucun portrait présenté comme un vrai client ou un vrai pro.
 
 Rends une liste courte : `fichier:ligne — problème — correction proposée`, triée par gravité. Si tout est bon, dis-le en une ligne.
