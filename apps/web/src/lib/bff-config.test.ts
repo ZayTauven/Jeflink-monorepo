@@ -128,3 +128,21 @@ describe("readBffConfig", () => {
     assert.equal(config.clientIp(request({ "x-real-ip": "41.82.1.2" })), "127.0.0.1");
   });
 });
+
+describe("readSiteConfig", () => {
+  it("numéro du support : chiffres E.164, obligatoire hors dev", async () => {
+    const { readSiteConfig } = await import("./site-config.ts");
+    assert.equal(
+      readSiteConfig({ NODE_ENV: "production", SUPPORT_WHATSAPP_NUMBER: "+221 33 000 00 00" })
+        .supportWhatsapp,
+      "221330000000",
+    );
+    assert.throws(() => readSiteConfig({ NODE_ENV: "production" }), /SUPPORT_WHATSAPP_NUMBER/);
+    assert.throws(() => readSiteConfig({ NODE_ENV: "staging" }), /SUPPORT_WHATSAPP_NUMBER/);
+    assert.throws(
+      () => readSiteConfig({ NODE_ENV: "development", SUPPORT_WHATSAPP_NUMBER: "wa.me/x" }),
+      /SUPPORT_WHATSAPP_NUMBER/,
+    );
+    assert.equal(readSiteConfig({ NODE_ENV: "development" }).supportWhatsapp, null);
+  });
+});

@@ -16,6 +16,9 @@ x-api-env: &api-env
   REDIS_URL: redis://redis:6379/0
   # Redis dédié à l'auth et aux limites (S7) : mot de passe, aucune éviction. Valeur de dev publique.
   RATELIMIT_REDIS_URL: redis://:local-dev-redis-auth-not-secret@redis-auth:6379/0
+  # Dev : le BFF de `pnpm dev --filter web` tourne sur l'hôte et appelle http://localhost:8000.
+  # Le secret BFF et le réseau de confiance restent exigés ; en production, seul « api ».
+  INTERNAL_API_HOSTS: api,localhost
   S3_ENDPOINT: http://s3:8333
   S3_BUCKET: jeflink-dev
   TIME_ZONE: Africa/Dakar

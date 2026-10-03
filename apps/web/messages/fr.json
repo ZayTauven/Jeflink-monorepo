@@ -6,5 +6,119 @@
   "home": {
     "title": "Le bon pro, au bon prix, travail garanti.",
     "lead": "Des pros vérifiés à Dakar, en français et en wolof."
+  },
+  "brand": {
+    "home": "Jeflink, accueil"
+  },
+  "connexion": {
+    "metaTitle": "Connexion · Jeflink",
+    "aside": {
+      "title": "Le bon pro, au bon prix, travail garanti.",
+      "verified": "Des pros vérifiés : identité contrôlée et référence sur le terrain.",
+      "price": "Un prix fixé avant que le travail commence.",
+      "guarantee": "Un travail garanti, et un recours si quelque chose ne va pas."
+    },
+    "phone": {
+      "title": "Connectez-vous avec votre numéro",
+      "lead": "On vous envoie un code par SMS. Pas de mot de passe à retenir.",
+      "label": "Numéro de téléphone",
+      "country": "Indicatif",
+      "placeholder": "Ex. 77 123 45 67",
+      "submit": "Recevoir le code",
+      "sending": "Envoi en cours…",
+      "terms": "En continuant, vous acceptez les <terms>conditions d'utilisation</terms> et la <privacy>politique de confidentialité</privacy>.",
+      "unavailable": "Votre session n'a pas pu être prolongée : le réseau ou notre service a mis trop de temps à répondre.",
+      "retry": "Réessayer"
+    },
+    "code": {
+      "title": "Entrez le code reçu par SMS",
+      "sentTo": "Code envoyé au {phone}.",
+      "change": "Modifier le numéro",
+      "label": "Code à {length} chiffres",
+      "delay": "Le SMS peut mettre 3 minutes à arriver.",
+      "submit": "Valider",
+      "checking": "Vérification…",
+      "resend": "Renvoyer le code",
+      "resending": "Envoi…",
+      "resent": "Nouveau code envoyé. Les codes déjà reçus restent valables.",
+      "helpToggle": "Je ne reçois pas le code",
+      "helpNumber": "Vérifiez le numéro affiché ci-dessus.",
+      "helpNetwork": "Vérifiez que votre téléphone capte le réseau.",
+      "helpWait": "Attendez 3 minutes : le SMS est parfois lent.",
+      "warning": "Ne donnez ce code à personne, pas même à un artisan."
+    },
+    "others": {
+      "title": "Vous êtes aussi connecté ailleurs",
+      "lead": "Votre compte est ouvert sur {count, plural, one {cet appareil} other {ces appareils}} :",
+      "seen": "actif {when}",
+      "question": "{count, plural, one {Le déconnecter ? Faites-le s'il n'est plus à vous.} other {Les déconnecter ? Faites-le si l'un d'eux n'est plus à vous.}}",
+      "yes": "Oui, déconnecter",
+      "no": "Non, garder",
+      "unknownDevice": "Appareil sans nom"
+    },
+    "dormant": {
+      "title": "Ce numéro a peut-être changé de propriétaire",
+      "lead": "Ce compte n'a pas servi depuis plus de 60 jours. Un numéro inutilisé peut être attribué à quelqu'un d'autre.",
+      "fresh": "Repartir de zéro",
+      "freshHint": "Repartir de zéro ouvre un compte neuf sur ce numéro et efface définitivement l'ancien.",
+      "mine": "C'est bien mon compte",
+      "mineHint": "Si c'est bien votre compte, le support vérifie avec vous puis le rouvre.",
+      "mineMessage": "Bonjour, je veux retrouver mon compte Jeflink resté inactif."
+    },
+    "name": {
+      "title": "Comment doit-on vous appeler ?",
+      "lead": "Votre prénom, votre nom, ou les deux. Il apparaîtra sur vos demandes.",
+      "label": "Votre nom",
+      "submit": "Continuer",
+      "later": "Plus tard",
+      "saving": "Enregistrement…"
+    },
+    "region": {
+      "title": "Jeflink est réservé aux numéros du Sénégal pour l'instant",
+      "lead": "Un proche à Dakar peut commander pour vous.",
+      "support": "Écrire au support",
+      "notify": "Me prévenir à l'ouverture",
+      "notifyMessage": "Bonjour, prévenez-moi quand Jeflink sera ouvert dans mon pays.",
+      "back": "Essayer un autre numéro"
+    },
+    "mfa": {
+      "title": "Ce compte se connecte sur la console",
+      "lead": "Les comptes de l'équipe Jeflink ont leur propre espace de connexion."
+    },
+    "support": {
+      "link": "Écrire au support sur WhatsApp",
+      "message": "Bonjour, je n'arrive pas à me connecter à Jeflink."
+    },
+    "done": "Connexion réussie. Redirection…",
+    "errors": {
+      "network": "Pas de connexion internet. Votre saisie est gardée : réessayez dès que le réseau revient.",
+      "generic": "Un problème est survenu de notre côté. Réessayez dans un instant.",
+      "phone_invalid": "Ce numéro semble incomplet. Vérifiez-le : 9 chiffres, par exemple 77 123 45 67.",
+      "phone_not_mobile": "Ce numéro n'est pas un mobile. Utilisez un numéro qui reçoit les SMS.",
+      "phone_region_not_supported": "Jeflink est réservé aux numéros du Sénégal pour l'instant.",
+      "otp_rate_limited": "Trop de codes demandés pour ce numéro. Réessayez un peu plus tard.",
+      "otp_rate_limited_wait": "Trop de codes demandés pour ce numéro. Réessayez dans {minutes, plural, one {# minute} other {# minutes}}.",
+      "otp_temporarily_unavailable": "L'envoi des SMS est interrompu pour le moment. Réessayez dans quelques minutes.",
+      "otp_request_in_progress": "Votre demande est déjà en cours. Patientez quelques secondes.",
+      "client_challenge_failed": "La vérification a échoué. Rechargez la page et réessayez.",
+      "otp_resend_too_early": "Patientez encore un peu avant de redemander un code.",
+      "otp_resend_too_early_wait": "Vous pourrez redemander un code dans {seconds} s.",
+      "otp_resend_exhausted": "Vous avez reçu le nombre maximum de codes pour cette demande. Recommencez avec votre numéro.",
+      "otp_challenge_invalid": "Cette demande de code n'est plus valable. Recommencez avec votre numéro.",
+      "otp_invalid": "Code incorrect. Vérifiez le dernier SMS reçu.",
+      "otp_invalid_remaining": "Code incorrect. {remaining, plural, =0 {Plus aucun essai.} one {Encore # essai.} other {Encore # essais.}}",
+      "otp_expired": "Ce code a expiré. Demandez-en un nouveau.",
+      "otp_locked": "Trop d'essais. Pour votre sécurité, recommencez avec votre numéro.",
+      "otp_already_used": "Ce code a déjà servi. Recommencez avec votre numéro.",
+      "terms_not_accepted": "Nos conditions ont changé. Rechargez la page pour continuer.",
+      "account_disabled": "Ce compte est suspendu. Le support peut vous aider.",
+      "account_not_allowed": "Ce compte ne peut pas se connecter ici. Le support peut vous aider.",
+      "fresh_start_not_allowed": "Impossible de repartir de zéro avec ce compte. Le support peut vous aider.",
+      "reauth_required": "Votre code date un peu. Recommencez avec votre numéro.",
+      "account_deletion_blocked": "Une opération est en cours sur ce compte : il ne peut pas être effacé maintenant. Le support peut vous aider.",
+      "display_name_length": "Le nom doit faire entre 2 et 80 caractères.",
+      "display_name_invalid": "Ce nom contient des caractères non acceptés. Utilisez des lettres et des espaces.",
+      "display_name_reserved": "Ce nom ne peut pas être utilisé : pas de lien, de numéro ni de nom réservé à Jeflink."
+    }
   }
 }

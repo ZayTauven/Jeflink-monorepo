@@ -813,6 +813,21 @@ Chaque tâche est livrable et testable seule, dans l'ordre indiqué. Une tâche 
      - challenge reprenable (`sessionStorage`), WebOTP ;
      - écran « région non couverte », erreurs avec support ;
      - `next` validé, i18n, revue design.
+
+     Fait (`apps/web/src/app/connexion/`), vérifié de bout en bout sur l'API locale (SMS factice) :
+     - étapes téléphone, code, autres appareils, compte dormant (« Repartir de zéro » ou support), nom ; écrans « région non couverte » et « compte de l'équipe » ;
+     - challenge en `sessionStorage`, `Idempotency-Key` par saisie, WebOTP, renvoi après `resend_available_at`, nouvel essai automatique au retour du réseau ;
+     - chaque code d'erreur a son libellé ; lien WhatsApp du support (`SUPPORT_WHATSAPP_NUMBER`, obligatoire en production) ;
+     - `next` revalidé ; `raison=indisponible` propose d'abord « Réessayer » ;
+     - revue design : aucun bloquant, constats corrigés.
+
+     Reste ouvert, hors code :
+     - le numéro WhatsApp du support ;
+     - les pages `/conditions` et `/confidentialite` (consultant juridique) ;
+     - l'audio d'aide « Je ne reçois pas le code » ;
+     - les textes et l'audio `wo` (Q12) ;
+     - la validation par Zay du logo SVG redessiné et du style du bouton principal (DESIGN.md).
+
   3. [sécu] **console — BFF** : montage, CSP stricte, politique de session ops.
   4. [sécu] **console — `/connexion` + TOTP** : OTP, puis saisie du jeton d'enrôlement et enrôlement, ou vérification ; fenêtre de step-up ; gardes de route (`/ops`, `/pro`, accès refusé) ; i18n, revue design.
 - client / pro :

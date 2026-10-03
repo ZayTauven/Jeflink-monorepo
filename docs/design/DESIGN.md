@@ -84,7 +84,7 @@ Source unique : `packages/ui-tokens`. Accent et polices **validés** (direction 
 
 Pourquoi `#FF6600` et pas le `#F55608` de Crafto : c'est l'orange exact du logo (flèche orange de `references/assets-originaux/Jeflink-illustrations (2).png`). Même direction, une seule couleur de marque.
 
-**Piège AA** : l'orange vif avec un libellé blanc (2,9:1) échoue. Le CTA principal est donc soit `accent` + libellé `on-accent` (sombre, écho au logo noir + orange), soit `accent-strong` + libellé blanc. Choisir l'un des deux et s'y tenir partout.
+**Piège AA** : l'orange vif avec un libellé blanc (2,9:1) échoue. Le CTA principal est donc soit `accent` + libellé `on-accent` (sombre, écho au logo noir + orange), soit `accent-strong` + libellé blanc. Choisir l'un des deux et s'y tenir partout. **Retenu (2026-10-01, à valider par Zay)** : `accent` + libellé `on-accent`, survol en `accent-strong` + libellé `surface` (`apps/web/src/components/ui/button.tsx`).
 
 Mode sombre (console uniquement) : mêmes noms de tokens redéfinis. `accent` reste `#FF6600` (5,6:1 sur `#1B1F26`, utilisable en texte), `ink-muted` devient `#A3A9B5` (7,0:1). Jamais de couleur en dur dans un composant.
 

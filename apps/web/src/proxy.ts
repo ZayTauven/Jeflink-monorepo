@@ -21,7 +21,9 @@ function contentSecurityPolicy(nonce: string): string {
     "default-src 'self'",
     // `unsafe-eval` en dev seulement : React s'en sert pour ses traces d'erreur.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
-    `style-src 'self' 'nonce-${nonce}'`,
+    // Dev : Next injecte ses styles en ligne (indicateur, rechargement) ; un nonce rendrait
+    // `unsafe-inline` inopérant, d'où une directive à part. Production : nonce strict.
+    dev ? "style-src 'self' 'unsafe-inline'" : `style-src 'self' 'nonce-${nonce}'`,
     "img-src 'self' blob: data:",
     "font-src 'self'",
     "connect-src 'self'",
