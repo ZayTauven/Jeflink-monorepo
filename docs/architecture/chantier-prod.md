@@ -41,3 +41,8 @@ Règle : un besoin prod repéré pendant une feature s'ajoute à cette liste, av
 | Rétention des demandes et réservations : le repère et la position d'une demande close avec réservation restent jusqu'à la durée fixée à l'étape 4 (garantie, litiges) ; déclarer le traitement à la CDP | spec 003, api 3 |
 | Limite de 10 créations de demande par jour : fermée si Redis tombe (503) ; vérifier le dimensionnement du Redis d'auth et l'alerte `ratelimit_unavailable` | spec 003, api 3 |
 | Redémarrer `worker` et `beat` à chaque déploiement qui change les tâches planifiées (`requests.tasks.expire_due`, `purge_locations`, `bookings.tasks.cancel_unconfirmed`) | spec 003, api 3 à 5 |
+| Limite par compte des signaux `UnservedDemand` (anti-pollution), et aucun signal pour un compte `is_review_account` | spec 003, revue sécurité |
+| Limite des renvois de devis par (pro, demande) et des envois par pro sur 24 h, avant de brancher push et SMS | spec 003, revue sécurité |
+| Test d'architecture élargi : `.update(`, `.create(`, `setattr` et `**` sur `status` partout dans `jeflink/` | spec 003, revue sécurité |
+| Refuser une position hors de la zone choisie (`422 location_invalid`, avec marge) | spec 003, revue sécurité |
+| Lancer `manage.py check --database default` à chaque déploiement, pour `providers.E001` (pros de démo hors local/test) | spec 003, revue sécurité |

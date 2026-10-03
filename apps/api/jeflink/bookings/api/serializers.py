@@ -9,7 +9,7 @@ from typing import Any
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from jeflink.bookings.machine import DISCLOSED_STATUSES
+from jeflink.bookings.machine import DISCLOSED_STATUSES, Actor
 from jeflink.bookings.models import Booking
 from jeflink.requests.api.refs import (
     ServiceRefSerializer,
@@ -44,6 +44,7 @@ class ClientBookingSerializer(serializers.ModelSerializer):
     quote = serializers.SlugRelatedField(slug_field="public_id", read_only=True)
     contact = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField()
+    cancel_reason = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -66,6 +67,14 @@ class ClientBookingSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+    @extend_schema_field(serializers.CharField())
+    def get_cancel_reason(self, booking: Booking) -> str:
+        """Message neutre : si le pro (ou le système) annule, le client ne voit jamais le motif
+        (``too_far``, ``job_mismatch``…), seulement ``pro_withdrew``. Ses propres motifs restent."""
+        if booking.cancelled_by in {Actor.PRO, Actor.SYSTEM}:
+            return "pro_withdrew"
+        return booking.cancel_reason
 
     @extend_schema_field(ClientContactSerializer(allow_null=True))
     def get_contact(self, booking: Booking) -> dict[str, str] | None:

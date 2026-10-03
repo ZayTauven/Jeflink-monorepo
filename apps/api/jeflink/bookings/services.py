@@ -115,16 +115,19 @@ def transition(
 # --- Création : le client accepte un devis ----------------------------------------------------
 
 
-def _lock_accounts(*users: User) -> dict[int, User]:
+def _lock_accounts(actor: User, *others: User) -> dict[int, User]:
     """Verrouille les comptes dans l'ordre des id (jamais d'interblocage) et les relit."""
     locked = {
         user.pk: user
         for user in User.objects.select_for_update(no_key=True)
-        .filter(pk__in={u.pk for u in users})
+        .filter(pk__in={u.pk for u in (actor, *others)})
         .order_by("pk")
     }
     for user in locked.values():
         if not user.is_active or user.is_deleted:
+            # Le compte d'un tiers (le pro) ne se révèle pas : devis indisponible.
+            if user.pk != actor.pk:
+                raise DomainError("quote_not_available", status=409)
             raise DomainError("account_disabled", status=403)
     return locked
 
@@ -334,7 +337,9 @@ def cancel_for_suspended_provider(provider: Provider) -> int:
     """Suspension d'un pro : ses réservations actives sont annulées (système,
     ``provider_suspended``). Appelée dans la transaction de ``providers.set_status``."""
     cancelled = 0
-    active = Booking.objects.filter(provider=provider, status__in=Booking.ACTIVE)
+    active = Booking.objects.filter(provider=provider, status__in=Booking.ACTIVE).order_by(
+        "request_id"
+    )  # verrous dans l'ordre croissant
     for booking in list(active):
         _, request, locked = _lock_for_booking(booking)
         if locked.status not in Booking.ACTIVE:

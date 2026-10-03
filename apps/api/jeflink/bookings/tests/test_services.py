@@ -570,3 +570,36 @@ def test_la_pro_suspendu_lit_encore_ses_reservations():
     Provider.objects.filter(pk=scene.providers[0].pk).update(status="suspended")
     provider = Provider.objects.get(pk=scene.providers[0].pk)
     assert list(bookings_for_provider(provider=provider)) == [booking]
+
+
+def test_compte_du_pro_desactive_a_l_acceptation_est_un_409():
+    scene = make_scene()
+    User.objects.filter(pk=scene.providers[0].owner_id).update(
+        is_active=False, deactivation_reason="ops_other"
+    )
+    with expect("quote_not_available"):
+        services.create_from_quote(quote=scene.quotes[0], actor=scene.client)
+
+
+def test_devis_held_d_un_pro_suspendu_ne_revient_pas():
+    scene = make_scene(pros=3)
+    booking = accept(scene, 0)
+    set_status(provider=scene.providers[1], to=Provider.Status.SUSPENDED, actor=scene.client)
+    refresh(*scene.quotes)
+    assert scene.quotes[1].status == QStatus.WITHDRAWN  # retiré à la suspension
+    services.cancel_booking(
+        booking=booking, actor=scene.providers[0].owner, actor_kind=Actor.PRO, reason="unavailable"
+    )
+    refresh(*scene.quotes, scene.request)
+    assert [q.status for q in scene.quotes] == [QStatus.WITHDRAWN] * 2 + [QStatus.SUBMITTED]
+
+
+def test_release_ne_reactive_que_les_pros_verifies():
+    scene = make_scene(pros=2)
+    booking = accept(scene, 0)
+    Provider.objects.filter(pk=scene.providers[1].pk).update(status="suspended")  # sans handler
+    services.cancel_booking(
+        booking=booking, actor=scene.providers[0].owner, actor_kind=Actor.PRO, reason="unavailable"
+    )
+    refresh(scene.quotes[1], scene.request)
+    assert scene.quotes[1].status == QStatus.EXPIRED and scene.request.status == RStatus.OPEN

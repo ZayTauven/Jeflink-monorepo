@@ -187,3 +187,29 @@ def test_annulation_invalide(api_client, data, code, status):
     assert (response.status_code, response.json()["code"]) == (status, code)
     booking.refresh_from_db()
     assert booking.status == "accepted"
+
+
+@pytest.mark.parametrize("reason", ["too_far", "job_mismatch"])
+def test_le_client_ne_voit_jamais_le_motif_du_pro(api_client, reason):
+    from jeflink.bookings.machine import Actor
+    from jeflink.bookings.services import cancel_booking
+
+    scene = make_scene(pros=1)
+    booking = accept(scene)
+    cancel_booking(
+        booking=booking, actor=scene.providers[0].owner, actor_kind=Actor.PRO, reason=reason
+    )
+    api = bearer(api_client, scene.client)
+    data = api.get(reverse("booking-detail", args=[booking.public_id])).json()
+    assert (data["cancelled_by"], data["cancel_reason"]) == ("pro", "pro_withdrew")
+    assert reason not in str(data)
+
+
+def test_le_client_garde_son_propre_motif(api_client):
+    scene = make_scene(pros=1)
+    booking = accept(scene)
+    api = bearer(api_client, scene.client)
+    data = api.post(
+        reverse("booking-cancel", args=[booking.public_id]), {"reason": "price"}, format="json"
+    ).json()
+    assert data["cancel_reason"] == "price"

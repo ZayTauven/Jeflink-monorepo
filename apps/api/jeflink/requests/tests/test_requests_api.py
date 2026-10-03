@@ -331,3 +331,41 @@ def test_annulation_par_un_autre_404_et_sans_session_401(api_client):
     assert api.post(url, {"reason": "price"}, format="json").status_code == 404
     request.refresh_from_db()
     assert request.status == "open"
+
+
+def test_libelle_de_ligne_masque_avant_scheduled(api_client):
+    from jeflink.requests.models import QuoteLine
+
+    scene = make_scene(pros=1)
+    QuoteLine.objects.filter(quote=scene.quotes[0]).update(label="Appelez 77 123 45 67")
+    api = bearer(api_client, scene.client)
+    url = reverse("request-detail", args=[scene.request.public_id])
+    label = api.get(url).json()["quotes"][0]["lines"][0]["label"]
+    assert "123" not in label and "••••" in label
+    confirm(accept(scene))
+    assert api.get(url).json()["quotes"][0]["lines"][0]["label"] == "Appelez 77 123 45 67"
+
+
+def test_integrity_error_inattendue_sans_detail_postgres(complete_user_factory, monkeypatch):
+    from django.db import IntegrityError
+
+    from jeflink.common.errors import DomainError
+    from jeflink.requests import services
+    from jeflink.requests.drafts import RequestDraft
+
+    def boom(**kwargs):
+        raise IntegrityError("DETAIL: Key (landmark)=(portail bleu secret) violates")
+
+    monkeypatch.setattr(services, "_insert", boom)
+    trade = TradeFactory(slug="plomberie")
+    ZoneFactory(slug="ouakam", trades=[trade])
+    draft = RequestDraft(
+        trade_slug="plomberie", zone_slug="ouakam", landmark="x", description="abc"
+    )
+    with pytest.raises(DomainError) as exc:
+        services.create_request(
+            client=complete_user_factory(), draft=draft, channel="web", idempotency_key="k" * 30
+        )
+    assert (exc.value.code, exc.value.status_code) == ("request_create_failed", 500)
+    assert exc.value.__cause__ is None and exc.value.__suppress_context__
+    assert "secret" not in str(exc.value)

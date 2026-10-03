@@ -264,7 +264,8 @@ def create_request(
         # Course sur la même clé : la première création gagne.
         existing = _replay(client, idempotency_key, digest)
         if existing is None:
-            raise
+            # Jamais le DETAIL de PostgreSQL (repère, position) : ni message, ni chaîne.
+            raise DomainError("request_create_failed", status=500) from None
         return CreatedRequest(existing, created=False)
     return CreatedRequest(request, created=True)
 

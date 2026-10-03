@@ -65,9 +65,19 @@ class ReasonSerializer(serializers.Serializer):
 # --- Vue du client -----------------------------------------------------------------------------
 
 
+class ClientQuoteLineSerializer(QuoteLineSerializer):
+    """Ligne de devis vue du client : le libellé suit la règle du message (numéros masqués)."""
+
+    label = serializers.SerializerMethodField()
+
+    def get_label(self, line) -> str:
+        disclosed = line.quote_id in self.context.get("disclosed_quotes", ())
+        return masked(line.label, disclosed=disclosed)
+
+
 class ClientQuoteSerializer(serializers.ModelSerializer):
     provider = ClientProviderSerializer()
-    lines = QuoteLineSerializer(many=True)
+    lines = ClientQuoteLineSerializer(many=True)
     message = serializers.SerializerMethodField()
 
     class Meta:

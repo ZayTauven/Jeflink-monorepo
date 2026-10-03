@@ -19,6 +19,7 @@ export * from './clientBooking.ts';
 export * from './clientContact.ts';
 export * from './clientProvider.ts';
 export * from './clientQuote.ts';
+export * from './clientQuoteLine.ts';
 export * from './clientRequest.ts';
 export * from './deletionConfirmRequest.ts';
 export * from './devicePlatformEnum.ts';

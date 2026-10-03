@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ClientProvider } from './clientProvider.ts';
+import type { ClientQuoteLine } from './clientQuoteLine.ts';
 import type { QuoteKindEnum } from './quoteKindEnum.ts';
-import type { QuoteLine } from './quoteLine.ts';
 import type { QuoteStatusEnum } from './quoteStatusEnum.ts';
 
 export interface ClientQuote {
@@ -22,5 +22,5 @@ export interface ClientQuote {
   readonly slot_end: string;
   readonly valid_until: string;
   provider: ClientProvider;
-  lines: QuoteLine[];
+  lines: ClientQuoteLine[];
 }

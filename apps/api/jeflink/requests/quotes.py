@@ -149,12 +149,12 @@ def submit_quote(
                 digest=digest,
                 now=now,
             )
-    except IntegrityError as exc:
+    except IntegrityError:
         # Course : même clé (la première gagne) ou deuxième devis actif du même pro.
         existing = _replay(provider, idempotency_key, digest)
         if existing is not None:
             return CreatedQuote(existing, created=False)
-        raise DomainError("quote_already_sent", status=409) from exc
+        raise DomainError("quote_already_sent", status=409) from None
     return CreatedQuote(quote, created=True)
 
 
@@ -324,7 +324,10 @@ def release_after_pro_cancel(
     quote.status = Status.WITHDRAWN
     quote.save(update_fields=["status", "updated_at"])
     held = request.quotes.filter(status=Status.HELD)
-    held.filter(valid_until__gt=now).update(status=Status.SUBMITTED, updated_at=now)
+    # Seuls les devis de pros encore vérifiés reviennent (jamais celui d'un pro suspendu).
+    held.filter(valid_until__gt=now, provider__status=Provider.Status.VERIFIED).update(
+        status=Status.SUBMITTED, updated_at=now
+    )
     held.update(status=Status.EXPIRED, updated_at=now)
     request.excluded_providers.add(provider)
     back = (
@@ -336,12 +339,14 @@ def release_after_pro_cancel(
 
 
 def withdraw_for_provider(provider: Provider) -> int:
-    """Suspension du pro : ses devis ``submitted`` sont retirés (acteur système)."""
+    """Suspension du pro : ses devis ``submitted`` et ``held`` sont retirés (acteur système)."""
     withdrawn = 0
-    ids = Quote.objects.filter(provider=provider, status=Status.SUBMITTED)
-    for request_id in set(ids.values_list("request_id", flat=True)):
+    waiting = (Status.SUBMITTED, Status.HELD)
+    ids = Quote.objects.filter(provider=provider, status__in=waiting)
+    # Verrous dans l'ordre croissant des id : jamais d'interblocage.
+    for request_id in sorted(set(ids.values_list("request_id", flat=True))):
         request = ServiceRequest.objects.select_for_update().get(pk=request_id)
-        count = request.quotes.filter(provider=provider, status=Status.SUBMITTED).update(
+        count = request.quotes.filter(provider=provider, status__in=waiting).update(
             status=Status.WITHDRAWN, updated_at=timezone.now()
         )
         withdrawn += count

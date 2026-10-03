@@ -1929,7 +1929,7 @@ components:
         lines:
           type: array
           items:
-            $ref: '#/components/schemas/QuoteLine'
+            $ref: '#/components/schemas/ClientQuoteLine'
       required:
       - kind
       - lines
@@ -1942,6 +1942,25 @@ components:
       - total_xof
       - valid_until
       - visit_deductible
+    ClientQuoteLine:
+      type: object
+      description: 'Ligne de devis vue du client : le libellé suit la règle du message
+        (numéros masqués).'
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/QuoteLineKindEnum'
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        amount_xof:
+          type: integer
+          readOnly: true
+      required:
+      - amount_xof
+      - kind
+      - label
     ClientRequest:
       type: object
       description: 'Détail : la demande, ses devis (3 au plus) et sa réservation active,
