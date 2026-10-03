@@ -24,9 +24,10 @@ Le skill `jeflink-django-domain` contient les gabarits. `/domain <nom>` génère
 
 ## Conventions
 
-- Identifiants publics : UUID (`public_id`). L'`id` entier ne sort jamais de l'API.
+- Identifiants publics : UUID (`public_id`). L'`id` entier ne sort jamais de l'API. Exception : les données de référence (métiers, services, zones) sont identifiées par leur **slug**, figé après création (URL SEO, IA ; spec 002).
 - Argent : `PositiveBigIntegerField` en XOF. Helper `money.format_xof()` pour l'affichage.
-- Géo : `PointField(srid=4326)` ; zones en `MultiPolygonField`. Distances en `geography=True`.
+- Géo : `PointField(srid=4326)`. Une zone est un centre et un rayon ; son contour (`MultiPolygonField`) est optionnel et prime sur le cercle. Plusieurs zones possibles pour un point : le client choisit (`zones.selectors.zones_for_point`).
+- Recherche par les mots des clients : `jeflink.common.search` (`normalize`, `match`), miroir TS dans `@jeflink/api-client/search`, mêmes vecteurs de test.
 - Réservations : transitions uniquement via `bookings.services.transition(booking, to, actor, reason)`.
 - Authentification : Bearer JWT seulement (`SessionJWTAuthentication`), ni session Django, ni CSRF, ni CORS côté API. Le web et la console passent par le BFF Next.
 - Permissions (`jeflink/accounts/permissions.py`) : `IsClient` (par défaut ; refuse les sessions restreintes, les comptes inactifs, supprimés ou techniques), `AllowRestrictedSession` (liste blanche testée), `RequiresCompleteProfile`, `RequiresRecentAuth(max_age)`, `HasOwnerRole`, `HasTechnicianRole`, `HasOpsPerm("ops.<domaine>.<action>", step_up=…)` (paramètre explicite, jamais `is_superuser`). `IsProOwner` et `IsTechnicianAssigned` refusent par défaut tant que `providers` et `bookings` ne les remplacent pas.

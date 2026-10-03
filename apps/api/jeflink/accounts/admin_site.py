@@ -179,7 +179,7 @@ def admin_mfa_valid(request: HttpRequest) -> bool:
 class JeflinkAdminSite(admin.AdminSite):
     site_header = "Jeflink · administration technique"
     site_title = "Jeflink admin"
-    index_title = "Lecture seule"
+    index_title = "Lecture seule, sauf la saisie du catalogue et des zones"
     login_form = AdminTotpAuthenticationForm
 
     def has_permission(self, request: HttpRequest) -> bool:

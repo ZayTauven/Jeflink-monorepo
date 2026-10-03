@@ -18,6 +18,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", HealthView.as_view(), name="health"),
     path("api/", include("jeflink.accounts.api.urls")),
+    path("api/catalog/", include("jeflink.catalog.api.urls")),
+    path("api/zones/", include("jeflink.zones.api.urls")),
 ]
 
 # Schéma et documentation seulement en local/test ; `make openapi` passe par la commande (S24).

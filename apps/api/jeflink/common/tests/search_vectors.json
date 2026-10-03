@@ -1,0 +1,36 @@
+{
+  "_doc": "Vecteurs partagés par jeflink.common.search (Python) et packages/api-client/src/search (TS). Spec 002.",
+  "normalize": [
+    ["Sacré-Cœur", "sacre coeur"],
+    ["  Patte d'Oie ", "patte d oie"],
+    ["Patte d’Oie", "patte d oie"],
+    ["GUÉDIAWAYE", "guediawaye"],
+    ["Cambérène", "camberene"],
+    ["Fass – Colobane", "fass colobane"],
+    ["Électroménager", "electromenager"],
+    ["Sicap Liberté 6", "sicap liberte 6"],
+    ["chasse d'eau.", "chasse d eau"],
+    ["Ex æquo", "ex aequo"],
+    ["", ""],
+    ["--", ""]
+  ],
+  "match": [
+    { "query": "PA", "terms": ["Parcelles Assainies", "Parcelles", "PA", "Unité 15"], "rank": 0 },
+    { "query": "pa", "terms": ["Patte d'Oie", "Patte d'oie", "Pattedoie"], "rank": null },
+    { "query": "parcelle", "terms": ["Parcelles Assainies", "Parcelles"], "rank": 1 },
+    { "query": "Sacre Coeur", "terms": ["Sacré-Cœur", "Sacré-Cœur 1"], "rank": 0 },
+    { "query": "sacrecoeur", "terms": ["Sacré-Cœur"], "rank": 0 },
+    { "query": "Sicap", "terms": ["Liberté", "Sicap", "Sicap Liberté"], "rank": 0 },
+    { "query": "baobab", "terms": ["Liberté", "Sicap Baobab"], "rank": 2 },
+    { "query": "frigoriste", "terms": ["Froid et climatisation", "frigoriste", "clim"], "rank": 0 },
+    { "query": "frigo", "terms": ["Froid et climatisation", "frigoriste", "clim"], "rank": 1 },
+    { "query": "pattedoie", "terms": ["Patte d'Oie"], "rank": 0 },
+    { "query": "patte d", "terms": ["Patte d'Oie"], "rank": 1 },
+    { "query": "assainies", "terms": ["Parcelles Assainies"], "rank": 2 },
+    { "query": "Dakar", "terms": ["Grand Dakar"], "rank": 2 },
+    { "query": "gorée", "terms": ["Plateau", "Sandaga", "Dakar centre"], "rank": null },
+    { "query": "   ", "terms": ["Plateau"], "rank": null },
+    { "query": "hl", "terms": ["HLM", "HLM Grand Yoff"], "rank": null },
+    { "query": "hlm", "terms": ["HLM Grand Yoff", "HLM"], "rank": 0 }
+  ]
+}

@@ -338,6 +338,47 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/catalog/trades/:
+    get:
+      operationId: catalog_trades_list
+      description: Métiers actifs, par ``position`` (spec 002).
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TradeSummary'
+          description: ''
+  /api/catalog/trades/{slug}/:
+    get:
+      operationId: catalog_trade_retrieve
+      description: Un métier, ses services actifs et les zones où il est ouvert (pages
+        SEO).
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeDetail'
+          description: ''
+        '404':
+          description: trade_not_found
   /api/health/:
     get:
       operationId: health
@@ -1043,6 +1084,56 @@ paths:
           description: phone_change_closed
         '429':
           description: otp_rate_limited, phone_change_codes_exhausted
+  /api/zones/:
+    get:
+      operationId: zones_list
+      description: Zones actives de villes actives, par popularité puis nom (spec
+        002).
+      parameters:
+      - in: query
+        name: city
+        schema:
+          type: string
+        description: Slug de la ville (ex. dakar).
+      tags:
+      - zones
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Zone'
+          description: ''
+  /api/zones/{slug}/trades/:
+    get:
+      operationId: zone_trades_list
+      description: Métiers ouverts dans une zone, sous la même forme que la liste
+        des métiers.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - zones
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TradeSummary'
+          description: ''
+        '404':
+          description: zone_not_found
 components:
   schemas:
     AcceptInvitationRequest:
@@ -1248,6 +1339,19 @@ components:
       - invited_by_name
       - public_id
       - role
+    LocalizedText:
+      type: object
+      description: 'Libellé traduisible : le front choisit la langue et retombe sur
+        ``fr`` (ADR 0009).'
+      properties:
+        fr:
+          type: string
+        wo:
+          type: string
+          nullable: true
+      required:
+      - fr
+      - wo
     Me:
       type: object
       properties:
@@ -1942,6 +2046,30 @@ components:
       description: |-
         * `owner` - owner
         * `technician` - technician
+    Service:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+        aliases:
+          type: array
+          items:
+            type: string
+        price_from_xof:
+          type: integer
+          nullable: true
+        urgent:
+          type: boolean
+      required:
+      - aliases
+      - name
+      - price_from_xof
+      - slug
+      - urgent
     StatusEnum:
       enum:
       - authenticated
@@ -2013,3 +2141,97 @@ components:
       required:
       - otpauth_uri
       - secret
+    TradeDetail:
+      type: object
+      description: 'Métier dans une liste : de quoi chercher et afficher, hors ligne
+        compris.'
+      properties:
+        slug:
+          type: string
+        name:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+        short_description:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+          nullable: true
+        icon_key:
+          type: string
+          nullable: true
+          readOnly: true
+        aliases:
+          type: array
+          items:
+            type: string
+        seo_title:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/Service'
+        zones:
+          type: array
+          items:
+            type: string
+      required:
+      - aliases
+      - icon_key
+      - name
+      - seo_title
+      - services
+      - short_description
+      - slug
+      - zones
+    TradeSummary:
+      type: object
+      description: 'Métier dans une liste : de quoi chercher et afficher, hors ligne
+        compris.'
+      properties:
+        slug:
+          type: string
+        name:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+        short_description:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+          nullable: true
+        icon_key:
+          type: string
+          nullable: true
+          readOnly: true
+        aliases:
+          type: array
+          items:
+            type: string
+      required:
+      - aliases
+      - icon_key
+      - name
+      - short_description
+      - slug
+    Zone:
+      type: object
+      description: 'Zone dans une liste : ni position, ni géométrie (spec 002).'
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+      required:
+      - aliases
+      - city
+      - name
+      - slug

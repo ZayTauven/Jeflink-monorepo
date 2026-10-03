@@ -32,6 +32,8 @@ INSTALLED_APPS = [
     "jeflink.trust",
     "jeflink.notifications",
     "jeflink.accounts",
+    "jeflink.catalog",
+    "jeflink.zones",
 ]
 
 MIDDLEWARE = [
@@ -189,7 +191,11 @@ IP_RATE_LIMITS = {
     "mfa": {"limit": 30, "window": 600},
     "mfa_step_up": {"limit": 10, "window": 600},
     "me_deletion": {"limit": 10, "window": 600},
+    # Catalogue et zones, publics et cacheables (spec 002) : large pour le CGNAT.
+    "catalog_read": {"limit": 600, "window": 60},
 }
+# Listes de référence bornées sans pagination (spec 002) : quelques dizaines de lignes en V1.
+REFERENCE_LIST_MAX = 200
 # Quotas par Ops (décision de Zay, revue sécurité tâche 15, I2) : contre l'aspiration de la
 # base par un Ops malveillant ou un compte compromis. Alerte à 50 %, refus au-delà.
 OPS_QUOTAS = {
