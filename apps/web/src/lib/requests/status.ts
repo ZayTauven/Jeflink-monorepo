@@ -57,6 +57,7 @@ type BookingLike = {
   request: string;
   status: string;
   cancelled_by: string;
+  cancel_reason?: string;
   created_at: string;
 };
 
@@ -73,5 +74,10 @@ export function providerWithdrew(
   const last = bookings
     .filter((booking) => booking.request === requestId && booking.status === "cancelled")
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
-  return last !== undefined && (last.cancelled_by === "pro" || last.cancelled_by === "system");
+  return (
+    last !== undefined &&
+    (last.cancelled_by === "pro" ||
+      last.cancelled_by === "system" ||
+      last.cancel_reason === "pro_withdrew")
+  );
 }

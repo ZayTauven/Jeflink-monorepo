@@ -17,9 +17,11 @@ import {
   serializeDraft,
 } from "./draft.ts";
 import { REQUEST_ERROR_CODES, candidatesFrom, describeRequestError } from "./errors.ts";
+import { reconcileDraft } from "./catalog.ts";
 import { dakarToday, formatClock, formatDateTime, formatXof, slotLabel } from "./format.ts";
 import { cursorFromNext, isUuid, safeCursor } from "./ids.ts";
 import { buildRequestBody, hasErrors, validateDraft, withZoneChoice } from "./payload.ts";
+import { callAction } from "./result.ts";
 import { choosableQuotes, readableLabel, sortQuotes } from "./quotes.ts";
 import { searchTrades, searchZones } from "./search.ts";
 import { providerWithdrew, validateCancel } from "./status.ts";
@@ -604,5 +606,82 @@ describe("identifiants et curseurs", () => {
     assert.equal(safeCursor("<script>"), undefined);
     assert.equal(safeCursor("a".repeat(201)), undefined);
     assert.equal(safeCursor(undefined), undefined);
+  });
+});
+
+describe("désistement signalé par cancel_reason", () => {
+  it("pro_withdrew suffit, même sans cancelled_by lisible", () => {
+    assert.equal(
+      providerWithdrew("r1", "open", [
+        {
+          request: "r1",
+          status: "cancelled",
+          cancelled_by: "",
+          cancel_reason: "pro_withdrew",
+          created_at: "2026-10-03T10:00:00Z",
+        },
+      ]),
+      true,
+    );
+  });
+});
+
+describe("reconcileDraft", () => {
+  const trades = [
+    {
+      slug: "plomberie",
+      name: "Plomberie",
+      aliases: [],
+      services: [{ slug: "fuite", name: "Fuite", aliases: [], urgent: true }],
+    },
+  ];
+  const zones = [{ slug: "ouakam", name: "Ouakam", city: "dakar", aliases: [] }];
+  it("vide ce que le catalogue ne connaît plus", () => {
+    const draft = {
+      ...emptyDraft(),
+      tradeSlug: "disparu",
+      serviceSlug: "fuite",
+      zoneSlug: "ailleurs",
+    };
+    const out = reconcileDraft(draft, trades, zones);
+    assert.deepEqual([out.tradeSlug, out.serviceSlug, out.zoneSlug], ["", "", ""]);
+  });
+  it("garde ce qui existe", () => {
+    const draft = {
+      ...emptyDraft(),
+      tradeSlug: "plomberie",
+      serviceSlug: "fuite",
+      zoneSlug: "ouakam",
+    };
+    assert.deepEqual(reconcileDraft(draft, trades, zones), draft);
+  });
+});
+
+describe("callAction", () => {
+  const ok = { ok: true as const, data: 1 };
+  it("rejoue une fois après un rafraîchissement réussi", async () => {
+    let calls = 0;
+    const result = await callAction(
+      async () => (++calls === 1 ? { needsRefresh: true as const } : ok),
+      async () => true,
+    );
+    assert.deepEqual(result, ok);
+    assert.equal(calls, 2);
+  });
+  it("session perdue si le rafraîchissement échoue ou si le serveur le redemande", async () => {
+    const again = async () => ({ needsRefresh: true as const });
+    const failed = await callAction(again, async () => false);
+    assert.equal("error" in failed && failed.error.login, true);
+    const loop = await callAction(again, async () => true);
+    assert.equal("error" in loop && loop.error.login, true);
+  });
+  it("une exception devient une erreur network", async () => {
+    const result = await callAction(
+      async () => {
+        throw new TypeError("fetch failed");
+      },
+      async () => true,
+    );
+    assert.equal("error" in result && result.error.code, "network");
   });
 });

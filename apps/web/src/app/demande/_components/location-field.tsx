@@ -43,7 +43,7 @@ export function LocationField({
 
   return (
     <section className="flex flex-col gap-3 rounded-card border border-line bg-sand p-4">
-      <h3 className="text-base font-medium text-ink">{t("title")}</h3>
+      <p className="text-base font-medium text-ink">{t("title")}</p>
       <p className="text-sm leading-relaxed text-ink-muted">{t("lead")}</p>
       {location ? (
         <>

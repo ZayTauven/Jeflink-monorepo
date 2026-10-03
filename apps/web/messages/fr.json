@@ -166,7 +166,8 @@
         "other": "Autre quartier, ou je ne sais pas",
         "otherLabel": "Nom du quartier",
         "otherHint": "Écrivez-le comme vous le dites : nous le vérifions et nous vous répondons.",
-        "otherPlaceholder": "Ex. Cité Keur Gorgui"
+        "otherPlaceholder": "Ex. Cité Keur Gorgui",
+        "moreHint": "Il y a d'autres choix : tapez quelques lettres dans la recherche."
       },
       "landmark": {
         "label": "Repère pour trouver l'endroit",
@@ -219,7 +220,8 @@
         "lead": "Votre position touche plusieurs quartiers. Choisissez le bon : votre demande n'est pas encore envoyée.",
         "choose": "C'est {name}"
       },
-      "relogin": "Se reconnecter"
+      "relogin": "Se reconnecter",
+      "moreHint": "Il y a d'autres choix : tapez quelques lettres dans la recherche."
     },
     "list": {
       "metaTitle": "Mes demandes · Jeflink",
@@ -281,12 +283,13 @@
         "until": "Demande valable jusqu'au {date}."
       },
       "quotes": {
-        "title": "{count, plural, one {# devis à comparer} other {# devis à comparer}}",
+        "title": "{count} à comparer",
         "lead": "Comparez les créneaux et les prix, puis choisissez. Les devis sont classés par créneau, du plus proche au plus lointain.",
         "contactNotice": "Les coordonnées sont partagées après confirmation.",
         "withdrew": "Le pro ne peut plus venir, voici vos autres devis.",
         "withdrewNone": "Le pro ne peut plus venir. Nous cherchons un autre pro pour vous."
-      }
+      },
+      "loading": "Chargement…"
     },
     "quote": {
       "fixed": "Prix ferme",
@@ -315,7 +318,7 @@
       },
       "confirm": {
         "title": "Choisir ce devis ?",
-        "lead": "Vous choisissez {name} pour {amount}, {slot}.",
+        "lead": "Vous choisissez {name} pour {amount}. Créneau : {slot}.",
         "visitNote": "Ce prix est celui de la visite. Le prix des travaux se fixe avec le pro, sur place.",
         "next": "Le pro doit confirmer le créneau. Vos autres devis sont gardés au cas où.",
         "yes": "Oui, choisir ce pro",
@@ -327,7 +330,7 @@
     "waiting": {
       "title": "En attente de la confirmation du pro",
       "lead": "{name} a jusqu'à {when} ; sinon vous retrouvez vos autres devis.",
-      "slot": "Créneau choisi : {slot}",
+      "slot": "Créneau choisi : {slot}, {range}",
       "notice": "Les coordonnées sont partagées après confirmation."
     },
     "booked": {
@@ -336,12 +339,12 @@
       "pro": "Pro",
       "amount": "Prix du devis",
       "visitReminder": "Devis de visite : le prix des travaux se fixe avec le pro, sur place.",
-      "phone": "Téléphone",
       "call": "Appeler {name}",
       "whatsapp": "WhatsApp",
-      "whatsappMessage": "Bonjour, je vous écris au sujet de ma réservation Jeflink : {slot}.",
+      "whatsappMessage": "Bonjour, je vous écris au sujet de ma réservation Jeflink : {slot}, {range}.",
       "payment": "À régler au pro, en espèces ou par mobile money. Jeflink ne garde aucun argent pour l'instant.",
-      "noContact": "Les coordonnées du pro apparaissent ici dès la confirmation."
+      "noContact": "Les coordonnées du pro apparaissent ici dès la confirmation.",
+      "phoneLine": "Téléphone : {number}"
     },
     "cancel": {
       "openRequest": "Annuler cette demande",
@@ -425,6 +428,9 @@
       "display_name_length": "Votre nom est trop court ou trop long.",
       "display_name_invalid": "Ce nom n'est pas accepté. Écrivez votre prénom ou votre nom.",
       "display_name_reserved": "Ce nom n'est pas disponible. Choisissez-en un autre."
+    },
+    "cancelReasons": {
+      "pro_withdrew": "Le pro ne peut plus venir."
     }
   }
 }

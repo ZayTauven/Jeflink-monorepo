@@ -5,7 +5,7 @@
 // étape de confirmation dans la page (pas de `window.confirm`), puis la page affiche l'attente.
 import { refreshWebSession } from "@jeflink/api-client/web";
 import type { ClientQuote } from "@jeflink/api-client";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
@@ -33,6 +33,7 @@ function QuoteCard({
   children: React.ReactNode;
 }) {
   const t = useTranslations("requests.quote");
+  const locale = useLocale();
   const slot = useSlotText(now)(quote.slot_start, quote.slot_end);
   const titleId = `quote-${quote.public_id}`;
   return (
@@ -98,7 +99,7 @@ function QuoteCard({
         ) : null}
 
         <p className="text-sm text-ink-muted">
-          {t("validUntil", { date: formatDay(quote.valid_until) })}
+          {t("validUntil", { date: formatDay(quote.valid_until, locale) })}
         </p>
 
         {children}
@@ -135,7 +136,7 @@ function ConfirmStep({
         {t("quote.confirm.lead", {
           name: quote.provider.business_name,
           amount: formatXof(quote.total_xof),
-          slot: slot.text.toLowerCase(),
+          slot: `${slot.text}, ${slot.range}`,
         })}
       </p>
       {quote.kind === "visit" ? (

@@ -103,7 +103,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           {request.zone ? ` · ${request.zone.name}` : ""}
         </h1>
         <div className="flex flex-wrap items-center gap-3">
-          <StatusBadge tone={state ? STATE_TONE[state] : "neutral"}>
+          <StatusBadge tone={awaiting ? "info" : state ? STATE_TONE[state] : "neutral"}>
             {t(`status.${statusKey}`)}
           </StatusBadge>
           <span className="text-sm text-ink-muted">

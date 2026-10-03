@@ -152,6 +152,7 @@ export function RequestForm({
       setExtraZones(
         info.candidates.map((c) => ({ slug: c.slug, name: c.name, city: "", aliases: [] })),
       );
+      focusSummary();
       return;
     }
     setError(info);

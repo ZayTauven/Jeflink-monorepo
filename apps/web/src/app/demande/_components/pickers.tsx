@@ -90,7 +90,7 @@ export function TradePicker({
           ))}
         </div>
         <p role="status" className="text-sm text-ink-muted">
-          {shown.length === 0 ? t("trade.empty") : ""}
+          {shown.length === 0 ? t("trade.empty") : results.length > MAX_SHOWN ? t("moreHint") : ""}
         </p>
       </Fieldset>
 
@@ -181,7 +181,7 @@ export function ZonePicker({
           </Choice>
         </div>
         <p role="status" className="text-sm text-ink-muted">
-          {shown.length === 0 ? t("empty") : ""}
+          {shown.length === 0 ? t("empty") : results.length > MAX_SHOWN ? t("moreHint") : ""}
         </p>
       </Fieldset>
 

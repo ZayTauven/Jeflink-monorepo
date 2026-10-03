@@ -200,11 +200,14 @@ Chacune livrable et testable seule, dans l'ordre.
      - brouillon sauvegardé localement (sans la position) et restitué à la réouverture, effacé après la création ;
      - `Idempotency-Key` gardée pour les nouvelles tentatives, rejouée avec le `zone_slug` choisi après `zone_ambiguous` ;
      - position envoyée seulement dans le `POST` ; `trade_not_in_zone` avec CTA WhatsApp ; `needs_zone` affiche « Nous vérifions votre quartier ».
+       **Fait :** `/demande` (`apps/web/src/app/demande`) : session exigée (profil lu par le BFF, 401 → `/connexion?next=/demande`), catalogue et zones chargés avec la page, recherche hors ligne (`matchSearch`), « Autre quartier » en texte libre, repère ou position (navigateur, 5 décimales, jamais stockée), brouillon `localStorage` de 24 h sans la position, clé d'idempotence gardée et rejouée après `zone_ambiguous`, Server Action `createRequestAction` (entrée relue et revalidée, `needsRefresh` rejoué par le navigateur). Écart minimal : si le profil est incomplet (`guest`), le formulaire demande le nom (`meUpdate` avant la création), sinon `403 profile_incomplete` serait une impasse.
   2. **Mes demandes** (`/compte/demandes`, `/compte/demandes/[id]`) :
      - une carte par devis : total en XOF avec séparateur d'espace, « Prix ferme » ou « Visite seulement », créneau en langage courant (« Demain matin »), nom commercial et « Pro vérifié », détail des lignes replié ;
      - tri par créneau le plus proche, jamais par prix ; mention « Les coordonnées sont partagées après confirmation » ;
      - acceptation avec confirmation, puis attente (« Le pro a jusqu'à HH:MM… »), créneau, contact du pro, mention de paiement, annulation avec motif.
+       **Fait :** `/compte/demandes` (liste par curseur `?curseur=`) et `/compte/demandes/[id]` (UUID validé, `notFound`), cartes de devis triées par créneau, prix ferme ou visite, déduction, créneau en langage courant (Dakar), détail replié, confirmation dans la page, attente (« jusqu'à HH:MM », jour ajouté si ce n'est pas aujourd'hui), contact `tel:` et WhatsApp à `scheduled`, mention de paiement, annulation avec motif (demande et réservation), message de désistement. Pas de temps réel : bouton « Actualiser ».
   3. Clés i18n courtes `fr` (`wo` vide retombe sur `fr`), revue `design-guardian` (jamais d'icône seule).
+     **Fait :** espace `requests` de `messages/fr.json` (un libellé par code d'erreur, testé contre `REQUEST_ERROR_CODES`, `pro_withdrew` et `request_create_failed` compris) ; `wo` non rempli. Passe design faite à la main contre DESIGN.md et `jeflink-design` (revue `design-guardian` : aucun bloquant, 15 constats traités ou notés). 153 tests `apps/web`, `test:build` vert.
 - console : rien. client / pro : rien (étape 6). Le client TS régénéré suffit.
 
 ## Questions à trancher (Zay)

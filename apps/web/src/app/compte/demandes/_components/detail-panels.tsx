@@ -5,7 +5,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
-import { ChatIcon, ClockIcon, PhoneIcon } from "@/components/ui/icons";
+import { ChatIcon, PhoneIcon } from "@/components/ui/icons";
 import { whatsappUrl } from "@/lib/login/support";
 import {
   dakarParts,
@@ -51,11 +51,7 @@ export async function WaitingPanel({ booking, now }: { booking: ClientBooking; n
       aria-labelledby="waiting-title"
       className="flex flex-col gap-4 rounded-card border border-line bg-surface p-5 sm:p-6"
     >
-      <h2
-        id="waiting-title"
-        className="flex items-center gap-3 font-display text-2xl tracking-tight"
-      >
-        <ClockIcon className="size-6 shrink-0 text-info" />
+      <h2 id="waiting-title" className="font-display text-2xl tracking-tight">
         {t("title")}
       </h2>
       <p className="text-lg leading-relaxed text-ink">
@@ -64,9 +60,7 @@ export async function WaitingPanel({ booking, now }: { booking: ClientBooking; n
           when: deadlineText(booking.confirm_deadline, now),
         })}
       </p>
-      <p className="text-base text-ink">
-        {t("slot", { slot: `${slot.text.toLowerCase()}, ${slot.range}` })}
-      </p>
+      <p className="text-base text-ink">{t("slot", { slot: slot.text, range: slot.range })}</p>
       <p className="text-base text-ink-muted">{t("notice")}</p>
     </section>
   );
@@ -88,10 +82,7 @@ export async function BookedPanel({
   const phone = contact && isE164(contact.phone) ? contact.phone : null;
   const name = contact?.business_name ?? booking.provider.business_name;
   const wa = phone
-    ? whatsappUrl(
-        phone,
-        t("whatsappMessage", { slot: `${slot.text.toLowerCase()}, ${slot.range}` }),
-      )
+    ? whatsappUrl(phone, t("whatsappMessage", { slot: slot.text, range: slot.range }))
     : null;
 
   return (
@@ -113,7 +104,7 @@ export async function BookedPanel({
           <dd className="text-lg font-medium text-ink">{name}</dd>
           {phone ? (
             <dd className="text-base text-ink-muted">
-              {t("phone")} : {formatPhoneDisplay(phone)}
+              {t("phoneLine", { number: formatPhoneDisplay(phone) })}
             </dd>
           ) : null}
         </div>
