@@ -1,6 +1,6 @@
 # Spec 003 — Demande, devis, réservation
 
-Statut : brouillon · ADR lié : 0010 (demande et réservation, proposé) · Revue `terrain-reviewer` intégrée (Q1 à Q7 acceptées, Q2 et Q4 ajustées)
+Statut : validée · 2026-10-03 (Zay) · ADR lié : 0010 (demande et réservation, accepté) · Revue `terrain-reviewer` intégrée (Q1 à Q7 acceptées, Q2 et Q4 ajustées)
 
 ## Problème
 
@@ -200,7 +200,7 @@ Chacune livrable et testable seule, dans l'ordre.
 
 ## Questions à trancher (Zay)
 
-Avis terrain : Q1 à Q7 acceptées, Q2 et Q4 avec ajustements. Reste la validation de Zay.
+✅ Q1 à Q7 acceptées par Zay le 2026-10-03, avec les ajustements terrain. Zay confirme aussi que tout désistement du pro après `scheduled` compte en fiabilité, quel que soit le motif.
 
 1. **Q1 — Divulgation à `scheduled`** (repère, position, deux numéros), pas à l'acceptation. _Terrain : accepté._
 2. **Q2 — Confirmation par le pro** sous 4 h (1 h si urgente), délai gelé de 21 h à 7 h (Dakar), sans pénalité en V1, autres devis rendus au client sinon. _Terrain : accepté avec ces ajustements._

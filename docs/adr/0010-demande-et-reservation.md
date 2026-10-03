@@ -1,6 +1,6 @@
 # ADR 0010 — Demande et réservation : deux cycles de vie, la réservation naît à `accepted`
 
-Statut : proposé · 2026-10-03 · Spec : `docs/specs/003-requests-quotes-booking.md` · Revue terrain intégrée (délai de confirmation)
+Statut : accepté · 2026-10-03 (Zay) · Spec : `docs/specs/003-requests-quotes-booking.md` · Revue terrain intégrée (délai de confirmation)
 
 ## Contexte
 
