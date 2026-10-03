@@ -340,6 +340,10 @@ SLOT_PERIODS = {"morning": (8, 12), "afternoon": (12, 17), "evening": (17, 21)}
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")
 AI_MODEL_FAST = env("AI_MODEL_FAST", default="")
 
+# Notifications métier (spec 003) : « log » (local, test) ou « none » ; push et SMS à l'étape 6.
+# Vide : « log » en local/test, « none » ailleurs.
+NOTIFICATIONS_ADAPTER = env("NOTIFICATIONS_ADAPTER", default="")
+
 # SMS (ADR 0008) : adaptateur obligatoire hors local/test ; « fake » y est interdit (S23).
 SMS_GATEWAY = env("SMS_GATEWAY", default="")
 SMS_SENDER_ID = env("SMS_SENDER_ID", default="JEFLINK")

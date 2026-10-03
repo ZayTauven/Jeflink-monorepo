@@ -21,6 +21,7 @@ from jeflink.catalog.models import Service, Trade
 from jeflink.common.dakar import dakar_today
 from jeflink.common.errors import DomainError
 from jeflink.common.ratelimit import Limit, RateLimitUnavailable, consume
+from jeflink.notifications import events
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 from jeflink.zones.models import Zone
@@ -322,7 +323,15 @@ def _insert(
             trade_slug=trade.slug,
             zone_slug=request.zone.slug,
         )
+    else:
+        notify_new_request(request)
     return request
+
+
+def notify_new_request(request: ServiceRequest) -> None:
+    """``request.new`` : les gérants des pros éligibles, après le commit. Aucune donnée perso."""
+    owners = [provider.owner for provider in eligible_providers(request).select_related("owner")]
+    events.notify(events.REQUEST_NEW, owners, request.public_id)
 
 
 # --- Annulation, rattachement, expiration ----------------------------------------------------
@@ -375,6 +384,7 @@ def attach_zone(*, request: ServiceRequest, zone: Zone, operator: User) -> Servi
         target=request,
         metadata={"zone_slug": zone.slug},
     )
+    notify_new_request(request)
     return request
 
 

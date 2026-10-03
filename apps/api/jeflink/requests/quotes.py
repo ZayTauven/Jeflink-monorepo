@@ -17,6 +17,7 @@ from django.utils import timezone
 from jeflink.common.dakar import dakar_today, period_bounds
 from jeflink.common.errors import DomainError
 from jeflink.common.pii import mask_numbers
+from jeflink.notifications import events
 from jeflink.providers.models import Provider
 from jeflink.providers.services import count_masked_numbers
 from jeflink.trust.services import audit
@@ -221,6 +222,7 @@ def _insert(*, provider, request, content, message, slot, key, digest, now) -> Q
         transition_request(request, RequestStatus.QUOTED)
     audit(action="requests.quote.submitted", actor=provider.owner, target=quote,
           metadata={"kind": quote.kind})  # fmt: skip
+    events.notify(events.QUOTE_RECEIVED, [request.client], request.public_id)
     return quote
 
 

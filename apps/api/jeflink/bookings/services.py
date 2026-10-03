@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from jeflink.accounts.models import User
 from jeflink.common.errors import DomainError
+from jeflink.notifications import events
 from jeflink.providers.models import Provider
 from jeflink.requests import quotes as quote_services
 from jeflink.requests import services as request_services
@@ -191,6 +192,7 @@ def _create_from_quote(*, quote: Quote, actor: User) -> CreatedBooking:
     )
     audit(action="bookings.booking.created", actor=actor, target=booking,
           metadata={"urgent": request.urgent})  # fmt: skip
+    events.notify(events.BOOKING_TO_CONFIRM, [accounts[provider.owner_id]], booking.public_id)
     return CreatedBooking(booking, created=True)
 
 
@@ -227,6 +229,7 @@ def confirm_booking(*, booking: Booking, actor: User) -> Booking:
                        reason="confirmed")  # fmt: skip
             quote_services.decline_held(request)
             audit(action="bookings.booking.confirmed", actor=actor, target=booking)
+            events.notify(events.BOOKING_SCHEDULED, [booking.client], booking.public_id)
     if overdue:
         raise DomainError("transition_not_allowed", status=409)
     booking.refresh_from_db()
@@ -271,6 +274,13 @@ def _cancel(
             "reliability_weight": int(event.metadata.get("reliability_weight", 0)),
         },
     )
+    # L'autre partie est prévenue (les deux si c'est le système) : le client reçoit un message
+    # neutre quand le pro se désiste.
+    recipients = {
+        Actor.CLIENT: [provider.owner],
+        Actor.PRO: [booking.client],
+    }.get(actor_kind, [booking.client, provider.owner])
+    events.notify(events.BOOKING_CANCELLED, recipients, booking.public_id)
     return booking
 
 
