@@ -1,12 +1,15 @@
-"""Écritures des réservations (spec 003, ADR 0010). Seul ce module écrit ``Booking.status``.
+"""Écritures des réservations (spec 003 et 004, ADR 0010). Seul ce module écrit
+``Booking.status`` (et, à partir des avenants, ``Booking.amount_xof``).
 
 Ordre des verrous, partout : comptes (par id), fiche pro, demande, réservation. La note d'un
 motif « autre » n'est jamais écrite dans un log ni dans un audit.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -22,11 +25,55 @@ from jeflink.requests.reasons import CLIENT_REASONS, PRO_REASONS, check_reason
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
-from .machine import DECLARED, Actor, Status, confirm_deadline, is_late, reliability_weight
+from .machine import (
+    ALWAYS_LATE_FROM,
+    CLIENT_ABSENT,
+    DECLARED,
+    Actor,
+    Status,
+    confirm_deadline,
+    is_late,
+    reliability_weight,
+)
 from .models import Booking, BookingEvent
 
-# Clés permises dans ``BookingEvent.metadata`` (schéma fermé).
-EVENT_METADATA_KEYS = frozenset({"late", "reliability_weight"})
+# Clés permises dans ``BookingEvent.metadata`` (schéma fermé). Jamais de texte libre, de numéro,
+# de code de fin ni de position.
+EVENT_METADATA_KEYS = frozenset(
+    {
+        "late",
+        "reliability_weight",
+        "chained",
+        "occurred_at",
+        "amendment",
+        "photos_pending",
+        "completion_method",
+        "dispute_decision",
+    }
+)
+# Colonnes qu'une transition peut écrire avec le statut (même verrou, même transaction).
+TRANSITION_FIELDS = frozenset({"amount_xof"})
+# Horodatage posé à l'arrivée dans un statut.
+_STAMPS = {
+    Status.EN_ROUTE: "en_route_at",
+    Status.ON_SITE: "on_site_at",
+    Status.COMPLETED: "completed_at",
+    Status.CLOSED: "closed_at",
+}
+
+# Appelés dans la transaction de toute arrivée à ``closed``, avec ``(booking, reason)``.
+CloseHandler = Callable[[Booking, str], None]
+_CLOSE_HANDLERS: list[CloseHandler] = []
+
+
+def register_close_handler(handler: CloseHandler) -> None:
+    """Point d'accroche de la clôture (étape 5 : commission ; ``reviews`` : publication).
+
+    Le gestionnaire s'exécute dans la transaction de ``transition()``, réservation verrouillée,
+    et doit être idempotent par réservation. Appelé dans le ``ready()`` d'un domaine.
+    """
+    if handler not in _CLOSE_HANDLERS:
+        _CLOSE_HANDLERS.append(handler)
 
 
 @dataclass(frozen=True)
@@ -71,12 +118,18 @@ def transition(
     actor_kind: str,
     reason: str,
     note: str = "",
+    metadata: dict | None = None,
+    fields: dict | None = None,
 ) -> Booking:
     """Seul point de changement du statut d'une réservation.
 
     Verrouille la ligne, vérifie le couple (``transition_not_allowed`` s'il est interdit,
-    ``transition_not_enabled`` s'il est déclaré mais pas encore activé) et l'acteur, écrit le
-    statut puis un ``BookingEvent``. À appeler dans une transaction.
+    ``transition_not_enabled`` s'il est déclaré mais pas activé) et l'acteur, écrit le statut, son
+    horodatage puis un ``BookingEvent``. À appeler dans une transaction.
+
+    ``metadata`` s'ajoute à celle de l'événement (schéma fermé) ; ``fields`` écrit d'autres
+    colonnes (``TRANSITION_FIELDS``) avec le statut. Arriver à ``closed`` appelle les
+    gestionnaires de clôture, dans la même transaction.
     """
     booking = Booking.objects.select_for_update().get(pk=booking.pk)
     rule = DECLARED.get((booking.status, to))
@@ -84,21 +137,39 @@ def transition(
         raise DomainError("transition_not_allowed", status=409)
     if not rule.enabled:
         raise DomainError("transition_not_enabled", status=409)
+    if set(fields or {}) - TRANSITION_FIELDS:
+        raise ValueError("colonne hors de la liste des transitions")
     now = timezone.now()
-    metadata: dict = {}
+    event_metadata: dict = dict(metadata or {})
     previous = booking.status
+    update = ["status", "updated_at"]
     if to == Status.CANCELLED:
-        late = is_late(slot_start=booking.slot_start, now=now) and previous == Status.SCHEDULED
-        metadata = {
+        late = previous in ALWAYS_LATE_FROM or (
+            previous == Status.SCHEDULED and is_late(slot_start=booking.slot_start, now=now)
+        )
+        event_metadata |= {
             "late": late,
             "reliability_weight": reliability_weight(
-                actor_kind=actor_kind, from_status=previous, to_status=to, late=late
+                actor_kind=actor_kind, from_status=previous, to_status=to, late=late, reason=reason
             ),
         }
         booking.cancelled_by = actor_kind
         booking.cancel_reason = reason[:24]
+        update += ["cancelled_by", "cancel_reason"]
+    if previous != to and to in _STAMPS:
+        setattr(booking, _STAMPS[to], now)
+        update.append(_STAMPS[to])
+    if previous == Status.ON_SITE and to == Status.IN_PROGRESS:
+        booking.started_at = now
+        update.append("started_at")
+    if to == Status.COMPLETED:
+        booking.dispute_deadline = now + settings.BOOKING_DISPUTE_WINDOW
+        update.append("dispute_deadline")
+    for name, value in (fields or {}).items():
+        setattr(booking, name, value)
+        update.append(name)
     booking.status = to
-    booking.save(update_fields=["status", "cancelled_by", "cancel_reason", "updated_at"])
+    booking.save(update_fields=update)
     _write_event(
         booking,
         from_status=previous,
@@ -107,8 +178,11 @@ def transition(
         actor_kind=actor_kind,
         reason=reason,
         note=note,
-        metadata=metadata,
+        metadata=event_metadata,
     )
+    if to == Status.CLOSED:
+        for handler in tuple(_CLOSE_HANDLERS):
+            handler(booking, reason)
     return booking
 
 
@@ -176,6 +250,7 @@ def _create_from_quote(*, quote: Quote, actor: User) -> CreatedBooking:
         client=accounts[actor.pk],
         provider=provider,
         amount_xof=quote.total_xof,
+        original_amount_xof=quote.total_xof,
         slot_start=quote.slot_start,
         slot_end=quote.slot_end,
         confirm_deadline=confirm_deadline(
@@ -239,6 +314,183 @@ def confirm_booking(*, booking: Booking, actor: User) -> Booking:
     return booking
 
 
+# --- Déroulé de l'intervention : en route, sur place, début (spec 004) ---------------------------
+
+# Statuts à partir desquels une action du pro est déjà faite : la rejouer renvoie l'état courant.
+_PAST_EN_ROUTE = (
+    Status.EN_ROUTE, Status.ON_SITE, Status.IN_PROGRESS, Status.COMPLETED, Status.DISPUTED,
+    Status.CLOSED,
+)  # fmt: skip
+_PAST_ON_SITE = _PAST_EN_ROUTE[1:]
+_PAST_START = _PAST_ON_SITE[1:]
+
+
+def _lock_for_pro(booking: Booking, actor: User, *, verified: bool) -> Booking:
+    """Verrous (fiche, demande, réservation) puis contrôle du gérant. ``verified=False`` pour les
+    écritures qu'un pro suspendu garde le droit de faire sur une intervention en cours."""
+    provider, _, booking = _lock_for_booking(booking)
+    if provider.owner_id != actor.id:
+        raise DomainError("not_found", status=404)
+    if verified and provider.status != Provider.Status.VERIFIED:
+        raise DomainError("provider_not_verified", status=403)
+    return booking
+
+
+def check_occurred_at(booking: Booking, occurred_at: datetime | None, *, now: datetime) -> None:
+    """Heure de l'appareil, gardée en métadonnée : 24 h avant au plus, jamais dans le futur ni
+    avant l'événement précédent. L'heure du serveur fait foi (``422 occurred_at_invalid``)."""
+    if occurred_at is None:
+        return
+    previous = booking.events.order_by("-id").values_list("created_at", flat=True).first()
+    too_old = occurred_at < now - settings.OCCURRED_AT_MAX_SKEW
+    if occurred_at > now or too_old or (previous is not None and occurred_at < previous):
+        raise DomainError("occurred_at_invalid", status=422)
+
+
+def _occurred(occurred_at: datetime | None) -> dict:
+    return {"occurred_at": occurred_at.isoformat()} if occurred_at else {}
+
+
+def _progress(
+    booking: Booking, actor: User, *, to: str, chained: bool = False, metadata: dict | None = None
+) -> Booking:
+    previous = booking.status
+    meta = {**(metadata or {}), **({"chained": True} if chained else {})}
+    booking = transition(
+        booking, to=to, actor=actor, actor_kind=Actor.PRO, reason=to, metadata=meta
+    )
+    audit(
+        action="bookings.booking.progressed",
+        actor=actor,
+        target=booking,
+        metadata={"from_status": previous, "to_status": to, "chained": chained},
+    )
+    return booking
+
+
+@transaction.atomic
+def mark_en_route(*, booking: Booking, actor: User, occurred_at: datetime | None = None) -> Booking:
+    """Le pro part (``scheduled`` → ``en_route``). Rejouée une fois partie : état courant, sans
+    événement. Notifie le client (le SMS du code de fin part ici, spec 004)."""
+    booking = _lock_for_pro(booking, actor, verified=True)
+    if booking.status in _PAST_EN_ROUTE:
+        return booking
+    if booking.status != Status.SCHEDULED:
+        raise DomainError("transition_not_allowed", status=409)
+    check_occurred_at(booking, occurred_at, now=timezone.now())
+    booking = _progress(booking, actor, to=Status.EN_ROUTE, metadata=_occurred(occurred_at))
+    events.notify(events.BOOKING_PROGRESS, [booking.client], booking.public_id)
+    return booking
+
+
+@transaction.atomic
+def mark_arrived(*, booking: Booking, actor: User, occurred_at: datetime | None = None) -> Booking:
+    """Le pro est sur place (``en_route`` → ``on_site``). Depuis ``scheduled``, l'étape manquée
+    est rattrapée : deux transitions, deux événements marqués ``chained``."""
+    booking = _lock_for_pro(booking, actor, verified=True)
+    if booking.status in _PAST_ON_SITE:
+        return booking
+    if booking.status not in {Status.SCHEDULED, Status.EN_ROUTE}:
+        raise DomainError("transition_not_allowed", status=409)
+    check_occurred_at(booking, occurred_at, now=timezone.now())
+    chained = booking.status == Status.SCHEDULED
+    if chained:
+        booking = _progress(booking, actor, to=Status.EN_ROUTE, chained=True)
+    booking = _progress(
+        booking, actor, to=Status.ON_SITE, chained=chained, metadata=_occurred(occurred_at)
+    )
+    events.notify(events.BOOKING_PROGRESS, [booking.client], booking.public_id)
+    return booking
+
+
+def has_photos(booking: Booking, phase: str) -> bool:
+    """Une photo de la phase est-elle arrivée ? (branché sur ``BookingPhoto`` à la tâche 5)."""
+    return False
+
+
+@transaction.atomic
+def start_work(
+    *,
+    booking: Booking,
+    actor: User,
+    photos_pending: bool = False,
+    occurred_at: datetime | None = None,
+) -> Booking:
+    """Le pro commence (``on_site`` → ``in_progress``), jamais déduit d'une étape manquée.
+
+    Exige une photo « avant » ou ``photos_pending`` (la file de l'appareil les enverra) :
+    ``422 before_photos_required``.
+    """
+    booking = _lock_for_pro(booking, actor, verified=True)
+    if booking.status in _PAST_START:
+        return booking
+    if booking.status != Status.ON_SITE:
+        raise DomainError("transition_not_allowed", status=409)
+    if not (photos_pending or has_photos(booking, "before")):
+        raise DomainError("before_photos_required", status=422)
+    check_occurred_at(booking, occurred_at, now=timezone.now())
+    meta = _occurred(occurred_at) | ({"photos_pending": True} if photos_pending else {})
+    booking = _progress(booking, actor, to=Status.IN_PROGRESS, metadata=meta)
+    events.notify(events.BOOKING_PROGRESS, [booking.client], booking.public_id)
+    return booking
+
+
+# --- Clôture : fin de la fenêtre de contestation (spec 004) ---------------------------------------
+
+
+def close_due(*, now: datetime | None = None) -> int:
+    """Clôt les réservations ``completed`` dont ``dispute_deadline`` est passée (motif
+    ``window_elapsed``) et appelle les gestionnaires de clôture. Idempotent."""
+    now = now or timezone.now()
+    due = Booking.objects.filter(status=Status.COMPLETED, dispute_deadline__lte=now)
+    closed = 0
+    for booking in list(due.select_related("provider")):
+        with transaction.atomic():
+            provider, _, locked = _lock_for_booking(booking)
+            # Relue sous verrou : le client a pu contester entre-temps.
+            if (
+                locked.status != Status.COMPLETED
+                or locked.dispute_deadline is None
+                or locked.dispute_deadline > now
+            ):
+                continue
+            transition(
+                locked, to=Status.CLOSED, actor=None, actor_kind=Actor.SYSTEM,
+                reason="window_elapsed",
+            )  # fmt: skip
+            audit(
+                action="bookings.booking.closed",
+                actor_kind=AuditEvent.ActorKind.SYSTEM,
+                target=locked,
+                metadata={"reason": "window_elapsed"},
+            )
+            events.notify(events.BOOKING_CLOSED, [locked.client, provider.owner], locked.public_id)
+            closed += 1
+    return closed
+
+
+def remind_disputes(*, now: datetime | None = None) -> int:
+    """Rappelle au client, une seule fois, que la fenêtre de contestation se ferme bientôt."""
+    now = now or timezone.now()
+    due = Booking.objects.filter(
+        status=Status.COMPLETED,
+        dispute_reminder_sent_at__isnull=True,
+        dispute_deadline__gt=now,
+        dispute_deadline__lte=now + settings.BOOKING_DISPUTE_REMINDER,
+    )
+    sent = 0
+    for pk in list(due.values_list("pk", flat=True)):
+        with transaction.atomic():
+            locked = Booking.objects.select_for_update().select_related("client").get(pk=pk)
+            if locked.status != Status.COMPLETED or locked.dispute_reminder_sent_at:
+                continue
+            locked.dispute_reminder_sent_at = now
+            locked.save(update_fields=["dispute_reminder_sent_at", "updated_at"])
+            events.notify(events.DISPUTE_REMINDER, [locked.client], locked.public_id)
+            sent += 1
+    return sent
+
+
 # --- Annulations ------------------------------------------------------------------------------
 
 
@@ -294,9 +546,11 @@ def _audit_kind(actor_kind: str) -> str:
 def cancel_booking(
     *, booking: Booking, actor: User, actor_kind: str, reason: str, note: str | None = None
 ) -> Booking:
-    """Le client ou le pro annule une réservation ``accepted`` ou ``scheduled``, avec un motif.
+    """Le client ou le pro annule une réservation de ``accepted`` à ``on_site``, avec un motif.
 
-    Le pro suspendu n'écrit plus. Le client reçoit un message neutre si le pro se désiste.
+    Le client ne peut plus annuler un pro déjà sur place (``409 transition_not_allowed``). Le
+    motif ``client_absent`` n'existe que pour le pro sur place. Le pro suspendu n'écrit plus.
+    Le client reçoit un message neutre si le pro se désiste.
     """
     if actor_kind not in {Actor.CLIENT, Actor.PRO}:
         raise DomainError("transition_not_allowed", status=409)
@@ -309,6 +563,8 @@ def cancel_booking(
             raise DomainError("not_found", status=404)
         if actor_kind == Actor.PRO and provider.status != Provider.Status.VERIFIED:
             raise DomainError("provider_not_verified", status=403)
+        if reason == CLIENT_ABSENT and booking.status != Status.ON_SITE:
+            raise DomainError("reason_invalid", status=422)  # le pro doit être sur place
         return _cancel(
             booking, request, provider, actor=actor, actor_kind=actor_kind, reason=reason,
             note=clean_note,
@@ -334,15 +590,16 @@ def cancel_unconfirmed(*, now: datetime | None = None) -> int:
 
 
 def cancel_for_suspended_provider(provider: Provider) -> int:
-    """Suspension d'un pro : ses réservations actives sont annulées (système,
-    ``provider_suspended``). Appelée dans la transaction de ``providers.set_status``."""
+    """Suspension d'un pro : ses réservations, jusqu'à ``on_site``, sont annulées (système,
+    ``provider_suspended``). Une intervention ``in_progress`` continue : le gérant suspendu peut
+    encore la terminer (photos, code). Appelée dans la transaction de ``providers.set_status``."""
     cancelled = 0
-    active = Booking.objects.filter(provider=provider, status__in=Booking.ACTIVE).order_by(
+    active = Booking.objects.filter(provider=provider, status__in=Booking.CANCELLABLE).order_by(
         "request_id"
     )  # verrous dans l'ordre croissant
     for booking in list(active):
         _, request, locked = _lock_for_booking(booking)
-        if locked.status not in Booking.ACTIVE:
+        if locked.status not in Booking.CANCELLABLE:
             continue
         _cancel(locked, request, provider, actor=None, actor_kind=Actor.SYSTEM,
                 reason="provider_suspended")  # fmt: skip
@@ -354,9 +611,10 @@ def cancel_for_suspended_provider(provider: Provider) -> int:
 
 
 def deletion_blocker(user: User) -> str | None:
-    """Un compte avec une réservation ``accepted`` ou ``scheduled`` (client ou pro) ne peut pas
-    être supprimé. ``create_from_quote`` crée la réservation sous le verrou des deux comptes."""
-    engaged = Booking.objects.filter(status__in=Booking.ACTIVE).filter(
+    """Un compte avec une réservation engagée (de ``accepted`` à ``disputed``, client ou pro) ne
+    peut pas être supprimé. ``create_from_quote`` crée la réservation sous le verrou des deux
+    comptes."""
+    engaged = Booking.objects.filter(status__in=Booking.ENGAGED).filter(
         Q(client=user) | Q(provider__owner=user)
     )
     return "deletion_blocked_active_booking" if engaged.exists() else None

@@ -18,6 +18,17 @@ from jeflink.requests.api.refs import (
     masked,
 )
 
+# Étapes horodatées (UTC) et fin de la fenêtre de contestation : nulles tant qu'elles n'ont pas eu
+# lieu. Mêmes champs pour le client et le pro.
+TIMELINE_FIELDS = (
+    "en_route_at",
+    "on_site_at",
+    "started_at",
+    "completed_at",
+    "closed_at",
+    "dispute_deadline",
+)
+
 
 class ClientProviderSerializer(serializers.Serializer):
     """Le pro, tel que le client le voit avant la confirmation : nom commercial et badge."""
@@ -62,6 +73,7 @@ class ClientBookingSerializer(serializers.ModelSerializer):
             "confirm_deadline",
             "contact",
             "payment",
+            *TIMELINE_FIELDS,
             "cancelled_by",
             "cancel_reason",
             "created_at",
@@ -137,6 +149,7 @@ class ProBookingSerializer(serializers.ModelSerializer):
             "client",
             "landmark",
             "location",
+            *TIMELINE_FIELDS,
             "cancelled_by",
             "cancel_reason",
             "created_at",
@@ -166,3 +179,17 @@ class ProBookingSerializer(serializers.ModelSerializer):
         if not self._disclosed(booking) or point is None:
             return None
         return {"lat": point.y, "lon": point.x}
+
+
+# --- Entrées du pro ----------------------------------------------------------------------------
+
+
+class OccurredAtSerializer(serializers.Serializer):
+    """Heure de l'appareil (file hors ligne, étape 6) : métadonnée, le serveur fait foi."""
+
+    occurred_at = serializers.DateTimeField(required=False, allow_null=True, default=None)
+
+
+class StartSerializer(OccurredAtSerializer):
+    # La file de l'appareil enverra les photos « avant » plus tard.
+    photos_pending = serializers.BooleanField(required=False, default=False)

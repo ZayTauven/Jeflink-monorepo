@@ -27,4 +27,19 @@ urlpatterns = [
         views.ProBookingCancelView.as_view(),
         name="pro-booking-cancel",
     ),
+    path(
+        "pro/bookings/<uuid:public_id>/en-route/",
+        views.ProBookingEnRouteView.as_view(),
+        name="pro-booking-en-route",
+    ),
+    path(
+        "pro/bookings/<uuid:public_id>/arrive/",
+        views.ProBookingArriveView.as_view(),
+        name="pro-booking-arrive",
+    ),
+    path(
+        "pro/bookings/<uuid:public_id>/start/",
+        views.ProBookingStartView.as_view(),
+        name="pro-booking-start",
+    ),
 ]

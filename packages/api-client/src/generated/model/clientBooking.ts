@@ -26,6 +26,18 @@ export interface ClientBooking {
   readonly confirm_deadline: string;
   readonly contact: ClientContact | null;
   readonly payment: string;
+  /** @nullable */
+  readonly en_route_at: string | null;
+  /** @nullable */
+  readonly on_site_at: string | null;
+  /** @nullable */
+  readonly started_at: string | null;
+  /** @nullable */
+  readonly completed_at: string | null;
+  /** @nullable */
+  readonly closed_at: string | null;
+  /** @nullable */
+  readonly dispute_deadline: string | null;
   readonly cancelled_by: CancelledByEnum;
   readonly cancel_reason: string;
   readonly created_at: string;

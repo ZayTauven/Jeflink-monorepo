@@ -11,6 +11,7 @@ from jeflink.bookings import services
 from jeflink.bookings.machine import (
     DECLARED,
     Actor,
+    Rule,
     Status,
     confirm_deadline,
     is_late,
@@ -38,12 +39,35 @@ def classify(start, to):
 def test_la_machine_est_declaree_en_entier():
     declared = {status for pair in DECLARED for status in pair}
     assert declared == set(Status.values)  # de accepted à closed, annulée comprise
-    active = {pair for pair, rule in DECLARED.items() if rule.enabled}
-    assert active == {
+    # Spec 004 : tous les couples sont actifs, dont les deux annulations ajoutées.
+    assert all(rule.enabled for rule in DECLARED.values())
+    assert set(DECLARED) == {
         (Status.ACCEPTED, Status.SCHEDULED),
         (Status.ACCEPTED, Status.CANCELLED),
         (Status.SCHEDULED, Status.CANCELLED),
+        (Status.SCHEDULED, Status.EN_ROUTE),
+        (Status.EN_ROUTE, Status.ON_SITE),
+        (Status.ON_SITE, Status.IN_PROGRESS),
+        (Status.IN_PROGRESS, Status.IN_PROGRESS),
+        (Status.IN_PROGRESS, Status.COMPLETED),
+        (Status.COMPLETED, Status.CLOSED),
+        (Status.COMPLETED, Status.DISPUTED),
+        (Status.DISPUTED, Status.CLOSED),
+        (Status.EN_ROUTE, Status.CANCELLED),
+        (Status.ON_SITE, Status.CANCELLED),
     }
+
+
+def test_acteurs_des_couples_ajoutes():
+    assert DECLARED[(Status.EN_ROUTE, Status.CANCELLED)].actors == {"client", "pro", "system"}
+    assert DECLARED[(Status.ON_SITE, Status.CANCELLED)].actors == {"pro", "system"}
+
+
+def test_cycle_de_vie_ensembles_de_statuts():
+    assert Booking.CANCELLABLE == (
+        Status.ACCEPTED, Status.SCHEDULED, Status.EN_ROUTE, Status.ON_SITE
+    )  # fmt: skip
+    assert set(Booking.ENGAGED) == set(Status.values) - {Status.CLOSED, Status.CANCELLED}
 
 
 @pytest.mark.parametrize(("start", "to"), list(product(Status.values, Status.values)))
@@ -150,12 +174,38 @@ def test_journal_immuable_jusqu_en_base():
         (Actor.CLIENT, Status.ACCEPTED, Status.CANCELLED, False, 0),
         (Actor.CLIENT, Status.SCHEDULED, Status.CANCELLED, True, 0),  # tracé, sans pénalité
         (Actor.PRO, Status.ACCEPTED, Status.SCHEDULED, False, 0),
+        (Actor.PRO, Status.EN_ROUTE, Status.CANCELLED, True, 2),  # parti : toujours tardif
+        (Actor.PRO, Status.ON_SITE, Status.CANCELLED, True, 2),
+        (Actor.CLIENT, Status.EN_ROUTE, Status.CANCELLED, True, 0),
+        (Actor.SYSTEM, Status.ON_SITE, Status.CANCELLED, True, 0),  # suspension
+        (Actor.PRO, Status.IN_PROGRESS, Status.IN_PROGRESS, False, 0),
     ],
 )
 def test_poids_de_fiabilite(actor, start, to, late, weight):
     assert (
         reliability_weight(actor_kind=actor, from_status=start, to_status=to, late=late) == weight
     )
+
+
+def test_client_absent_est_trace_avec_un_poids_de_zero():
+    weight = reliability_weight(
+        actor_kind=Actor.PRO, from_status=Status.ON_SITE, to_status=Status.CANCELLED,
+        late=True, reason="client_absent",
+    )  # fmt: skip
+    assert weight == 0
+
+
+def test_un_couple_declare_non_active_leve_transition_not_enabled(monkeypatch):
+    scene = make_scene(pros=1)
+    booking = accept(scene)
+    rule = Rule(frozenset({Actor.PRO}), enabled=False)
+    monkeypatch.setitem(DECLARED, (Status.ACCEPTED, Status.SCHEDULED), rule)
+    with pytest.raises(DomainError) as exc:
+        services.transition(
+            booking, to=Status.SCHEDULED, actor=scene.providers[0].owner, actor_kind=Actor.PRO,
+            reason="x",
+        )  # fmt: skip
+    assert exc.value.code == "transition_not_enabled"
 
 
 def test_annulation_tardive_a_moins_de_deux_heures():

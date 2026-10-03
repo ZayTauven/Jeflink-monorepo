@@ -5,7 +5,7 @@ from jeflink.common.errors import DomainError
 from jeflink.common.pii import contains_pii
 
 CLIENT_REASONS = ("changed_mind", "found_other", "price", "unavailable", "other")
-PRO_REASONS = ("unavailable", "too_far", "job_mismatch", "other")
+PRO_REASONS = ("unavailable", "too_far", "job_mismatch", "client_absent", "other")
 SYSTEM_REASONS = ("pro_unconfirmed", "provider_suspended")
 NOTE_MAX_LENGTH = 200
 

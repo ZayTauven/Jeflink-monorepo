@@ -25,14 +25,26 @@ from jeflink.bookings.selectors import (
     bookings_for_client,
     bookings_for_provider,
 )
-from jeflink.bookings.services import cancel_booking, confirm_booking, create_from_quote
+from jeflink.bookings.services import (
+    cancel_booking,
+    confirm_booking,
+    create_from_quote,
+    mark_arrived,
+    mark_en_route,
+    start_work,
+)
 from jeflink.common.errors import DomainError
 from jeflink.providers.models import Provider
 from jeflink.providers.selectors import provider_for_owner
-from jeflink.requests.api.serializers import ReasonSerializer
+from jeflink.requests.api.serializers import ApiErrorSerializer, ReasonSerializer
 from jeflink.requests.selectors import quote_for_client
 
-from .serializers import ClientBookingSerializer, ProBookingSerializer
+from .serializers import (
+    ClientBookingSerializer,
+    OccurredAtSerializer,
+    ProBookingSerializer,
+    StartSerializer,
+)
 
 ERRORS = {
     401: OpenApiResponse(description="not_authenticated"),
@@ -125,6 +137,11 @@ class BookingCancelView(APIView):
 # --- Côté pro ----------------------------------------------------------------------------------
 
 
+def error(description: str) -> OpenApiResponse:
+    """Erreur métier : ``{"code": "..."}``, typée (``ApiError``) dans le client."""
+    return OpenApiResponse(ApiErrorSerializer, description=description)
+
+
 def owned_provider(request: Request) -> Provider:
     """La fiche du gérant, suspendue comprise (lecture) ; 404 s'il n'en a pas."""
     provider = provider_for_owner(request.user)
@@ -211,3 +228,86 @@ class ProBookingCancelView(APIView):
         )  # fmt: skip
         booking = booking_for_provider(provider=request.provider, public_id=public_id)
         return Response(ProBookingSerializer(booking).data)
+
+
+class ProBookingProgressView(APIView):
+    """Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+
+    Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+    """
+
+    permission_classes = [IsVerifiedPro, IsProOwner]
+    input_serializer: type[OccurredAtSerializer] = OccurredAtSerializer
+
+    def run(self, booking: Booking, request: Request, data: dict) -> None:
+        raise NotImplementedError
+
+    def post(self, request: Request, public_id) -> Response:
+        booking = booking_for_provider(provider=request.provider, public_id=public_id)
+        self.check_object_permissions(request, booking)
+        serializer = self.input_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.run(booking, request, serializer.validated_data)
+        booking = booking_for_provider(provider=request.provider, public_id=public_id)
+        return Response(ProBookingSerializer(booking).data)
+
+
+PROGRESS_ERRORS = {
+    409: error("transition_not_allowed (étape non permise depuis ce statut)"),
+    422: error("occurred_at_invalid"),
+    **ERRORS,
+}
+
+
+class ProBookingEnRouteView(ProBookingProgressView):
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_bookings_en_route",
+        request=OccurredAtSerializer,
+        responses={200: ProBookingSerializer, **PROGRESS_ERRORS},
+    )
+    def post(self, request: Request, public_id) -> Response:
+        return super().post(request, public_id)
+
+    def run(self, booking: Booking, request: Request, data: dict) -> None:
+        mark_en_route(booking=booking, actor=request.user, occurred_at=data["occurred_at"])
+
+
+class ProBookingArriveView(ProBookingProgressView):
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_bookings_arrive",
+        request=OccurredAtSerializer,
+        responses={200: ProBookingSerializer, **PROGRESS_ERRORS},
+    )
+    def post(self, request: Request, public_id) -> Response:
+        return super().post(request, public_id)
+
+    def run(self, booking: Booking, request: Request, data: dict) -> None:
+        mark_arrived(booking=booking, actor=request.user, occurred_at=data["occurred_at"])
+
+
+class ProBookingStartView(ProBookingProgressView):
+    input_serializer = StartSerializer
+
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_bookings_start",
+        request=StartSerializer,
+        responses={
+            200: ProBookingSerializer,
+            409: error("transition_not_allowed (le début n'est jamais déduit d'une étape manquée)"),
+            422: error("before_photos_required, occurred_at_invalid"),
+            **ERRORS,
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        return super().post(request, public_id)
+
+    def run(self, booking: Booking, request: Request, data: dict) -> None:
+        start_work(
+            booking=booking,
+            actor=request.user,
+            photos_pending=data["photos_pending"],
+            occurred_at=data["occurred_at"],
+        )

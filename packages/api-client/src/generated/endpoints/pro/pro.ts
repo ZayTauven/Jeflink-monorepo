@@ -25,6 +25,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ApiError,
+  OccurredAtRequest,
   PaginatedProBookingList,
   PaginatedProQuoteList,
   PaginatedProRequestList,
@@ -36,7 +38,8 @@ import type {
   ProRequest,
   ProRequestsListParams,
   QuoteCreateRequest,
-  ReasonRequest
+  ReasonRequest,
+  StartRequest
 } from '../../model';
 
 import { jeflinkFetch } from '../../../http.ts';
@@ -319,7 +322,133 @@ export function useProBookingsRetrieve<TData = Awaited<ReturnType<typeof proBook
 
 
 
-export type proBookingsCancelResponse200 = {
+export type proBookingsArriveResponse200 = {
+  data: ProBooking
+  status: 200
+}
+
+export type proBookingsArriveResponse401 = {
+  data: void
+  status: 401
+}
+
+export type proBookingsArriveResponse403 = {
+  data: void
+  status: 403
+}
+
+export type proBookingsArriveResponse404 = {
+  data: void
+  status: 404
+}
+
+export type proBookingsArriveResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type proBookingsArriveResponse422 = {
+  data: ApiError
+  status: 422
+}
+
+export type proBookingsArriveResponseSuccess = (proBookingsArriveResponse200) & {
+  headers: Headers;
+};
+export type proBookingsArriveResponseError = (proBookingsArriveResponse401 | proBookingsArriveResponse403 | proBookingsArriveResponse404 | proBookingsArriveResponse409 | proBookingsArriveResponse422) & {
+  headers: Headers;
+};
+
+export type proBookingsArriveResponse = (proBookingsArriveResponseSuccess | proBookingsArriveResponseError)
+
+export const getProBookingsArriveUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/pro/bookings/${encodeURIComponent(String(publicId))}/arrive/`
+}
+
+/**
+ * Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+ *
+ * Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+ */
+export const proBookingsArrive = async (publicId: string,
+    occurredAtRequest?: OccurredAtRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<proBookingsArriveResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<proBookingsArriveResponse>(getProBookingsArriveUrl(publicId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(occurredAtRequest)
+  }
+);}
+
+
+
+
+
+export const getProBookingsArriveMutationKey = () => ['proBookingsArrive'] as const;
+
+export const getProBookingsArriveMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsArrive>>, TError,ProBookingsArriveMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof proBookingsArrive>>, TError,ProBookingsArriveMutationVariables, TContext> => {
+
+const mutationKey = getProBookingsArriveMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof proBookingsArrive>>, ProBookingsArriveMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  proBookingsArrive(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProBookingsArriveMutationResult = NonNullable<Awaited<ReturnType<typeof proBookingsArrive>>>
+    export type ProBookingsArriveMutationBody = BodyType<OccurredAtRequest> | undefined
+    export type ProBookingsArriveMutationError = ErrorType<void | ApiError>
+    export type ProBookingsArriveMutationVariables = {publicId: string;data?: BodyType<OccurredAtRequest>}
+
+    export const useProBookingsArrive = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsArrive>>, TError,ProBookingsArriveMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof proBookingsArrive>>,
+        TError,
+        ProBookingsArriveMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProBookingsArriveMutationOptions(options), queryClient);
+    }
+    export type proBookingsCancelResponse200 = {
   data: ProBooking
   status: 200
 }
@@ -540,6 +669,258 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getProBookingsConfirmMutationOptions(options), queryClient);
+    }
+    export type proBookingsEnRouteResponse200 = {
+  data: ProBooking
+  status: 200
+}
+
+export type proBookingsEnRouteResponse401 = {
+  data: void
+  status: 401
+}
+
+export type proBookingsEnRouteResponse403 = {
+  data: void
+  status: 403
+}
+
+export type proBookingsEnRouteResponse404 = {
+  data: void
+  status: 404
+}
+
+export type proBookingsEnRouteResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type proBookingsEnRouteResponse422 = {
+  data: ApiError
+  status: 422
+}
+
+export type proBookingsEnRouteResponseSuccess = (proBookingsEnRouteResponse200) & {
+  headers: Headers;
+};
+export type proBookingsEnRouteResponseError = (proBookingsEnRouteResponse401 | proBookingsEnRouteResponse403 | proBookingsEnRouteResponse404 | proBookingsEnRouteResponse409 | proBookingsEnRouteResponse422) & {
+  headers: Headers;
+};
+
+export type proBookingsEnRouteResponse = (proBookingsEnRouteResponseSuccess | proBookingsEnRouteResponseError)
+
+export const getProBookingsEnRouteUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/pro/bookings/${encodeURIComponent(String(publicId))}/en-route/`
+}
+
+/**
+ * Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+ *
+ * Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+ */
+export const proBookingsEnRoute = async (publicId: string,
+    occurredAtRequest?: OccurredAtRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<proBookingsEnRouteResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<proBookingsEnRouteResponse>(getProBookingsEnRouteUrl(publicId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(occurredAtRequest)
+  }
+);}
+
+
+
+
+
+export const getProBookingsEnRouteMutationKey = () => ['proBookingsEnRoute'] as const;
+
+export const getProBookingsEnRouteMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsEnRoute>>, TError,ProBookingsEnRouteMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof proBookingsEnRoute>>, TError,ProBookingsEnRouteMutationVariables, TContext> => {
+
+const mutationKey = getProBookingsEnRouteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof proBookingsEnRoute>>, ProBookingsEnRouteMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  proBookingsEnRoute(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProBookingsEnRouteMutationResult = NonNullable<Awaited<ReturnType<typeof proBookingsEnRoute>>>
+    export type ProBookingsEnRouteMutationBody = BodyType<OccurredAtRequest> | undefined
+    export type ProBookingsEnRouteMutationError = ErrorType<void | ApiError>
+    export type ProBookingsEnRouteMutationVariables = {publicId: string;data?: BodyType<OccurredAtRequest>}
+
+    export const useProBookingsEnRoute = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsEnRoute>>, TError,ProBookingsEnRouteMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof proBookingsEnRoute>>,
+        TError,
+        ProBookingsEnRouteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProBookingsEnRouteMutationOptions(options), queryClient);
+    }
+    export type proBookingsStartResponse200 = {
+  data: ProBooking
+  status: 200
+}
+
+export type proBookingsStartResponse401 = {
+  data: void
+  status: 401
+}
+
+export type proBookingsStartResponse403 = {
+  data: void
+  status: 403
+}
+
+export type proBookingsStartResponse404 = {
+  data: void
+  status: 404
+}
+
+export type proBookingsStartResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type proBookingsStartResponse422 = {
+  data: ApiError
+  status: 422
+}
+
+export type proBookingsStartResponseSuccess = (proBookingsStartResponse200) & {
+  headers: Headers;
+};
+export type proBookingsStartResponseError = (proBookingsStartResponse401 | proBookingsStartResponse403 | proBookingsStartResponse404 | proBookingsStartResponse409 | proBookingsStartResponse422) & {
+  headers: Headers;
+};
+
+export type proBookingsStartResponse = (proBookingsStartResponseSuccess | proBookingsStartResponseError)
+
+export const getProBookingsStartUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/pro/bookings/${encodeURIComponent(String(publicId))}/start/`
+}
+
+/**
+ * Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+ *
+ * Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+ */
+export const proBookingsStart = async (publicId: string,
+    startRequest?: StartRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<proBookingsStartResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<proBookingsStartResponse>(getProBookingsStartUrl(publicId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(startRequest)
+  }
+);}
+
+
+
+
+
+export const getProBookingsStartMutationKey = () => ['proBookingsStart'] as const;
+
+export const getProBookingsStartMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsStart>>, TError,ProBookingsStartMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof proBookingsStart>>, TError,ProBookingsStartMutationVariables, TContext> => {
+
+const mutationKey = getProBookingsStartMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof proBookingsStart>>, ProBookingsStartMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  proBookingsStart(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProBookingsStartMutationResult = NonNullable<Awaited<ReturnType<typeof proBookingsStart>>>
+    export type ProBookingsStartMutationBody = BodyType<StartRequest> | undefined
+    export type ProBookingsStartMutationError = ErrorType<void | ApiError>
+    export type ProBookingsStartMutationVariables = {publicId: string;data?: BodyType<StartRequest>}
+
+    export const useProBookingsStart = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsStart>>, TError,ProBookingsStartMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof proBookingsStart>>,
+        TError,
+        ProBookingsStartMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProBookingsStartMutationOptions(options), queryClient);
     }
     export type proMeRetrieveResponse200 = {
   data: ProProvider

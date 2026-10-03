@@ -18,15 +18,34 @@ from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
-# Les cinq types de la spec 003.
+# Les cinq types de la spec 003, puis ceux de la spec 004.
 REQUEST_NEW = "request.new"
 QUOTE_RECEIVED = "quote.received"
 BOOKING_TO_CONFIRM = "booking.to_confirm"
 BOOKING_SCHEDULED = "booking.scheduled"
 BOOKING_CANCELLED = "booking.cancelled"
+# Spec 004 : déroulé, code de fin, avenant, no-show, litige, clôture. Les trois premiers partent
+# aussi par SMS (le gabarit est rendu côté serveur par l'adaptateur, jamais transporté ici).
+COMPLETION_CODE_SMS = "completion_code.sms"
+AMENDMENT_PROPOSED = "amendment.proposed"
+DISPUTE_REMINDER = "booking.dispute_reminder"
+BOOKING_PROGRESS = "booking.progress"
+AMENDMENT_DECIDED = "amendment.decided"
+BOOKING_COMPLETED = "booking.completed"
+NO_SHOW_CHECK = "booking.no_show_check"
+NO_SHOW_CONTESTED = "no_show.contested"
+BOOKING_DISPUTED = "booking.disputed"
+DISPUTE_DECIDED = "dispute.decided"
+BOOKING_CLOSED = "booking.closed"
+SMS_KINDS = frozenset({COMPLETION_CODE_SMS, AMENDMENT_PROPOSED, DISPUTE_REMINDER})
 KINDS = frozenset(
-    {REQUEST_NEW, QUOTE_RECEIVED, BOOKING_TO_CONFIRM, BOOKING_SCHEDULED, BOOKING_CANCELLED}
-)
+    {
+        REQUEST_NEW, QUOTE_RECEIVED, BOOKING_TO_CONFIRM, BOOKING_SCHEDULED, BOOKING_CANCELLED,
+        COMPLETION_CODE_SMS, AMENDMENT_PROPOSED, DISPUTE_REMINDER, BOOKING_PROGRESS,
+        AMENDMENT_DECIDED, BOOKING_COMPLETED, NO_SHOW_CHECK, NO_SHOW_CONTESTED, BOOKING_DISPUTED,
+        DISPUTE_DECIDED, BOOKING_CLOSED,
+    }
+)  # fmt: skip
 
 
 class NotificationAdapter(Protocol):

@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.utils import timezone
 
 from jeflink.bookings import services
+from jeflink.bookings.machine import Actor, Status
 from jeflink.bookings.models import Booking
 from jeflink.catalog.tests.factories import TradeFactory
 from jeflink.common.dakar import dakar_today
@@ -70,3 +71,38 @@ def accept(scene: Scene, index: int = 0) -> Booking:
 
 def confirm(booking: Booking) -> Booking:
     return services.confirm_booking(booking=booking, actor=booking.provider.owner)
+
+
+def scheduled(*, pros: int = 1, urgent: bool = False) -> tuple[Scene, Booking]:
+    """Une réservation confirmée par le pro (``scheduled``)."""
+    scene = make_scene(pros=pros, urgent=urgent)
+    return scene, confirm(accept(scene))
+
+
+def advance(booking: Booking, to: str) -> Booking:
+    """Fait avancer une réservation ``scheduled`` jusqu'à ``to`` par les services du pro.
+
+    ``in_progress`` passe par ``photos_pending`` ; ``completed`` par la transition directe (le
+    code de fin et les photos sont testés à part).
+    """
+    owner = booking.provider.owner
+    steps = [
+        (Status.EN_ROUTE, lambda b: services.mark_en_route(booking=b, actor=owner)),
+        (Status.ON_SITE, lambda b: services.mark_arrived(booking=b, actor=owner)),
+        (
+            Status.IN_PROGRESS,
+            lambda b: services.start_work(booking=b, actor=owner, photos_pending=True),
+        ),
+        (
+            Status.COMPLETED,
+            lambda b: services.transition(
+                b, to=Status.COMPLETED, actor=owner, actor_kind=Actor.PRO, reason="test"
+            ),
+        ),
+    ]
+    for status, step in steps:
+        booking = step(booking)
+        if status == to:
+            break
+    booking.refresh_from_db()
+    return booking

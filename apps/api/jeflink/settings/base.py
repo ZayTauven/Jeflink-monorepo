@@ -308,6 +308,17 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 300,
         "options": {"expires": 240},
     },
+    # Clôture à la fin de la fenêtre de contestation, et rappel 12 h avant (spec 004).
+    "bookings-close-due": {
+        "task": "jeflink.bookings.tasks.close_due",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    "bookings-remind-disputes": {
+        "task": "jeflink.bookings.tasks.remind_disputes",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
     "requests-purge-locations": {
         "task": "jeflink.requests.tasks.purge_locations",
         "schedule": 24 * 3600,
@@ -344,6 +355,11 @@ BOOKING_CONFIRM_TTL_URGENT = timedelta(hours=1)
 # Le délai ne court pas de 21 h à 7 h, heure de Dakar : (début, fin) en heures.
 BOOKING_CONFIRM_QUIET_HOURS = (21, 7)
 BOOKING_LATE_CANCEL_WINDOW = timedelta(hours=2)  # annulation « tardive » avant le créneau
+# Déroulé de l'intervention, clôture et litige (spec 004).
+BOOKING_DISPUTE_WINDOW = timedelta(hours=48)  # contestation possible après « terminé »
+BOOKING_DISPUTE_REMINDER = timedelta(hours=12)  # rappel au client avant la fin de la fenêtre
+# Heure de l'appareil acceptée pour une action rejouée plus tard (file hors ligne, étape 6).
+OCCURRED_AT_MAX_SKEW = timedelta(hours=24)
 # Plages de la journée (heure de Dakar) : (début, fin) en heures, pour les créneaux des devis.
 SLOT_PERIODS = {"morning": (8, 12), "afternoon": (12, 17), "evening": (17, 21)}
 

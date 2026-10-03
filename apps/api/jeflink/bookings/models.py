@@ -31,8 +31,18 @@ class Booking(BaseModel):
         SYSTEM = "system", "Système"
         OPS = "ops", "Équipe Jeflink"
 
-    # Les statuts où la réservation engage encore les deux parties (suppression du compte).
-    ACTIVE = (Status.ACCEPTED, Status.SCHEDULED)
+    # Engage encore les deux parties : bloque la suppression d'un compte (spec 004).
+    ENGAGED = (
+        Status.ACCEPTED,
+        Status.SCHEDULED,
+        Status.EN_ROUTE,
+        Status.ON_SITE,
+        Status.IN_PROGRESS,
+        Status.COMPLETED,
+        Status.DISPUTED,
+    )
+    # Peut encore être annulée (suspension du pro, désistement) : de accepted à on_site.
+    CANCELLABLE = (Status.ACCEPTED, Status.SCHEDULED, Status.EN_ROUTE, Status.ON_SITE)
 
     # Une demande a plusieurs réservations dans le temps, mais une seule active.
     request = models.ForeignKey(
@@ -48,11 +58,22 @@ class Booking(BaseModel):
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.ACCEPTED)
     # Copie du devis : informatif, aucun paiement ni écriture de grand livre (étape 5).
     amount_xof = models.PositiveBigIntegerField()
+    # Montant du devis, jamais modifié : ``amount_xof`` change par un avenant accepté (spec 004).
+    original_amount_xof = models.PositiveBigIntegerField()
     slot_start = models.DateTimeField()
     slot_end = models.DateTimeField()
     confirm_deadline = models.DateTimeField()
     cancelled_by = models.CharField(max_length=6, choices=Actor.choices, blank=True)
     cancel_reason = models.CharField(max_length=24, blank=True)
+    # Horodatages du déroulé (heure du serveur, UTC ; l'heure de l'appareil reste en métadonnée).
+    en_route_at = models.DateTimeField(null=True, blank=True)
+    on_site_at = models.DateTimeField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    # Fin de la fenêtre de contestation, posée à ``completed`` ; la clôture suit.
+    dispute_deadline = models.DateTimeField(null=True, blank=True)
+    dispute_reminder_sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "réservation"
@@ -61,6 +82,7 @@ class Booking(BaseModel):
             models.Index(fields=("status", "confirm_deadline")),
             models.Index(fields=("client", "status")),
             models.Index(fields=("provider", "status")),
+            models.Index(fields=("status", "dispute_deadline")),
         ]
         constraints = [
             models.UniqueConstraint(
@@ -69,6 +91,9 @@ class Booking(BaseModel):
                 name="booking_one_active_per_request",
             ),
             models.CheckConstraint(condition=Q(amount_xof__gt=0), name="booking_amount_positive"),
+            models.CheckConstraint(
+                condition=Q(original_amount_xof__gt=0), name="booking_original_amount_positive"
+            ),
             models.CheckConstraint(
                 condition=Q(slot_end__gt=models.F("slot_start")), name="booking_slot_ordered"
             ),

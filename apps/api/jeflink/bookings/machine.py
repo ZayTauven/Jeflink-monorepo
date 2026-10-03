@@ -1,7 +1,7 @@
-"""Machine à états de la réservation, déclarée en entier (ADR 0010).
+"""Machine à états de la réservation, déclarée en entier (ADR 0010) et activée par la spec 004.
 
-Les couples dont la spec n'active pas encore le cycle (``en_route`` à ``closed``, étape 4)
-sont déclarés mais lèvent ``transition_not_enabled``. Fonctions pures, sans base de données.
+Un couple déclaré avec ``enabled=False`` lèverait ``transition_not_enabled`` : la spec 004 les
+active tous. Fonctions pures, sans base de données.
 """
 
 from dataclasses import dataclass
@@ -34,15 +34,19 @@ DECLARED: dict[tuple[str, str], Rule] = {
     (Status.ACCEPTED, Status.SCHEDULED): _rule(PRO, enabled=True),
     (Status.ACCEPTED, Status.CANCELLED): _rule(CLIENT, PRO, SYSTEM, enabled=True),
     (Status.SCHEDULED, Status.CANCELLED): _rule(CLIENT, PRO, SYSTEM, enabled=True),
-    # Étape 4 : déroulé de l'intervention, garantie, litiges.
-    (Status.SCHEDULED, Status.EN_ROUTE): _rule(PRO),
-    (Status.EN_ROUTE, Status.ON_SITE): _rule(PRO),
-    (Status.ON_SITE, Status.IN_PROGRESS): _rule(PRO),
-    (Status.IN_PROGRESS, Status.IN_PROGRESS): _rule(CLIENT),  # avenant validé par le client
-    (Status.IN_PROGRESS, Status.COMPLETED): _rule(PRO),
-    (Status.COMPLETED, Status.CLOSED): _rule(SYSTEM),
-    (Status.COMPLETED, Status.DISPUTED): _rule(CLIENT),
-    (Status.DISPUTED, Status.CLOSED): _rule(OPS),
+    # Déroulé de l'intervention, clôture et litige (spec 004).
+    (Status.SCHEDULED, Status.EN_ROUTE): _rule(PRO, enabled=True),
+    (Status.EN_ROUTE, Status.ON_SITE): _rule(PRO, enabled=True),
+    (Status.ON_SITE, Status.IN_PROGRESS): _rule(PRO, enabled=True),
+    # Avenant accepté par le client : le statut ne change pas, l'événement trace l'accord.
+    (Status.IN_PROGRESS, Status.IN_PROGRESS): _rule(CLIENT, enabled=True),
+    (Status.IN_PROGRESS, Status.COMPLETED): _rule(PRO, enabled=True),
+    (Status.COMPLETED, Status.CLOSED): _rule(SYSTEM, enabled=True),
+    (Status.COMPLETED, Status.DISPUTED): _rule(CLIENT, enabled=True),
+    (Status.DISPUTED, Status.CLOSED): _rule(OPS, enabled=True),
+    # Le pro déjà parti ou arrivé peut renoncer ; le client ne peut plus annuler un pro sur place.
+    (Status.EN_ROUTE, Status.CANCELLED): _rule(CLIENT, PRO, SYSTEM, enabled=True),
+    (Status.ON_SITE, Status.CANCELLED): _rule(PRO, SYSTEM, enabled=True),
 }
 
 # Contact partagé (numéros des deux parties, repère et position du client) : le pro a confirmé,
@@ -59,7 +63,10 @@ DISCLOSED_STATUSES = frozenset(
 )
 
 # --- Motifs : codes en dur, ils pilotent la fiabilité (contrairement aux libellés de données) ---
-LATE_CANCEL_STATUSES = (Status.SCHEDULED,)
+# Un désistement du pro compte à partir de ``scheduled`` ; parti ou arrivé, il est toujours tardif.
+PRO_FAULT_FROM = (Status.SCHEDULED, Status.EN_ROUTE, Status.ON_SITE)
+ALWAYS_LATE_FROM = (Status.EN_ROUTE, Status.ON_SITE)
+CLIENT_ABSENT = "client_absent"  # le pro est sur place et le client n'y est pas : poids 0, tracé
 
 
 def is_late(*, slot_start: datetime, now: datetime) -> bool:
@@ -67,18 +74,21 @@ def is_late(*, slot_start: datetime, now: datetime) -> bool:
     return now >= slot_start - settings.BOOKING_LATE_CANCEL_WINDOW
 
 
-def reliability_weight(*, actor_kind: str, from_status: str, to_status: str, late: bool) -> int:
+def reliability_weight(
+    *, actor_kind: str, from_status: str, to_status: str, late: bool, reason: str = ""
+) -> int:
     """Poids d'un désistement dans la fiabilité d'un pro (V1 : trace seulement, pas de score).
 
     - Pro : rien avant ``scheduled`` (``pro_unconfirmed`` compris, c'est le système qui annule).
-      Après ``scheduled``, tout désistement compte 1, et 2 s'il est tardif.
+      Ensuite, tout désistement compte 1, et 2 s'il est tardif (toujours, une fois en route).
+      ``client_absent`` (le client n'est pas là) est tracé avec un poids de 0.
     - Client : jamais rien contre le pro, ``price`` compris. Une annulation tardive du client
       est tracée (``late``), sans pénalité.
     - Système (non-confirmation, suspension) : 0.
     """
     if to_status != Status.CANCELLED or actor_kind != PRO:
         return 0
-    if from_status not in LATE_CANCEL_STATUSES:
+    if from_status not in PRO_FAULT_FROM or reason == CLIENT_ABSENT:
         return 0
     return 2 if late else 1
 

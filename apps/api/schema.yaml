@@ -1225,6 +1225,58 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/pro/bookings/{public_id}/arrive/:
+    post:
+      operationId: pro_bookings_arrive
+      description: |-
+        Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+
+        Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: transition_not_allowed (étape non permise depuis ce statut)
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: occurred_at_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
   /api/pro/bookings/{public_id}/cancel/:
     post:
       operationId: pro_bookings_cancel
@@ -1287,6 +1339,111 @@ paths:
           description: ''
         '409':
           description: transition_not_allowed (déjà confirmée, échue)
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/en-route/:
+    post:
+      operationId: pro_bookings_en_route
+      description: |-
+        Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+
+        Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: transition_not_allowed (étape non permise depuis ce statut)
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: occurred_at_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/start/:
+    post:
+      operationId: pro_bookings_start
+      description: |-
+        Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+
+        Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StartRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StartRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: transition_not_allowed (le début n'est jamais déduit d'une
+            étape manquée)
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: before_photos_required, occurred_at_invalid
         '401':
           description: not_authenticated
         '403':
@@ -1884,6 +2041,36 @@ components:
         payment:
           type: string
           readOnly: true
+        en_route_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        on_site_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        closed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        dispute_deadline:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         cancelled_by:
           allOf:
           - $ref: '#/components/schemas/CancelledByEnum'
@@ -1899,9 +2086,14 @@ components:
       - amount_xof
       - cancel_reason
       - cancelled_by
+      - closed_at
+      - completed_at
       - confirm_deadline
       - contact
       - created_at
+      - dispute_deadline
+      - en_route_at
+      - on_site_at
       - payment
       - provider
       - public_id
@@ -1909,6 +2101,7 @@ components:
       - request
       - slot_end
       - slot_start
+      - started_at
       - status
       - trade
       - zone
@@ -2385,6 +2578,15 @@ components:
     NullEnum:
       enum:
       - null
+    OccurredAtRequest:
+      type: object
+      description: 'Heure de l''appareil (file hors ligne, étape 6) : métadonnée,
+        le serveur fait foi.'
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+          nullable: true
     OpsAccountDetail:
       type: object
       properties:
@@ -3163,6 +3365,36 @@ components:
           - $ref: '#/components/schemas/LocationOut'
           nullable: true
           readOnly: true
+        en_route_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        on_site_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        closed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        dispute_deadline:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
         cancelled_by:
           allOf:
           - $ref: '#/components/schemas/CancelledByEnum'
@@ -3179,16 +3411,22 @@ components:
       - cancel_reason
       - cancelled_by
       - client
+      - closed_at
+      - completed_at
       - confirm_deadline
       - created_at
       - description
+      - dispute_deadline
+      - en_route_at
       - landmark
       - location
+      - on_site_at
       - public_id
       - request
       - service
       - slot_end
       - slot_start
+      - started_at
       - status
       - trade
       - urgent
@@ -3634,6 +3872,18 @@ components:
       required:
       - name
       - slug
+    StartRequest:
+      type: object
+      description: 'Heure de l''appareil (file hors ligne, étape 6) : métadonnée,
+        le serveur fait foi.'
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+          nullable: true
+        photos_pending:
+          type: boolean
+          default: false
     StepUpRequestRequest:
       type: object
       properties:
