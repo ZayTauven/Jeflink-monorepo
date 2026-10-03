@@ -128,5 +128,303 @@
       "trade_not_found": "Ce métier n'est pas proposé pour le moment.",
       "zone_not_found": "Ce quartier n'est pas encore couvert. Écrivez-le quand même : nous vous recontactons."
     }
+  },
+  "requests": {
+    "shell": {
+      "nav": "Navigation du compte",
+      "mine": "Mes demandes",
+      "new": "Nouvelle demande"
+    },
+    "form": {
+      "metaTitle": "Faire une demande · Jeflink",
+      "title": "Décrivez votre besoin",
+      "lead": "Jusqu'à 3 pros vérifiés vous envoient un devis. Vous choisissez, puis le pro confirme.",
+      "draftRestored": "Nous avons retrouvé votre brouillon.",
+      "draftReset": "Recommencer à zéro",
+      "unavailable": "Les métiers et les quartiers n'ont pas pu être chargés. Vérifiez votre connexion, puis rechargez la page.",
+      "reload": "Recharger la page",
+      "summary": "Vérifiez les champs signalés avant d'envoyer.",
+      "name": {
+        "label": "Votre nom",
+        "hint": "Il apparaîtra sur vos demandes. Un prénom suffit."
+      },
+      "trade": {
+        "legend": "De quel pro avez-vous besoin ?",
+        "search": "Chercher un métier",
+        "placeholder": "Ex. plombier, clim, ménage",
+        "empty": "Aucun métier ne correspond. Essayez un autre mot."
+      },
+      "service": {
+        "legend": "Quel service ? (facultatif)",
+        "none": "Je ne sais pas, ou autre chose"
+      },
+      "zone": {
+        "legend": "Dans quel quartier ?",
+        "search": "Chercher un quartier",
+        "placeholder": "Ex. Ouakam, Plateau",
+        "empty": "Aucun quartier ne correspond. Essayez un autre mot, ou choisissez « Autre quartier ».",
+        "other": "Autre quartier, ou je ne sais pas",
+        "otherLabel": "Nom du quartier",
+        "otherHint": "Écrivez-le comme vous le dites : nous le vérifions et nous vous répondons.",
+        "otherPlaceholder": "Ex. Cité Keur Gorgui"
+      },
+      "landmark": {
+        "label": "Repère pour trouver l'endroit",
+        "hint": "Exemple : « près de la boutique, portail bleu, 2e étage ».",
+        "privacy": "Le repère exact sera communiqué au pro après confirmation.",
+        "placeholder": "Près de la boutique, portail bleu, 2e étage"
+      },
+      "location": {
+        "title": "Ou partagez votre position",
+        "lead": "Facultatif. Elle n'est envoyée qu'avec votre demande et n'est pas gardée dans ce navigateur.",
+        "use": "Utiliser ma position",
+        "locating": "Recherche de la position…",
+        "set": "Position ajoutée à votre demande.",
+        "remove": "Retirer ma position",
+        "denied": "La position n'a pas pu être lue. Écrivez un repère à la place.",
+        "unsupported": "Ce navigateur ne donne pas la position. Écrivez un repère à la place."
+      },
+      "description": {
+        "label": "Décrivez le problème",
+        "labelOptional": "Décrivez le problème (facultatif)",
+        "placeholder": "Ex. fuite sous l'évier de la cuisine depuis ce matin"
+      },
+      "when": {
+        "legend": "Quand ?",
+        "asap": "Dès que possible",
+        "date": "Un jour précis",
+        "dateLabel": "Jour",
+        "periodLegend": "Plage du jour",
+        "morning": "Matin",
+        "afternoon": "Après-midi",
+        "evening": "Soir",
+        "any": "Peu importe"
+      },
+      "urgent": {
+        "label": "C'est urgent",
+        "hint": "Les pros voient votre demande en premier."
+      },
+      "submit": "Envoyer ma demande",
+      "sending": "Envoi en cours…",
+      "errors": {
+        "trade": "Choisissez un métier.",
+        "zone": "Choisissez un quartier, ou écrivez-le.",
+        "landmark": "Écrivez un repère, ou ajoutez votre position.",
+        "description": "Décrivez le problème en quelques mots (3 caractères au moins), ou choisissez un service.",
+        "date": "Choisissez un jour à partir d'aujourd'hui.",
+        "displayName": "Écrivez votre nom."
+      },
+      "ambiguous": {
+        "title": "Dans quel quartier êtes-vous ?",
+        "lead": "Votre position touche plusieurs quartiers. Choisissez le bon : votre demande n'est pas encore envoyée.",
+        "choose": "C'est {name}"
+      },
+      "relogin": "Se reconnecter"
+    },
+    "list": {
+      "metaTitle": "Mes demandes · Jeflink",
+      "title": "Mes demandes",
+      "lead": "Suivez vos demandes, comparez les devis et retrouvez vos réservations.",
+      "new": "Nouvelle demande",
+      "sent": "Envoyée le {date}",
+      "until": "Valable jusqu'au {date}",
+      "more": "Voir les demandes plus anciennes",
+      "newer": "Revenir aux plus récentes",
+      "unavailable": "Vos demandes n'ont pas pu être chargées. Vérifiez votre connexion, puis réessayez.",
+      "retry": "Réessayer",
+      "empty": {
+        "title": "Aucune demande pour le moment",
+        "lead": "Décrivez votre besoin : jusqu'à 3 pros vérifiés vous envoient un devis.",
+        "cta": "Faire une demande"
+      },
+      "loading": "Chargement de vos demandes…"
+    },
+    "status": {
+      "needs_zone": "Quartier à vérifier",
+      "open": "En attente de devis",
+      "quoted": "Devis reçus",
+      "booked": "Réservation en cours",
+      "cancelled": "Annulée",
+      "expired": "Expirée",
+      "unknown": "En cours",
+      "awaiting": "En attente du pro"
+    },
+    "detail": {
+      "metaTitle": "Ma demande · Jeflink",
+      "back": "Mes demandes",
+      "refresh": "Actualiser",
+      "refreshing": "Actualisation…",
+      "unavailable": "Cette demande n'a pas pu être chargée. Vérifiez votre connexion, puis réessayez.",
+      "summary": {
+        "title": "Ma demande",
+        "service": "Service",
+        "zone": "Quartier",
+        "landmark": "Repère",
+        "position": "Position",
+        "description": "Description",
+        "when": "Quand",
+        "asap": "Dès que possible",
+        "dateAt": "{date}, {period}",
+        "urgent": "Urgent",
+        "sent": "Envoyée le {date}",
+        "positionShared": "Partagée avec la demande"
+      },
+      "needsZone": {
+        "title": "Nous vérifions votre quartier",
+        "lead": "Ce quartier ne figure pas encore dans notre liste. Notre équipe le rattache à une zone, puis des pros vous envoient leurs devis.",
+        "support": "Écrire sur WhatsApp",
+        "supportMessage": "Bonjour, ma demande Jeflink attend la vérification de mon quartier."
+      },
+      "open": {
+        "title": "Nous cherchons des pros pour vous",
+        "lead": "Les devis arrivent ici, jusqu'à 3. Revenez dans un moment, ou actualisez la page.",
+        "until": "Demande valable jusqu'au {date}."
+      },
+      "quotes": {
+        "title": "{count, plural, one {# devis à comparer} other {# devis à comparer}}",
+        "lead": "Comparez les créneaux et les prix, puis choisissez. Les devis sont classés par créneau, du plus proche au plus lointain.",
+        "contactNotice": "Les coordonnées sont partagées après confirmation.",
+        "withdrew": "Le pro ne peut plus venir, voici vos autres devis.",
+        "withdrewNone": "Le pro ne peut plus venir. Nous cherchons un autre pro pour vous."
+      }
+    },
+    "quote": {
+      "fixed": "Prix ferme",
+      "visit": "Visite seulement : le prix des travaux sera donné sur place",
+      "deductible": "Déduit si vous faites les travaux",
+      "verified": "Pro vérifié",
+      "message": "Message du pro",
+      "lines": "Détail du devis",
+      "validUntil": "Devis valable jusqu'au {date}",
+      "choose": "Choisir ce devis",
+      "today": "Aujourd'hui",
+      "tomorrow": "Demain",
+      "slotDay": "{day} {period}",
+      "slotDate": "Le {date} {period}",
+      "slotRange": "de {from} à {to}",
+      "period": {
+        "morning": "matin",
+        "afternoon": "après-midi",
+        "evening": "soir"
+      },
+      "line": {
+        "labor": "Main-d'œuvre",
+        "parts": "Pièces",
+        "travel": "Déplacement",
+        "other": "Autre"
+      },
+      "confirm": {
+        "title": "Choisir ce devis ?",
+        "lead": "Vous choisissez {name} pour {amount}, {slot}.",
+        "visitNote": "Ce prix est celui de la visite. Le prix des travaux se fixe avec le pro, sur place.",
+        "next": "Le pro doit confirmer le créneau. Vos autres devis sont gardés au cas où.",
+        "yes": "Oui, choisir ce pro",
+        "no": "Retour aux devis",
+        "sending": "Envoi en cours…"
+      },
+      "forName": "de {name}"
+    },
+    "waiting": {
+      "title": "En attente de la confirmation du pro",
+      "lead": "{name} a jusqu'à {when} ; sinon vous retrouvez vos autres devis.",
+      "slot": "Créneau choisi : {slot}",
+      "notice": "Les coordonnées sont partagées après confirmation."
+    },
+    "booked": {
+      "title": "Réservation confirmée",
+      "slot": "Créneau",
+      "pro": "Pro",
+      "amount": "Prix du devis",
+      "visitReminder": "Devis de visite : le prix des travaux se fixe avec le pro, sur place.",
+      "phone": "Téléphone",
+      "call": "Appeler {name}",
+      "whatsapp": "WhatsApp",
+      "whatsappMessage": "Bonjour, je vous écris au sujet de ma réservation Jeflink : {slot}.",
+      "payment": "À régler au pro, en espèces ou par mobile money. Jeflink ne garde aucun argent pour l'instant.",
+      "noContact": "Les coordonnées du pro apparaissent ici dès la confirmation."
+    },
+    "cancel": {
+      "openRequest": "Annuler cette demande",
+      "openBooking": "Annuler la réservation",
+      "title": "Pourquoi annulez-vous ?",
+      "reasons": {
+        "changed_mind": "J'ai changé d'avis",
+        "found_other": "J'ai trouvé quelqu'un d'autre",
+        "price": "Le prix ne me convient pas",
+        "unavailable": "Je ne suis plus disponible",
+        "other": "Autre raison"
+      },
+      "note": "Dites-le en quelques mots",
+      "noteHint": "200 caractères au plus. Sans numéro de téléphone.",
+      "reasonError": "Choisissez un motif.",
+      "noteError": "Écrivez votre raison en 200 caractères au plus.",
+      "confirm": "Confirmer l'annulation",
+      "confirming": "Annulation en cours…",
+      "keepRequest": "Garder ma demande",
+      "keepBooking": "Garder ma réservation"
+    },
+    "closed": {
+      "cancelled": {
+        "title": "Demande annulée",
+        "lead": "Vous pouvez en faire une nouvelle quand vous voulez."
+      },
+      "expired": {
+        "title": "Demande expirée",
+        "lead": "Aucun devis n'a été choisi à temps. Refaites une demande, c'est rapide."
+      },
+      "new": "Faire une nouvelle demande"
+    },
+    "notFound": {
+      "title": "Cette demande est introuvable",
+      "lead": "Elle n'existe pas, ou elle n'est pas sur votre compte.",
+      "back": "Voir mes demandes"
+    },
+    "failure": {
+      "title": "La page n'a pas pu se charger",
+      "lead": "Vérifiez votre connexion, puis réessayez. Votre demande n'est pas perdue.",
+      "retry": "Réessayer"
+    },
+    "support": {
+      "link": "Écrire au support sur WhatsApp",
+      "message": "Bonjour, je n'arrive pas à envoyer ma demande sur Jeflink.",
+      "unserved": "Bonjour, je cherche un pro pour « {trade} » à {zone}, mais Jeflink ne le propose pas encore."
+    },
+    "errors": {
+      "network": "Pas de connexion internet. Votre saisie est gardée : réessayez dès que le réseau revient.",
+      "generic": "Un problème est survenu de notre côté. Réessayez dans un instant.",
+      "invalid": "Certaines informations sont refusées. Vérifiez les champs, puis réessayez.",
+      "idempotency_key_required": "La demande n'a pas pu être envoyée. Rechargez la page, puis réessayez.",
+      "not_authenticated": "Votre session a pris fin. Reconnectez-vous : votre saisie est gardée.",
+      "profile_incomplete": "Ajoutez votre nom pour envoyer une demande.",
+      "role_required": "Ce compte ne peut pas faire de demande. Écrivez au support.",
+      "not_found": "Cette demande est introuvable.",
+      "request_limit_reached": "Vous avez déjà 3 demandes en cours. Annulez-en une, ou attendez qu'elle se termine, pour en faire une autre.",
+      "idempotency_key_reused": "Une demande a déjà été envoyée avec un autre contenu. Regardez « Mes demandes » avant de la renvoyer.",
+      "request_closed": "Cette demande est déjà réservée ou fermée. Pour l'arrêter, annulez la réservation.",
+      "quote_not_available": "Ce devis n'est plus disponible. Actualisez la page pour voir vos devis.",
+      "transition_not_allowed": "Cette action n'est plus possible : la réservation a changé. Actualisez la page.",
+      "zone_ambiguous": "Votre position touche plusieurs quartiers. Choisissez le bon.",
+      "trade_not_in_zone": "Ce métier n'est pas encore proposé dans ce quartier. Écrivez-nous : nous notons votre besoin.",
+      "out_of_area": "Jeflink n'est pas encore ouvert à cet endroit. Écrivez-nous : nous notons votre besoin.",
+      "trade_not_found": "Ce métier n'est pas proposé pour le moment. Écrivez-nous.",
+      "trade_inactive": "Ce métier est suspendu pour le moment. Écrivez-nous.",
+      "zone_not_found": "Ce quartier n'est pas reconnu. Écrivez-le dans « Autre quartier ».",
+      "zone_inactive": "Ce quartier n'est pas encore ouvert. Écrivez-nous : nous notons votre besoin.",
+      "zone_required": "Choisissez un quartier, ou écrivez-le.",
+      "service_not_in_trade": "Ce service ne correspond pas au métier choisi. Changez l'un des deux.",
+      "landmark_or_location_required": "Écrivez un repère, ou ajoutez votre position.",
+      "description_required": "Décrivez le problème en quelques mots, ou choisissez un service.",
+      "slot_invalid": "Le jour ou la plage choisis ne sont pas possibles. Choisissez un jour à partir d'aujourd'hui.",
+      "reason_invalid": "Choisissez un motif d'annulation.",
+      "note_invalid": "Cette note n'est pas acceptée : retirez tout numéro de téléphone.",
+      "text_too_long": "Un texte est trop long. Raccourcissez-le.",
+      "location_invalid": "La position n'est pas valide. Retirez-la et écrivez un repère.",
+      "request_rate_limited": "Trop de demandes envoyées. Réessayez un peu plus tard.",
+      "request_rate_limited_wait": "Trop de demandes envoyées. Réessayez dans {minutes, plural, one {# minute} other {# minutes}}.",
+      "rate_limit_unavailable": "L'envoi est interrompu pour le moment. Réessayez dans quelques minutes.",
+      "display_name_length": "Votre nom est trop court ou trop long.",
+      "display_name_invalid": "Ce nom n'est pas accepté. Écrivez votre prénom ou votre nom.",
+      "display_name_reserved": "Ce nom n'est pas disponible. Choisissez-en un autre."
+    }
   }
 }
