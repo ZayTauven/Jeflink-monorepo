@@ -26,6 +26,7 @@ RESERVED_TRADE_SLUGS = frozenset(
         "confidentialite",
         "connexion",
         "contact",
+        "demande",
         "devenir-pro",
         "metiers",
         "pro",

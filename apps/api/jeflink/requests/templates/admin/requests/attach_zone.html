@@ -1,0 +1,14 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>{{ requests_selected|length }} demande(s) « quartier à vérifier » : choisissez la zone.</p>
+<form method="post">
+  {% csrf_token %}
+  {% for item in requests_selected %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ item.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="attach_to_zone">
+  <input type="hidden" name="apply" value="1">
+  {{ form.as_p }}
+  <input type="submit" value="Rattacher">
+</form>
+{% endblock %}

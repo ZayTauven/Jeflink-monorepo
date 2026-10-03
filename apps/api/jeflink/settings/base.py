@@ -1,5 +1,6 @@
 """Réglages communs. Tout ce qui varie par environnement vient des variables d'environnement."""
 
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -36,6 +37,7 @@ INSTALLED_APPS = [
     "jeflink.zones",
     "jeflink.providers",
     "jeflink.analytics",
+    "jeflink.requests",
 ]
 
 MIDDLEWARE = [
@@ -283,6 +285,17 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 24 * 3600,
         "options": {"expires": 6 * 3600},
     },
+    # Demande, devis, réservation (spec 003) : idempotentes. Expiration toutes les 5 minutes.
+    "requests-expire-due": {
+        "task": "jeflink.requests.tasks.expire_due",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    "requests-purge-locations": {
+        "task": "jeflink.requests.tasks.purge_locations",
+        "schedule": 24 * 3600,
+        "options": {"expires": 6 * 3600},
+    },
 }
 
 # Rétention des données d'authentification, en jours (spec 001 ; à valider par le consultant
@@ -293,6 +306,29 @@ AUTH_RETENTION = {
     "closed_requests": 30,  # RoleInvitation et PhoneChangeRequest clos
     "sessions": 90,  # DeviceSession révoquées ou expirées (et leurs refresh retirés)
 }
+
+# --- Demande, devis, réservation (spec 003) : toutes les durées et limites sont des réglages ---
+REQUEST_MAX_OPEN_PER_CLIENT = 3
+REQUEST_CREATE_DAILY_LIMIT = 10  # créations par utilisateur et par 24 h (fermé si Redis tombe)
+REQUEST_TTL = timedelta(hours=72)  # après le passage en « open » ; « needs_zone » ne compte pas
+REQUEST_TTL_URGENT = timedelta(hours=24)
+REQUEST_PREFERRED_MAX_DAYS = 30  # « un jour » souhaité : dans les 30 jours
+# Repère et position d'une demande close sans réservation, vidés après (purge quotidienne).
+REQUEST_LOCATION_RETENTION_DAYS = 30
+QUOTE_MAX_ACTIVE = 3  # devis actifs par demande (pas de course au moins-disant)
+PRO_MAX_SUBMITTED_QUOTES = 10  # devis « submitted » en même temps, par pro
+QUOTE_TTL = timedelta(hours=48)
+QUOTE_TTL_URGENT = timedelta(hours=12)
+QUOTE_MAX_XOF = 5_000_000
+QUOTE_VISIT_MAX_XOF = 15_000  # « Visite seulement » : plafond du déplacement
+QUOTE_MAX_LINES = 8
+BOOKING_CONFIRM_TTL = timedelta(hours=4)  # délai du pro pour confirmer
+BOOKING_CONFIRM_TTL_URGENT = timedelta(hours=1)
+# Le délai ne court pas de 21 h à 7 h, heure de Dakar : (début, fin) en heures.
+BOOKING_CONFIRM_QUIET_HOURS = (21, 7)
+BOOKING_LATE_CANCEL_WINDOW = timedelta(hours=2)  # annulation « tardive » avant le créneau
+# Plages de la journée (heure de Dakar) : (début, fin) en heures, pour les créneaux des devis.
+SLOT_PERIODS = {"morning": (8, 12), "afternoon": (12, 17), "evening": (17, 21)}
 
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")
