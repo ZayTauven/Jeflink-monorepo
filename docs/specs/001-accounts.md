@@ -1,6 +1,6 @@
 # Spec 001 — accounts : comptes et connexion
 
-Statut : validée · 2026-09-30 (Zay) · ADR liés : 0007 (sessions), 0008 (SmsGateway) · Revues intégrées : `terrain-reviewer` (T1 à T3), `security-reviewer` (S1 à S31)
+Statut : close le 2026-10-03 (socle API et connexion web livrés) ; les tâches restantes sont reportées dans `docs/architecture/chantier-prod.md` · validée le 2026-09-30 (Zay) · ADR liés : 0007 (sessions), 0008 (SmsGateway) · Revues intégrées : `terrain-reviewer` (T1 à T3), `security-reviewer` (S1 à S31)
 
 ## Problème
 

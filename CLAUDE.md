@@ -56,7 +56,8 @@ Poste de dev : Windows 11 (PowerShell + Git Bash). Les hooks `.claude/hooks/*.mj
 
 ## Workflow attendu
 
-- Feature non triviale → `/feature <nom>` : spec dans `docs/specs/`, relue par l'agent `terrain-reviewer`, validée par Zay **avant** de coder.
+- **Cap actuel : les fonctionnalités en dev local d'abord, la prod en dernier.** Un besoin de production (infra, proxy, TLS, supervision, durcissement) repéré pendant une feature s'ajoute à `docs/architecture/chantier-prod.md` ; on ne le traite pas pendant la feature. `security-reviewer` passe une fois par feature qui touche l'argent ou les permissions, pas à chaque tâche.
+- Feature non triviale → `/feature <nom>` : spec courte dans `docs/specs/`, relue par l'agent `terrain-reviewer`, validée par Zay **avant** de coder.
 - Décision d'architecture → `/adr <titre>`.
 - Avant PR → `/ship-check`.
 - « Done » = tests + migrations + schéma OpenAPI + clés i18n + revue design si UI.
