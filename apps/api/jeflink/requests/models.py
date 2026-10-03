@@ -13,6 +13,8 @@ from jeflink.common.models import BaseModel
 
 LANDMARK_MAX_LENGTH = 300
 DESCRIPTION_MAX_LENGTH = 1000
+MESSAGE_MAX_LENGTH = 500
+LABEL_MAX_LENGTH = 60
 
 
 class ServiceRequest(BaseModel):
@@ -111,3 +113,95 @@ class ServiceRequest(BaseModel):
 
     def __str__(self) -> str:
         return f"demande {self.status}"
+
+
+class Quote(BaseModel):
+    """Devis d'un pro sur une demande : informatif (aucun paiement), jusqu'à 3 par demande."""
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Envoyé"
+        HELD = "held", "En attente du choix du client"
+        ACCEPTED = "accepted", "Accepté"
+        DECLINED = "declined", "Refusé"
+        WITHDRAWN = "withdrawn", "Retiré"
+        EXPIRED = "expired", "Expiré"
+
+    class Kind(models.TextChoices):
+        FIXED = "fixed", "Prix ferme"
+        VISIT = "visit", "Visite seulement"
+
+    # Un devis « actif » occupe une des places de la demande et la place du pro.
+    ACTIVE = (Status.SUBMITTED, Status.HELD, Status.ACCEPTED)
+
+    request = models.ForeignKey(ServiceRequest, on_delete=models.PROTECT, related_name="quotes")
+    provider = models.ForeignKey(
+        "providers.Provider", on_delete=models.PROTECT, related_name="quotes"
+    )
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.SUBMITTED)
+    kind = models.CharField(max_length=5, choices=Kind.choices)
+    # Entier XOF, informatif : somme des lignes, vérifiée par le service.
+    total_xof = models.PositiveBigIntegerField()
+    visit_deductible = models.BooleanField(default=False)
+    message = models.CharField(max_length=MESSAGE_MAX_LENGTH, blank=True)
+    slot_start = models.DateTimeField()
+    slot_end = models.DateTimeField()
+    valid_until = models.DateTimeField()
+    idempotency_key = models.CharField(max_length=64)
+    payload_hash = models.CharField(max_length=64)
+
+    class Meta:
+        verbose_name = "devis"
+        ordering = ("slot_start", "id")
+        indexes = [
+            models.Index(fields=("request", "status")),
+            models.Index(fields=("provider", "status")),
+            models.Index(fields=("status", "valid_until")),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("provider", "idempotency_key"), name="quote_idempotency_per_provider"
+            ),
+            # Un seul devis actif par pro et par demande : pour modifier, on retire puis on renvoie.
+            models.UniqueConstraint(
+                fields=("request", "provider"),
+                condition=Q(status__in=("submitted", "held", "accepted")),
+                name="quote_one_active_per_provider",
+            ),
+            models.CheckConstraint(condition=Q(total_xof__gt=0), name="quote_total_positive"),
+            models.CheckConstraint(
+                condition=Q(slot_end__gt=models.F("slot_start")), name="quote_slot_ordered"
+            ),
+            models.CheckConstraint(
+                condition=Q(kind="visit") | Q(visit_deductible=False),
+                name="quote_deductible_only_visit",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"devis {self.kind} · {self.status}"
+
+
+class QuoteLine(models.Model):
+    """Ligne d'un devis (1 à 8) : main-d'œuvre, pièces, déplacement, autre."""
+
+    class Kind(models.TextChoices):
+        LABOR = "labor", "Main-d'œuvre"
+        PARTS = "parts", "Pièces"
+        TRAVEL = "travel", "Déplacement"
+        OTHER = "other", "Autre"
+
+    quote = models.ForeignKey(Quote, on_delete=models.CASCADE, related_name="lines")
+    position = models.PositiveSmallIntegerField()
+    kind = models.CharField(max_length=6, choices=Kind.choices)
+    label = models.CharField(max_length=LABEL_MAX_LENGTH, blank=True)
+    amount_xof = models.PositiveBigIntegerField()
+
+    class Meta:
+        ordering = ("position",)
+        constraints = [
+            models.UniqueConstraint(fields=("quote", "position"), name="quoteline_position"),
+            models.CheckConstraint(condition=Q(amount_xof__gt=0), name="quoteline_amount_positive"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.kind} {self.amount_xof}"

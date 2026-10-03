@@ -2,13 +2,14 @@
 
 from celery import shared_task
 
-from . import services
+from . import quotes, services
 
 
 @shared_task(acks_late=True)
-def expire_due() -> int:
-    """Expire les demandes échues (``no_quote`` si aucun devis) ; toutes les 5 minutes."""
-    return services.expire_due()
+def expire_due() -> dict[str, int]:
+    """Expire les demandes échues (``no_quote`` si aucun devis), puis les devis échus ; toutes
+    les 5 minutes."""
+    return {"requests": services.expire_due(), "quotes": quotes.expire_quotes()}
 
 
 @shared_task(acks_late=True)

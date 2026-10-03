@@ -118,6 +118,23 @@ def redact(text: str) -> str:
     return _SN_NATIONAL.sub(REDACTED, text)
 
 
+NUMBER_MASK = "••••••••"
+
+
+def mask_numbers(text: str) -> tuple[str, int]:
+    """Masque les numéros de téléphone d'un texte libre (affichage à l'autre partie).
+
+    Renvoie le texte masqué et le nombre de numéros masqués. Ne masque que les motifs de ce
+    module : ni chiffres en lettres, ni en wolof, ni très espacés. Ce n'est pas étanche, et la
+    spec 003 ne prétend pas qu'il le soit. Le texte stocké reste intact.
+    """
+    if not text:
+        return text, 0
+    text, international = _INTERNATIONAL.subn(NUMBER_MASK, text)
+    text, national = _SN_NATIONAL.subn(NUMBER_MASK, text)
+    return text, international + national
+
+
 def contains_pii(text: str) -> bool:
     return redact(text) != text
 

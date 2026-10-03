@@ -3,7 +3,16 @@ import logging
 import pytest
 
 from jeflink.common.log_filters import PiiRedactingFilter
-from jeflink.common.pii import REDACTED, contains_pii, mask_phone, phone_hmac, redact, redact_data
+from jeflink.common.pii import (
+    NUMBER_MASK,
+    REDACTED,
+    contains_pii,
+    mask_numbers,
+    mask_phone,
+    phone_hmac,
+    redact,
+    redact_data,
+)
 
 
 def test_mask_phone_garde_indicatif_et_deux_chiffres():
@@ -141,3 +150,11 @@ def test_jetons_opaques_masques_meme_hors_cle_sensible(prefix):
     sortie = redact(f"échec avec {jeton} en argument")
     assert jeton not in sortie
     assert REDACTED in sortie
+
+
+def test_mask_numbers_compte_et_masque_sans_toucher_le_reste():
+    text, count = mask_numbers("Appelez-moi au 77 123 45 67 ou au +221 76 987 65 43, merci")
+    assert count == 2 and text.count(NUMBER_MASK) == 2
+    assert "123" not in text and "987" not in text and text.endswith("merci")
+    assert mask_numbers("Rien à masquer, 15 000 F") == ("Rien à masquer, 15 000 F", 0)
+    assert mask_numbers("") == ("", 0)

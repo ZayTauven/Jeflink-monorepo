@@ -244,8 +244,8 @@ def test_expiration_des_demandes_echues_et_signal_no_quote():
 
 def test_expiration_idempotente_et_via_la_tache():
     ServiceRequestFactory(expires_at=timezone.now() - timedelta(minutes=1))
-    assert tasks.expire_due() == 1
-    assert tasks.expire_due() == 0
+    assert tasks.expire_due() == {"requests": 1, "quotes": 0}
+    assert tasks.expire_due() == {"requests": 0, "quotes": 0}
 
 
 def test_une_demande_reservee_n_expire_pas():

@@ -27,7 +27,13 @@ from jeflink.zones.models import Zone
 from jeflink.zones.selectors import availability
 
 from .drafts import RequestDraft
-from .models import DESCRIPTION_MAX_LENGTH, LANDMARK_MAX_LENGTH, ServiceRequest
+from .models import (
+    DESCRIPTION_MAX_LENGTH,
+    LANDMARK_MAX_LENGTH,
+    Quote,
+    QuoteLine,
+    ServiceRequest,
+)
 from .reasons import CLIENT_REASONS, check_reason
 from .selectors import eligible_providers
 
@@ -338,7 +344,7 @@ def cancel_request(
         raise DomainError("request_closed", status=409)
     previous = request.status
     transition_request(request, Status.CANCELLED, reason=reason)
-    _on_close(request)
+    _on_close(request, outcome=Quote.Status.DECLINED)
     audit(
         action="requests.request.cancelled",
         actor=actor,
@@ -372,8 +378,12 @@ def attach_zone(*, request: ServiceRequest, zone: Zone, operator: User) -> Servi
     return request
 
 
-def _on_close(request: ServiceRequest) -> None:
-    """Effets d'une clôture (annulation, expiration) sur les devis, sous le verrou de la demande."""
+def _on_close(request: ServiceRequest, *, outcome: str) -> None:
+    """Effets d'une clôture sur les devis, sous le verrou de la demande : refusés si le client
+    annule, expirés si la demande expire."""
+    from . import quotes
+
+    quotes.close_quotes(request, outcome=outcome)
 
 
 def expire_due(*, now: datetime | None = None) -> int:
@@ -395,7 +405,7 @@ def expire_due(*, now: datetime | None = None) -> int:
                 continue
             never_quoted = request.first_quoted_at is None
             transition_request(request, Status.EXPIRED, reason="expired")
-            _on_close(request)
+            _on_close(request, outcome=Quote.Status.EXPIRED)
             if never_quoted:
                 record_unserved(
                     reason="no_quote",
@@ -433,7 +443,7 @@ def anonymize_requests(user: User) -> None:
     for request in ServiceRequest.objects.select_for_update().filter(client=user):
         if request.status in {Status.NEEDS_ZONE, Status.OPEN, Status.QUOTED}:
             transition_request(request, Status.CANCELLED, reason="account_deleted")
-            _on_close(request)
+            _on_close(request, outcome=Quote.Status.DECLINED)
         if request.status == Status.BOOKED:
             continue
         request.landmark = ""
@@ -443,3 +453,6 @@ def anonymize_requests(user: User) -> None:
         request.save(
             update_fields=["landmark", "description", "zone_text", "location", "updated_at"]
         )
+    # Un pro qui supprime son compte : ses messages et libellés de devis sont effacés.
+    Quote.objects.filter(provider__owner=user).update(message="")
+    QuoteLine.objects.filter(quote__provider__owner=user).update(label="")
