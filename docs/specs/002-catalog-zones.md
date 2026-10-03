@@ -1,6 +1,6 @@
 # Spec 002 — catalog et zones : métiers, services, quartiers
 
-Statut : brouillon · 2026-10-03 · ADR lié : 0009 (libellés traduisibles, proposé) · Revue `terrain-reviewer` intégrée (Q1 à Q6 acceptées avec réserves)
+Statut : livrée (api, packages) · validée le 2026-10-03 (Zay) · ADR lié : 0009 (libellés traduisibles, accepté) · Revue `terrain-reviewer` intégrée (Q1 à Q6 acceptées avec réserves)
 
 ## Problème
 
@@ -156,16 +156,16 @@ Rien n'est livré ici. La spec 003 passera `active_trades()` à l'IA1 : slugs, l
 
 ## Critères d'acceptation
 
-- [ ] Un métier, un service ou une zone créé dans l'admin apparaît dans l'API sans migration ni déploiement. Désactivé, il disparaît des listes et son détail répond 404.
-- [ ] Aucun `choices`, `enum` ou liste de métiers ou de quartiers dans le code applicatif, hors module de données de départ.
-- [ ] L'admin refuse la suppression et la modification d'un slug, ainsi qu'un slug réservé ou mal formé.
-- [ ] « PA », « parcelle », « Sacre Coeur », « Sicap » et « frigoriste » retrouvent la bonne zone ou le bon métier, en Python comme en TS (vecteurs partagés).
-- [ ] `zones_for_point` : point dans un `boundary`, point dans un cercle, **deux cercles qui se chevauchent → deux candidates triées**, point hors zone → liste vide.
-- [ ] `availability` : un test par motif, dont `zone_unknown` avec un texte normalisé sans chiffres.
-- [ ] Les 4 endpoints répondent sans authentification, avec `Cache-Control` public et `ETag` (304 testé). Avec un jeton : `private, no-store`. `POST` → 405. Limite `catalog_read` déclarée (test S29).
-- [ ] Un libellé `wo` vide sort en `null`. Un prix nul n'est pas affiché.
-- [ ] `seed_reference_data` lancé deux fois ne crée aucun doublon et n'écrase pas une saisie de l'admin.
-- [ ] `make openapi` à jour, client TS régénéré.
+- [x] Un métier, un service ou une zone créé dans l'admin apparaît dans l'API sans migration ni déploiement. Désactivé, il disparaît des listes et son détail répond 404.
+- [x] Aucun `choices`, `enum` ou liste de métiers ou de quartiers dans le code applicatif, hors module de données de départ.
+- [x] L'admin refuse la suppression et la modification d'un slug, ainsi qu'un slug réservé ou mal formé.
+- [x] « PA », « parcelle », « Sacre Coeur », « Sicap » et « frigoriste » retrouvent la bonne zone ou le bon métier, en Python comme en TS (vecteurs partagés).
+- [x] `zones_for_point` : point dans un `boundary`, point dans un cercle, **deux cercles qui se chevauchent → deux candidates triées**, point hors zone → liste vide.
+- [x] `availability` : un test par motif, dont `zone_unknown` avec un texte normalisé sans chiffres.
+- [x] Les 4 endpoints répondent sans authentification, avec `Cache-Control` public et `ETag` (304 testé). Avec un jeton : `private, no-store`. `POST` → 405. Limite `catalog_read` déclarée (test S29).
+- [x] Un libellé `wo` vide sort en `null`. Un prix nul n'est pas affiché.
+- [x] `seed_reference_data` lancé deux fois ne crée aucun doublon et n'écrase pas une saisie de l'admin.
+- [x] `make openapi` à jour, client TS régénéré.
 
 ## Tâches par couche
 
@@ -178,8 +178,12 @@ Chacune livrable et testable seule, dans l'ordre.
   4. **API publique en lecture** : 4 vues, `LocalizedText`, `catalog_read`, cache et `ETag`, `REFERENCE_LIST_MAX`, codes d'erreur i18n, tests (anonyme, avec jeton, inactif, inconnu, 405, 304).
   5. **Données de départ** : `seed_reference_data` et son module (tableaux ci-dessus), cible `make seed`, tests d'idempotence.
   6. **Contrat et documentation** : `make openapi`. ARCHITECTURE.md : zones en centre + rayon, polygone optionnel ; admin modifiable pour `catalog` et `zones`. `apps/api/CLAUDE.md` : slug comme identifiant public des données de référence. Règle « jamais d'icône seule » dans DESIGN.md. ADR 0009 accepté après validation.
+     Fait (api 1 à 6) : `common.search`, domaines `catalog` et `zones`, 4 endpoints publics, `seed_reference_data` (`make seed`), schéma et client régénérés, documentation à jour. Deux ajouts en cours de route :
+  - `availability` renvoie aussi `zone_ambiguous` (avec `candidates`) quand un texte libre ou un point désigne plusieurs zones : le client choisit ;
+  - `catalog.selectors.resolve_trade_text()` résout les mots du client en métiers, comme `resolve_zone_text()` pour les zones.
 - packages/api-client :
   1. `src/search/` : `normalizeSearch()` et `matchSearch()`, écrits à la main hors du code généré, testés sur les vecteurs de l'api 1.
+     Fait : export `@jeflink/api-client/search`, mêmes vecteurs que l'API.
 - web / console :
   1. _(optionnelle)_ **web — métiers sur l'accueil** : Server Component, revalidation 5 min, libellé `name[locale] ?? name.fr`, pictogramme toujours accompagné de son libellé, aucune chaîne en dur, revue design. Exige un appel serveur **sans cookie ni jeton** (variante publique dans `lib/bff.ts`, relue par `security-reviewer`).
   - console : rien (la saisie passe par l'admin Django).
@@ -187,7 +191,7 @@ Chacune livrable et testable seule, dans l'ordre.
 
 ## Questions à trancher (Zay)
 
-Les six propositions sont acceptées par la revue terrain. Il reste à les confirmer.
+✅ Les six propositions ont été acceptées par Zay le 2026-10-03, Gorée hors V1 comprise. Cible de lancement : la région de Dakar, Guédiawaye compris ; d'autres zones s'ajouteront par saisie.
 
 1. **Q1 — Slugs des métiers (URL SEO, figés ensuite).** Proposition : `plombier`, `electricien`, `climatisation`, `electromenager`, `menage`, `petits-travaux`.
    _Terrain : accepté._ Réserve : `menage` est gardé, avec le H1 et le titre SEO « Femme de ménage et nettoyage ». Un slug changé plus tard passe par une redirection 301 (étape SEO).

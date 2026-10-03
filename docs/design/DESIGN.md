@@ -56,6 +56,8 @@ On garde : la structure (sidebar + header + contenu), la command palette ⌘K, l
 ## Mobile
 
 - Cibles tactiles ≥ 48 px ; icône + libellé (jamais d'icône seule pour une action clé).
+- Pictogrammes de métier : toujours avec leur libellé court, jamais seuls (spec 002). Un métier sans pictogramme dédié (`icon_key` nul ou inconnu) prend le pictogramme générique.
+- Prix de référence : un seul « à partir de », jamais une fourchette, toujours suivi de la mention « Prix de départ, le prix final est dans le devis. » (clé `catalog.priceNotice`).
 - Bouton micro de premier rang sur tout écran de saisie.
 - Statuts de mission lisibles d'un coup d'œil (couleur + mot + icône).
 - Pas de dépendance à la couleur seule.

@@ -120,5 +120,13 @@
       "display_name_invalid": "Ce nom contient des caractères non acceptés. Utilisez des lettres et des espaces.",
       "display_name_reserved": "Ce nom ne peut pas être utilisé : pas de lien, de numéro ni de nom réservé à Jeflink."
     }
+  },
+  "catalog": {
+    "priceFrom": "À partir de {amount} F CFA",
+    "priceNotice": "Prix de départ, le prix final est dans le devis.",
+    "errors": {
+      "trade_not_found": "Ce métier n'est pas proposé pour le moment.",
+      "zone_not_found": "Ce quartier n'est pas encore couvert. Écrivez-le quand même : nous vous recontactons."
+    }
   }
 }

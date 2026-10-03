@@ -35,7 +35,7 @@ flowchart LR
 | Domaine         | Responsabilité                                                                                                                                                                              |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `accounts`      | Comptes par téléphone, OTP SMS, sessions d'appareil (JWT + refresh rotatif), rôles et invitations, second facteur Ops, changement de numéro, suppression et anonymisation, purge (spec 001) |
-| `zones`         | Polygones de quartiers (puis villes), disponibilité des métiers par zone                                                                                                                    |
+| `zones`         | Quartiers (centre + rayon, contour optionnel), villes, disponibilité des métiers par zone                                                                                                   |
 | `catalog`       | Métiers, services, fourchettes de prix de référence. Métiers = lignes en base (slug stable, libellés `fr`/`wo`, actif oui/non), jamais un `enum` ou des `choices` dans le code              |
 | `providers`     | Profils pro, équipes, disponibilités, badges, Passeport Pro                                                                                                                                 |
 | `requests`      | Demandes clients (texte/voix/photos), devis, sélection                                                                                                                                      |
@@ -112,7 +112,7 @@ Référence : spec `docs/specs/001-accounts.md`, ADR 0007 (sessions, BFF) et 000
 - **Web et console** : BFF Next, jetons en cookies `HttpOnly` ; le navigateur n'en voit jamais.
 - **Compte dormant** : plus de 60 j sans activité et nouvel appareil → session restreinte (numéro peut-être recyclé). « Repartir de zéro » ou levée par l'Ops.
 - **Ops** : second facteur TOTP obligatoire sur la console (enrôlement par jeton hors bande), TOTP de moins de 5 min pour les actions `manage` (step-up). Permissions par groupe (`HasOpsPerm("ops.<domaine>.<action>", step_up=…)`), jamais par `is_superuser`. Quotas par Ops sur la recherche et la révélation des numéros.
-- **Admin Django** : équipe technique seulement, en lecture seule, hôte interne, second facteur TOTP et limite de débit.
+- **Admin Django** : équipe technique seulement, hôte interne, second facteur TOTP et limite de débit. Lecture seule, sauf la saisie du catalogue et des zones (groupe `Saisie catalogue`, spec 002) : ajout et modification, jamais de suppression ni de changement de slug.
 
 ## Règles transverses posées par `accounts`
 

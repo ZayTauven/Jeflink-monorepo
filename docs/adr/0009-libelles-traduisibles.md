@@ -1,6 +1,6 @@
 # ADR 0009 — Libellés de données traduisibles : une colonne par langue
 
-Statut : proposé · 2026-10-03 · Spec : `docs/specs/002-catalog-zones.md`
+Statut : accepté · 2026-10-03 (Zay) · Spec : `docs/specs/002-catalog-zones.md`
 
 ## Contexte
 

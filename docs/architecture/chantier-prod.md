@@ -28,8 +28,9 @@ Règle : un besoin prod repéré pendant une feature s'ajoute à cette liste, av
 
 ## Besoins prod relevés pendant les features
 
-| Besoin                                                                                                                                                             | Source          |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
-| Cache CDN des endpoints publics `/api/catalog/*` et `/api/zones/*` (réponses anonymes seulement, jamais avec `Authorization`), purge après une saisie dans l'admin | spec 002, api 4 |
-| Admin Django modifiable (`catalog`, `zones`) : vérifier qu'il reste sur l'hôte interne, et prévoir l'accès de l'Ops qui saisit (VPN ou équivalent)                 | spec 002, Q6    |
-| Pages publiques du web servies depuis le cache (ISR) : régler la revalidation et le comportement si l'API ne répond pas                                            | spec 002, web 1 |
+| Besoin                                                                                                                                                                                                 | Source          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
+| Cache CDN des endpoints publics `/api/catalog/*` et `/api/zones/*` (réponses anonymes seulement, jamais avec `Authorization`), purge après une saisie dans l'admin                                     | spec 002, api 4 |
+| Admin Django modifiable (`catalog`, `zones`) : vérifier qu'il reste sur l'hôte interne, et prévoir l'accès de l'Ops qui saisit (VPN ou équivalent)                                                     | spec 002, Q6    |
+| Pages publiques du web servies depuis le cache (ISR) : régler la revalidation et le comportement si l'API ne répond pas                                                                                | spec 002, web 1 |
+| Retirer `Accept-Language` du `Vary` des endpoints publics du catalogue (ajouté par `LocaleMiddleware`, alors que la réponse ne dépend pas de la langue, ADR 0009), pour ne pas fragmenter le cache CDN | spec 002, api 4 |
