@@ -429,6 +429,78 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/bookings/{public_id}/completion-code/regenerate/:
+    post:
+      operationId: bookings_completion_code_regenerate
+      description: 'Nouveau code de fin (3 fois au plus) : essais remis à zéro, code
+        débloqué.'
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: completion_code_regen_limit, transition_not_allowed
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/completion-code/sms/:
+    post:
+      operationId: bookings_completion_code_sms
+      description: Renvoie le code de fin par SMS (2 fois sur demande, en plus de
+        l'envoi automatique).
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: transition_not_allowed
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: sms_limit_reached
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
   /api/bookings/{public_id}/no-show/:
     post:
       operationId: bookings_no_show
@@ -1351,6 +1423,58 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/pro/bookings/{public_id}/complete/:
+    post:
+      operationId: pro_bookings_complete
+      description: |-
+        Terminer avec le code du client (``code``), ou sans code (``no_code_reason`` :
+        client_absent, client_no_phone, code_locked, client_refuses). Rejoué : 200.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CompleteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CompleteRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: completion_code_locked, transition_not_allowed
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: completion_code_invalid, completion_proof_required, no_code_reason_invalid,
+            after_photos_required, occurred_at_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
   /api/pro/bookings/{public_id}/confirm/:
     post:
       operationId: pro_bookings_confirm
@@ -2126,6 +2250,19 @@ components:
         can_report_no_show:
           type: boolean
           readOnly: true
+        completion_code:
+          type: string
+          nullable: true
+          readOnly: true
+        completion_code_locked:
+          type: boolean
+          readOnly: true
+        can_regenerate_completion_code:
+          type: boolean
+          readOnly: true
+        can_send_completion_code_sms:
+          type: boolean
+          readOnly: true
         no_show_available_at:
           type: string
           format: date-time
@@ -2134,6 +2271,10 @@ components:
           allOf:
           - $ref: '#/components/schemas/NoShowState'
           nullable: true
+          readOnly: true
+        completion_method:
+          allOf:
+          - $ref: '#/components/schemas/CompletionMethodEnum'
           readOnly: true
         en_route_at:
           type: string
@@ -2178,11 +2319,16 @@ components:
           readOnly: true
       required:
       - amount_xof
+      - can_regenerate_completion_code
       - can_report_no_show
+      - can_send_completion_code_sms
       - cancel_reason
       - cancelled_by
       - closed_at
       - completed_at
+      - completion_code
+      - completion_code_locked
+      - completion_method
       - confirm_deadline
       - contact
       - created_at
@@ -2440,6 +2586,35 @@ components:
       - trade
       - urgent
       - zone
+    CompleteRequest:
+      type: object
+      description: |-
+        Fin de mission : le code du client, ou un motif sans code. Le code vient dans le corps de
+        la requête, jamais dans l'URL ; valeur vérifiée par le service.
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+          nullable: true
+        code:
+          type: string
+          default: ''
+          maxLength: 12
+        no_code_reason:
+          type: string
+          default: ''
+          maxLength: 24
+        photos_pending:
+          type: boolean
+          default: false
+    CompletionMethodEnum:
+      enum:
+      - code
+      - no_code
+      type: string
+      description: |-
+        * `code` - Code de fin
+        * `no_code` - Sans code
     ContestNoShowRequest:
       type: object
       properties:
@@ -3504,6 +3679,10 @@ components:
           - $ref: '#/components/schemas/NoShowState'
           nullable: true
           readOnly: true
+        completion_method:
+          allOf:
+          - $ref: '#/components/schemas/CompletionMethodEnum'
+          readOnly: true
         en_route_at:
           type: string
           format: date-time
@@ -3552,6 +3731,7 @@ components:
       - client
       - closed_at
       - completed_at
+      - completion_method
       - confirm_deadline
       - created_at
       - description

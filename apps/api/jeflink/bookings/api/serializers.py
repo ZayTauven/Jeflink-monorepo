@@ -6,6 +6,7 @@ renvoyé qu'à partir de ``scheduled`` (``DISCLOSED_STATUSES``), jamais après u
 
 from typing import Any
 
+from django.conf import settings
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -13,9 +14,11 @@ from rest_framework import serializers
 from jeflink.bookings.machine import DISCLOSED_STATUSES, Actor
 from jeflink.bookings.models import Booking, NoShowReport
 from jeflink.bookings.services import (
+    CODE_STATUSES,
     can_report_no_show,
     contest_deadline,
     no_show_available_at,
+    visible_completion_code,
 )
 from jeflink.requests.api.refs import (
     ServiceRefSerializer,
@@ -27,6 +30,7 @@ from jeflink.requests.api.refs import (
 # Étapes horodatées (UTC) et fin de la fenêtre de contestation : nulles tant qu'elles n'ont pas eu
 # lieu. Mêmes champs pour le client et le pro.
 TIMELINE_FIELDS = (
+    "completion_method",
     "en_route_at",
     "on_site_at",
     "started_at",
@@ -83,6 +87,9 @@ class ClientBookingSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField()
     cancel_reason = serializers.SerializerMethodField()
     can_report_no_show = serializers.SerializerMethodField()
+    completion_code = serializers.SerializerMethodField()
+    can_regenerate_completion_code = serializers.SerializerMethodField()
+    can_send_completion_code_sms = serializers.SerializerMethodField()
     no_show_available_at = serializers.SerializerMethodField()
     no_show = serializers.SerializerMethodField()
 
@@ -103,6 +110,10 @@ class ClientBookingSerializer(serializers.ModelSerializer):
             "contact",
             "payment",
             "can_report_no_show",
+            "completion_code",
+            "completion_code_locked",
+            "can_regenerate_completion_code",
+            "can_send_completion_code_sms",
             "no_show_available_at",
             "no_show",
             *TIMELINE_FIELDS,
@@ -119,6 +130,26 @@ class ClientBookingSerializer(serializers.ModelSerializer):
         if booking.cancelled_by in {Actor.PRO, Actor.SYSTEM}:
             return "pro_withdrew"
         return booking.cancel_reason
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_completion_code(self, booking: Booking) -> str | None:
+        """Le code de fin, pour le client seul : à ne donner qu'à la fin, quand le travail lui
+        convient. Jamais dans la vue du pro, un log ou un audit."""
+        return visible_completion_code(booking)
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_can_regenerate_completion_code(self, booking: Booking) -> bool:
+        return (
+            booking.status in CODE_STATUSES
+            and booking.completion_code_regenerations < settings.COMPLETION_CODE_MAX_REGENERATIONS
+        )
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_can_send_completion_code_sms(self, booking: Booking) -> bool:
+        limit = settings.COMPLETION_CODE_SMS_ON_DEMAND + (
+            settings.COMPLETION_CODE_SMS_AUTO if booking.en_route_at else 0
+        )
+        return booking.status in CODE_STATUSES and booking.completion_code_sms_sent < limit
 
     @extend_schema_field(serializers.BooleanField())
     def get_can_report_no_show(self, booking: Booking) -> bool:
@@ -249,3 +280,14 @@ class StartSerializer(OccurredAtSerializer):
 class ContestNoShowSerializer(serializers.Serializer):
     # Longueur et numéros vérifiés par le service (422 note_invalid).
     note = serializers.CharField(max_length=500, allow_blank=True)
+
+
+class CompleteSerializer(OccurredAtSerializer):
+    """Fin de mission : le code du client, ou un motif sans code. Le code vient dans le corps de
+    la requête, jamais dans l'URL ; valeur vérifiée par le service."""
+
+    code = serializers.CharField(max_length=12, required=False, allow_blank=True, default="")
+    no_code_reason = serializers.CharField(
+        max_length=24, required=False, allow_blank=True, default=""
+    )
+    photos_pending = serializers.BooleanField(required=False, default=False)

@@ -31,6 +31,10 @@ class Booking(BaseModel):
         SYSTEM = "system", "Système"
         OPS = "ops", "Équipe Jeflink"
 
+    class CompletionMethod(models.TextChoices):
+        CODE = "code", "Code de fin"
+        NO_CODE = "no_code", "Sans code"
+
     # Engage encore les deux parties : bloque la suppression d'un compte (spec 004).
     ENGAGED = (
         Status.ACCEPTED,
@@ -74,6 +78,15 @@ class Booking(BaseModel):
     # Fin de la fenêtre de contestation, posée à ``completed`` ; la clôture suit.
     dispute_deadline = models.DateTimeField(null=True, blank=True)
     dispute_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    # Fin de mission (spec 004). Le code est chiffré (MultiFernet), jamais renvoyé au pro, jamais
+    # dans un log ni un audit ; effacé à ``completed`` ou ``cancelled``.
+    completion_method = models.CharField(max_length=7, choices=CompletionMethod.choices, blank=True)
+    no_code_reason = models.CharField(max_length=16, blank=True)
+    completion_code_enc = models.TextField(blank=True)
+    completion_code_attempts = models.PositiveSmallIntegerField(default=0)
+    completion_code_locked = models.BooleanField(default=False)
+    completion_code_regenerations = models.PositiveSmallIntegerField(default=0)
+    completion_code_sms_sent = models.PositiveSmallIntegerField(default=0)
     # « Le pro est-il venu ? » envoyé au client (une seule fois), le créneau et la marge passés.
     no_show_check_sent_at = models.DateTimeField(null=True, blank=True)
 

@@ -52,4 +52,19 @@ urlpatterns = [
         views.ProBookingContestNoShowView.as_view(),
         name="pro-booking-contest-no-show",
     ),
+    path(
+        "bookings/<uuid:public_id>/completion-code/regenerate/",
+        views.BookingRegenerateCodeView.as_view(),
+        name="booking-code-regenerate",
+    ),
+    path(
+        "bookings/<uuid:public_id>/completion-code/sms/",
+        views.BookingCodeSmsView.as_view(),
+        name="booking-code-sms",
+    ),
+    path(
+        "pro/bookings/<uuid:public_id>/complete/",
+        views.ProBookingCompleteView.as_view(),
+        name="pro-booking-complete",
+    ),
 ]

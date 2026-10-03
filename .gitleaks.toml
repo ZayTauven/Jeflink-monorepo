@@ -15,6 +15,9 @@ regexes = [
   # MFA_ENCRYPTION_KEYS publiques de test et de dev (base64 exact).
   '''^dGVzdC1tZmEtZmVybmV0LWtleS0wMDAwMDAwMDAwMDA=$''',
   '''^bG9jYWwtZGV2LW1mYS1rZXktbm90LXNlY3JldC00NDQ=$''',
+  # DATA_ENCRYPTION_KEYS publiques de test et de dev (base64 exact).
+  '''^dGVzdC1kYXRhLWtleS1ub3Qtc2VjcmV0LTAwMDAwMDA=$''',
+  '''^bG9jYWwtZGV2LWRhdGEta2V5LW5vdC1zZWNyZXQtNzc=$''',
   # Clés d'idempotence et mot de passe factices des tests.
   '''^cle-idempotence-[0-9]{4}-abcdefgh$''',
   '''^cle-idempotence-simultanee-01$''',

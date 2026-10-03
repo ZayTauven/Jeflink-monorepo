@@ -433,6 +433,219 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getBookingsCancelMutationOptions(options), queryClient);
     }
+    export type bookingsCompletionCodeRegenerateResponse200 = {
+  data: ClientBooking
+  status: 200
+}
+
+export type bookingsCompletionCodeRegenerateResponse401 = {
+  data: void
+  status: 401
+}
+
+export type bookingsCompletionCodeRegenerateResponse403 = {
+  data: void
+  status: 403
+}
+
+export type bookingsCompletionCodeRegenerateResponse404 = {
+  data: void
+  status: 404
+}
+
+export type bookingsCompletionCodeRegenerateResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type bookingsCompletionCodeRegenerateResponseSuccess = (bookingsCompletionCodeRegenerateResponse200) & {
+  headers: Headers;
+};
+export type bookingsCompletionCodeRegenerateResponseError = (bookingsCompletionCodeRegenerateResponse401 | bookingsCompletionCodeRegenerateResponse403 | bookingsCompletionCodeRegenerateResponse404 | bookingsCompletionCodeRegenerateResponse409) & {
+  headers: Headers;
+};
+
+export type bookingsCompletionCodeRegenerateResponse = (bookingsCompletionCodeRegenerateResponseSuccess | bookingsCompletionCodeRegenerateResponseError)
+
+export const getBookingsCompletionCodeRegenerateUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/bookings/${encodeURIComponent(String(publicId))}/completion-code/regenerate/`
+}
+
+/**
+ * Nouveau code de fin (3 fois au plus) : essais remis à zéro, code débloqué.
+ */
+export const bookingsCompletionCodeRegenerate = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsCompletionCodeRegenerateResponse> => {
+
+  return jeflinkFetch<bookingsCompletionCodeRegenerateResponse>(getBookingsCompletionCodeRegenerateUrl(publicId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBookingsCompletionCodeRegenerateMutationKey = () => ['bookingsCompletionCodeRegenerate'] as const;
+
+export const getBookingsCompletionCodeRegenerateMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsCompletionCodeRegenerate>>, TError,BookingsCompletionCodeRegenerateMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bookingsCompletionCodeRegenerate>>, TError,BookingsCompletionCodeRegenerateMutationVariables, TContext> => {
+
+const mutationKey = getBookingsCompletionCodeRegenerateMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bookingsCompletionCodeRegenerate>>, BookingsCompletionCodeRegenerateMutationVariables> = (props) => {
+          const {publicId} = props ?? {};
+
+          return  bookingsCompletionCodeRegenerate(publicId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BookingsCompletionCodeRegenerateMutationResult = NonNullable<Awaited<ReturnType<typeof bookingsCompletionCodeRegenerate>>>
+
+    export type BookingsCompletionCodeRegenerateMutationError = ErrorType<void | ApiError>
+    export type BookingsCompletionCodeRegenerateMutationVariables = {publicId: string}
+
+    export const useBookingsCompletionCodeRegenerate = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsCompletionCodeRegenerate>>, TError,BookingsCompletionCodeRegenerateMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bookingsCompletionCodeRegenerate>>,
+        TError,
+        BookingsCompletionCodeRegenerateMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBookingsCompletionCodeRegenerateMutationOptions(options), queryClient);
+    }
+    export type bookingsCompletionCodeSmsResponse200 = {
+  data: ClientBooking
+  status: 200
+}
+
+export type bookingsCompletionCodeSmsResponse401 = {
+  data: void
+  status: 401
+}
+
+export type bookingsCompletionCodeSmsResponse403 = {
+  data: void
+  status: 403
+}
+
+export type bookingsCompletionCodeSmsResponse404 = {
+  data: void
+  status: 404
+}
+
+export type bookingsCompletionCodeSmsResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type bookingsCompletionCodeSmsResponse429 = {
+  data: ApiError
+  status: 429
+}
+
+export type bookingsCompletionCodeSmsResponseSuccess = (bookingsCompletionCodeSmsResponse200) & {
+  headers: Headers;
+};
+export type bookingsCompletionCodeSmsResponseError = (bookingsCompletionCodeSmsResponse401 | bookingsCompletionCodeSmsResponse403 | bookingsCompletionCodeSmsResponse404 | bookingsCompletionCodeSmsResponse409 | bookingsCompletionCodeSmsResponse429) & {
+  headers: Headers;
+};
+
+export type bookingsCompletionCodeSmsResponse = (bookingsCompletionCodeSmsResponseSuccess | bookingsCompletionCodeSmsResponseError)
+
+export const getBookingsCompletionCodeSmsUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/bookings/${encodeURIComponent(String(publicId))}/completion-code/sms/`
+}
+
+/**
+ * Renvoie le code de fin par SMS (2 fois sur demande, en plus de l'envoi automatique).
+ */
+export const bookingsCompletionCodeSms = async (publicId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsCompletionCodeSmsResponse> => {
+
+  return jeflinkFetch<bookingsCompletionCodeSmsResponse>(getBookingsCompletionCodeSmsUrl(publicId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBookingsCompletionCodeSmsMutationKey = () => ['bookingsCompletionCodeSms'] as const;
+
+export const getBookingsCompletionCodeSmsMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsCompletionCodeSms>>, TError,BookingsCompletionCodeSmsMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bookingsCompletionCodeSms>>, TError,BookingsCompletionCodeSmsMutationVariables, TContext> => {
+
+const mutationKey = getBookingsCompletionCodeSmsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bookingsCompletionCodeSms>>, BookingsCompletionCodeSmsMutationVariables> = (props) => {
+          const {publicId} = props ?? {};
+
+          return  bookingsCompletionCodeSms(publicId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BookingsCompletionCodeSmsMutationResult = NonNullable<Awaited<ReturnType<typeof bookingsCompletionCodeSms>>>
+
+    export type BookingsCompletionCodeSmsMutationError = ErrorType<void | ApiError>
+    export type BookingsCompletionCodeSmsMutationVariables = {publicId: string}
+
+    export const useBookingsCompletionCodeSms = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsCompletionCodeSms>>, TError,BookingsCompletionCodeSmsMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bookingsCompletionCodeSms>>,
+        TError,
+        BookingsCompletionCodeSmsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBookingsCompletionCodeSmsMutationOptions(options), queryClient);
+    }
     export type bookingsNoShowResponse200 = {
   data: ClientBooking
   status: 200

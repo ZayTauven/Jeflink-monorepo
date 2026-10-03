@@ -26,6 +26,7 @@ import type {
 
 import type {
   ApiError,
+  CompleteRequest,
   ContestNoShowRequest,
   OccurredAtRequest,
   PaginatedProBookingList,
@@ -569,6 +570,131 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getProBookingsCancelMutationOptions(options), queryClient);
+    }
+    export type proBookingsCompleteResponse200 = {
+  data: ProBooking
+  status: 200
+}
+
+export type proBookingsCompleteResponse401 = {
+  data: void
+  status: 401
+}
+
+export type proBookingsCompleteResponse403 = {
+  data: void
+  status: 403
+}
+
+export type proBookingsCompleteResponse404 = {
+  data: void
+  status: 404
+}
+
+export type proBookingsCompleteResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type proBookingsCompleteResponse422 = {
+  data: ApiError
+  status: 422
+}
+
+export type proBookingsCompleteResponseSuccess = (proBookingsCompleteResponse200) & {
+  headers: Headers;
+};
+export type proBookingsCompleteResponseError = (proBookingsCompleteResponse401 | proBookingsCompleteResponse403 | proBookingsCompleteResponse404 | proBookingsCompleteResponse409 | proBookingsCompleteResponse422) & {
+  headers: Headers;
+};
+
+export type proBookingsCompleteResponse = (proBookingsCompleteResponseSuccess | proBookingsCompleteResponseError)
+
+export const getProBookingsCompleteUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/pro/bookings/${encodeURIComponent(String(publicId))}/complete/`
+}
+
+/**
+ * Terminer avec le code du client (``code``), ou sans code (``no_code_reason`` :
+ * client_absent, client_no_phone, code_locked, client_refuses). Rejoué : 200.
+ */
+export const proBookingsComplete = async (publicId: string,
+    completeRequest?: CompleteRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<proBookingsCompleteResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<proBookingsCompleteResponse>(getProBookingsCompleteUrl(publicId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(completeRequest)
+  }
+);}
+
+
+
+
+
+export const getProBookingsCompleteMutationKey = () => ['proBookingsComplete'] as const;
+
+export const getProBookingsCompleteMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsComplete>>, TError,ProBookingsCompleteMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof proBookingsComplete>>, TError,ProBookingsCompleteMutationVariables, TContext> => {
+
+const mutationKey = getProBookingsCompleteMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof proBookingsComplete>>, ProBookingsCompleteMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  proBookingsComplete(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProBookingsCompleteMutationResult = NonNullable<Awaited<ReturnType<typeof proBookingsComplete>>>
+    export type ProBookingsCompleteMutationBody = BodyType<CompleteRequest> | undefined
+    export type ProBookingsCompleteMutationError = ErrorType<void | ApiError>
+    export type ProBookingsCompleteMutationVariables = {publicId: string;data?: BodyType<CompleteRequest>}
+
+    export const useProBookingsComplete = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsComplete>>, TError,ProBookingsCompleteMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof proBookingsComplete>>,
+        TError,
+        ProBookingsCompleteMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProBookingsCompleteMutationOptions(options), queryClient);
     }
     export type proBookingsConfirmResponse200 = {
   data: ProBooking

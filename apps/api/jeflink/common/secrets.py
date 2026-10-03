@@ -15,6 +15,9 @@ def _named_secrets() -> list[tuple[str, str]]:
     named = [(f"JWT_SIGNING_KEYS[{kid}]", key) for kid, key in settings.JWT_SIGNING_KEYS.items()]
     named += [("OTP_HMAC_KEY", settings.OTP_HMAC_KEY), ("PII_HMAC_KEY", settings.PII_HMAC_KEY)]
     named += [(f"MFA_ENCRYPTION_KEYS[{i}]", k) for i, k in enumerate(settings.MFA_ENCRYPTION_KEYS)]
+    named += [
+        (f"DATA_ENCRYPTION_KEYS[{i}]", k) for i, k in enumerate(settings.DATA_ENCRYPTION_KEYS)
+    ]
     named += [(f"BFF_SHARED_SECRETS[{i}]", k) for i, k in enumerate(settings.BFF_SHARED_SECRETS)]
     return named
 
@@ -23,11 +26,12 @@ def _fernet_problems() -> list[str]:
     from cryptography.fernet import Fernet
 
     problems = []
-    for i, key in enumerate(settings.MFA_ENCRYPTION_KEYS):
-        try:
-            Fernet(key)
-        except (ValueError, TypeError):
-            problems.append(f"MFA_ENCRYPTION_KEYS[{i}] : clé Fernet invalide")
+    for setting in ("MFA_ENCRYPTION_KEYS", "DATA_ENCRYPTION_KEYS"):
+        for i, key in enumerate(getattr(settings, setting)):
+            try:
+                Fernet(key)
+            except (ValueError, TypeError):
+                problems.append(f"{setting}[{i}] : clé Fernet invalide")
     return problems
 
 
@@ -63,6 +67,7 @@ def secret_problems() -> list[str]:
     for setting, present in (
         ("JWT_SIGNING_KEYS", settings.JWT_SIGNING_KEYS),
         ("MFA_ENCRYPTION_KEYS", settings.MFA_ENCRYPTION_KEYS),
+        ("DATA_ENCRYPTION_KEYS", settings.DATA_ENCRYPTION_KEYS),
         ("BFF_SHARED_SECRETS", settings.BFF_SHARED_SECRETS),
     ):
         if not present:

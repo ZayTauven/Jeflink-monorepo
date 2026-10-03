@@ -33,6 +33,12 @@ class BookingsConfig(AppConfig):
             "bookings.booking.progressed", {"from_status": str, "to_status": str, "chained": bool}
         )
         register_audit_schema("bookings.booking.closed", {"reason": str})
+        register_audit_schema(
+            "bookings.booking.completed", {"completion_method": str, "no_code_reason": str}
+        )
+        register_audit_schema("bookings.completion_code.failed", {"attempts": int, "locked": bool})
+        register_audit_schema("bookings.completion_code.regenerated", {"regenerations": int})
+        register_audit_schema("bookings.completion_code.sms", {"automatic": bool, "sent": int})
         register_audit_schema("bookings.no_show.contested", {})
         register_audit_schema(
             "bookings.no_show.decided", {"decision": str, "reliability_weight": int}

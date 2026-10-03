@@ -23,6 +23,8 @@ export * from './clientQuote.ts';
 export * from './clientQuoteLine.ts';
 export * from './clientRequest.ts';
 export * from './clientRequestSummary.ts';
+export * from './completeRequest.ts';
+export * from './completionMethodEnum.ts';
 export * from './contestNoShowRequest.ts';
 export * from './deletionConfirmRequest.ts';
 export * from './devicePlatformEnum.ts';

@@ -179,6 +179,8 @@ OTP_HMAC_KEY = env("OTP_HMAC_KEY", default="")
 MFA_ENCRYPTION_KEYS = env.list("MFA_ENCRYPTION_KEYS", default=[])
 BFF_SHARED_SECRETS = env.list("BFF_SHARED_SECRETS", default=[])
 PII_HMAC_KEY = env("PII_HMAC_KEY", default="")
+# Données sensibles au repos (code de fin de mission) : clés Fernet, la première chiffre.
+DATA_ENCRYPTION_KEYS = env.list("DATA_ENCRYPTION_KEYS", default=[])
 
 # --- Limites de débit (spec 001, « Limites de débit ») ---------------------------------
 # Redis dédié à l'auth en production (noeviction, tâche infra 2).
@@ -368,6 +370,13 @@ BOOKING_LATE_CANCEL_WINDOW = timedelta(hours=2)  # annulation « tardive » avan
 # Déroulé de l'intervention, clôture et litige (spec 004).
 BOOKING_DISPUTE_WINDOW = timedelta(hours=48)  # contestation possible après « terminé »
 BOOKING_DISPUTE_REMINDER = timedelta(hours=12)  # rappel au client avant la fin de la fenêtre
+# Code de fin de mission (spec 004) : donné par le client au pro, qui le saisit en terminant.
+COMPLETION_CODE_DIGITS = 4
+COMPLETION_CODE_MAX_ATTEMPTS = 5  # après 5 codes faux, le code est verrouillé
+COMPLETION_CODE_MAX_REGENERATIONS = 3  # le client peut en obtenir un nouveau 3 fois
+COMPLETION_CODE_SMS_AUTO = 1  # envoyé tout seul quand le pro part
+COMPLETION_CODE_SMS_ON_DEMAND = 2  # puis à la demande du client
+BOOKING_DISPUTE_WINDOW_NO_CODE = timedelta(hours=72)  # fin sans code : plus de temps pour contester
 # No-show : le client le déclare après la fin du créneau plus cette marge ; le pro a 24 h pour
 # contester, après quoi le poids de fiabilité s'applique (sauf décision de l'Ops).
 BOOKING_NO_SHOW_GRACE = timedelta(minutes=60)

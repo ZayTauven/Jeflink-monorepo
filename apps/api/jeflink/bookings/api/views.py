@@ -27,12 +27,15 @@ from jeflink.bookings.selectors import (
 )
 from jeflink.bookings.services import (
     cancel_booking,
+    complete_work,
     confirm_booking,
     contest_no_show,
     create_from_quote,
     declare_no_show,
     mark_arrived,
     mark_en_route,
+    regenerate_completion_code,
+    send_completion_code_sms,
     start_work,
 )
 from jeflink.common.errors import DomainError
@@ -43,6 +46,7 @@ from jeflink.requests.selectors import quote_for_client
 
 from .serializers import (
     ClientBookingSerializer,
+    CompleteSerializer,
     ContestNoShowSerializer,
     OccurredAtSerializer,
     ProBookingSerializer,
@@ -159,6 +163,49 @@ class BookingNoShowView(APIView):
         """« Le pro n'est pas venu » : après la fin du créneau plus une marge. Rejoué : 200."""
         booking = booking_for_client(user=request.user, public_id=public_id)
         declare_no_show(booking=booking, actor=request.user)
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        return Response(ClientBookingSerializer(booking).data)
+
+
+class BookingRegenerateCodeView(APIView):
+    permission_classes = [IsClient]
+
+    @extend_schema(
+        tags=["bookings"],
+        operation_id="bookings_completion_code_regenerate",
+        request=None,
+        responses={
+            200: ClientBookingSerializer,
+            409: error("completion_code_regen_limit, transition_not_allowed"),
+            **ERRORS,
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        """Nouveau code de fin (3 fois au plus) : essais remis à zéro, code débloqué."""
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        regenerate_completion_code(booking=booking, actor=request.user)
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        return Response(ClientBookingSerializer(booking).data)
+
+
+class BookingCodeSmsView(APIView):
+    permission_classes = [IsClient]
+
+    @extend_schema(
+        tags=["bookings"],
+        operation_id="bookings_completion_code_sms",
+        request=None,
+        responses={
+            200: ClientBookingSerializer,
+            409: error("transition_not_allowed"),
+            429: error("sms_limit_reached"),
+            **ERRORS,
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        """Renvoie le code de fin par SMS (2 fois sur demande, en plus de l'envoi automatique)."""
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        send_completion_code_sms(booking=booking, actor=request.user)
         booking = booking_for_client(user=request.user, public_id=public_id)
         return Response(ClientBookingSerializer(booking).data)
 
@@ -359,5 +406,44 @@ class ProBookingContestNoShowView(APIView):
         serializer = ContestNoShowSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         contest_no_show(booking=booking, actor=request.user, note=serializer.validated_data["note"])
+        booking = booking_for_provider(provider=provider, public_id=public_id)
+        return Response(ProBookingSerializer(booking).data)
+
+
+class ProBookingCompleteView(APIView):
+    # Un pro suspendu peut terminer une intervention en cours (photos, code) : HasOwnerRole.
+    permission_classes = [HasOwnerRole, IsProOwner]
+
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_bookings_complete",
+        request=CompleteSerializer,
+        responses={
+            200: ProBookingSerializer,
+            409: error("completion_code_locked, transition_not_allowed"),
+            422: error(
+                "completion_code_invalid, completion_proof_required, no_code_reason_invalid, "
+                "after_photos_required, occurred_at_invalid"
+            ),
+            **ERRORS,
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        """Terminer avec le code du client (``code``), ou sans code (``no_code_reason`` :
+        client_absent, client_no_phone, code_locked, client_refuses). Rejoué : 200."""
+        provider = owned_provider(request)
+        booking = booking_for_provider(provider=provider, public_id=public_id)
+        self.check_object_permissions(request, booking)
+        serializer = CompleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        complete_work(
+            booking=booking,
+            actor=request.user,
+            code=data["code"],
+            no_code_reason=data["no_code_reason"],
+            photos_pending=data["photos_pending"],
+            occurred_at=data["occurred_at"],
+        )
         booking = booking_for_provider(provider=provider, public_id=public_id)
         return Response(ProBookingSerializer(booking).data)

@@ -17,6 +17,7 @@ _TEST_ENV = {
     "MFA_ENCRYPTION_KEYS": "dGVzdC1tZmEtZmVybmV0LWtleS0wMDAwMDAwMDAwMDA=",
     "BFF_SHARED_SECRETS": "test-bff-secret-eeeeeeeeeeeeeeeeeeeeeeeeeeee",
     "PII_HMAC_KEY": "test-pii-hmac-key-ffffffffffffffffffffffffff",
+    "DATA_ENCRYPTION_KEYS": "dGVzdC1kYXRhLWtleS1ub3Qtc2VjcmV0LTAwMDAwMDA=",
 }
 os.environ.update(_TEST_ENV)
 

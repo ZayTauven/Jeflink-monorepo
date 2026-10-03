@@ -14,7 +14,14 @@ from .services import set_status
 
 @admin.register(Provider)
 class ProviderAdmin(admin.ModelAdmin):
-    list_display = ("business_name", "status", "masked_numbers_count", "is_demo", "created_at")
+    list_display = (
+        "business_name",
+        "status",
+        "masked_numbers_count",
+        "no_code_share",
+        "is_demo",
+        "created_at",
+    )
     list_filter = ("status", "is_demo", "trades")
     search_fields = ("business_name",)
     readonly_fields = (
@@ -33,6 +40,11 @@ class ProviderAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Provider]:
         return providers_for_admin()
+
+    @admin.display(description="Fins sans code")
+    def no_code_share(self, provider: Provider) -> str:
+        """« 2 / 10 » : fins de mission sans code du client, sur l'ensemble des fins du pro."""
+        return f"{provider.no_code_completions} / {provider.completions}"
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False

@@ -5,6 +5,8 @@ Ordre des verrous, partout : comptes (par id), fiche pro, demande, réservation.
 motif « autre » n'est jamais écrite dans un log ni dans un audit.
 """
 
+import hmac
+import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -15,6 +17,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from jeflink.accounts.models import User
+from jeflink.common import crypto
 from jeflink.common.errors import DomainError
 from jeflink.notifications import events
 from jeflink.providers.models import Provider
@@ -54,7 +57,7 @@ EVENT_METADATA_KEYS = frozenset(
     }
 )
 # Colonnes qu'une transition peut écrire avec le statut (même verrou, même transaction).
-TRANSITION_FIELDS = frozenset({"amount_xof"})
+TRANSITION_FIELDS = frozenset({"amount_xof", "completion_method", "no_code_reason"})
 # Horodatage posé à l'arrivée dans un statut.
 _STAMPS = {
     Status.EN_ROUTE: "en_route_at",
@@ -161,11 +164,21 @@ def transition(
     if previous != to and to in _STAMPS:
         setattr(booking, _STAMPS[to], now)
         update.append(_STAMPS[to])
+    if to == Status.SCHEDULED:
+        booking.completion_code_enc = crypto.encrypt(generate_completion_code())
+        update.append("completion_code_enc")
+    if to in {Status.COMPLETED, Status.CANCELLED}:
+        booking.completion_code_enc = ""  # le code n'a plus d'usage
+        update.append("completion_code_enc")
     if previous == Status.ON_SITE and to == Status.IN_PROGRESS:
         booking.started_at = now
         update.append("started_at")
     if to == Status.COMPLETED:
-        booking.dispute_deadline = now + settings.BOOKING_DISPUTE_WINDOW
+        no_code = (fields or {}).get("completion_method") == Booking.CompletionMethod.NO_CODE
+        window = (
+            settings.BOOKING_DISPUTE_WINDOW_NO_CODE if no_code else settings.BOOKING_DISPUTE_WINDOW
+        )
+        booking.dispute_deadline = now + window
         update.append("dispute_deadline")
     for name, value in (fields or {}).items():
         setattr(booking, name, value)
@@ -367,6 +380,8 @@ def _progress(
         target=booking,
         metadata={"from_status": previous, "to_status": to, "chained": chained},
     )
+    if to == Status.EN_ROUTE:
+        _send_code_sms(booking, automatic=True)
     return booking
 
 
@@ -491,6 +506,193 @@ def remind_disputes(*, now: datetime | None = None) -> int:
             events.notify(events.DISPUTE_REMINDER, [locked.client], locked.public_id)
             sent += 1
     return sent
+
+
+# --- Code de fin de mission (spec 004) -----------------------------------------------------------
+
+CODE_STATUSES = (Status.SCHEDULED, Status.EN_ROUTE, Status.ON_SITE, Status.IN_PROGRESS)
+NO_CODE_REASONS = ("client_absent", "client_no_phone", "code_locked", "client_refuses")
+CLIENT_REFUSES = "client_refuses"
+_PAST_COMPLETE = (Status.COMPLETED, Status.DISPUTED, Status.CLOSED)
+
+
+def generate_completion_code() -> str:
+    digits = settings.COMPLETION_CODE_DIGITS
+    return str(secrets.randbelow(10**digits)).zfill(digits)
+
+
+def visible_completion_code(booking: Booking) -> str | None:
+    """Le code, pour le client seul, tant que la mission peut encore se terminer."""
+    if booking.status not in CODE_STATUSES:
+        return None
+    return crypto.decrypt(booking.completion_code_enc)
+
+
+def _send_code_sms(booking: Booking, *, automatic: bool) -> None:
+    """Notification ``completion_code.sms`` : type et ``public_id`` seulement. Le futur adaptateur
+    SMS rend le gabarit côté serveur ; le code ne passe jamais par ``notify()``."""
+    if not booking.completion_code_enc:
+        return
+    booking.completion_code_sms_sent += 1
+    booking.save(update_fields=["completion_code_sms_sent", "updated_at"])
+    audit(
+        action="bookings.completion_code.sms",
+        actor=None if automatic else booking.client,
+        actor_kind=AuditEvent.ActorKind.SYSTEM if automatic else AuditEvent.ActorKind.USER,
+        target=booking,
+        metadata={"automatic": automatic, "sent": booking.completion_code_sms_sent},
+    )
+    events.notify(events.COMPLETION_CODE_SMS, [booking.client], booking.public_id)
+
+
+def _lock_for_client(booking: Booking, actor: User) -> Booking:
+    _, _, booking = _lock_for_booking(booking)
+    if booking.client_id != actor.id:
+        raise DomainError("not_found", status=404)
+    if booking.status not in CODE_STATUSES:
+        raise DomainError("transition_not_allowed", status=409)
+    return booking
+
+
+@transaction.atomic
+def regenerate_completion_code(*, booking: Booking, actor: User) -> Booking:
+    """Le client obtient un nouveau code (3 fois au plus) : compteur d'essais remis à zéro, code
+    débloqué. ``409 completion_code_regen_limit`` au-delà."""
+    booking = _lock_for_client(booking, actor)
+    if booking.completion_code_regenerations >= settings.COMPLETION_CODE_MAX_REGENERATIONS:
+        raise DomainError("completion_code_regen_limit", status=409)
+    booking.completion_code_enc = crypto.encrypt(generate_completion_code())
+    booking.completion_code_attempts = 0
+    booking.completion_code_locked = False
+    booking.completion_code_regenerations += 1
+    booking.save(
+        update_fields=[
+            "completion_code_enc",
+            "completion_code_attempts",
+            "completion_code_locked",
+            "completion_code_regenerations",
+            "updated_at",
+        ]
+    )
+    audit(
+        action="bookings.completion_code.regenerated",
+        actor=actor,
+        target=booking,
+        metadata={"regenerations": booking.completion_code_regenerations},
+    )
+    return booking
+
+
+@transaction.atomic
+def send_completion_code_sms(*, booking: Booking, actor: User) -> Booking:
+    """Le client demande un SMS de son code : 2 sur demande, en plus de l'envoi automatique du
+    départ du pro. ``429 sms_limit_reached`` au-delà."""
+    booking = _lock_for_client(booking, actor)
+    limit = settings.COMPLETION_CODE_SMS_ON_DEMAND + (
+        settings.COMPLETION_CODE_SMS_AUTO if booking.en_route_at else 0
+    )
+    if booking.completion_code_sms_sent >= limit:
+        raise DomainError("sms_limit_reached", status=429)
+    _send_code_sms(booking, automatic=False)
+    return booking
+
+
+def complete_work(
+    *,
+    booking: Booking,
+    actor: User,
+    code: str | None = None,
+    no_code_reason: str | None = None,
+    photos_pending: bool = False,
+    occurred_at: datetime | None = None,
+) -> Booking:
+    """Le pro termine (``in_progress`` → ``completed``) avec le code du client, ou sans code et
+    avec un motif (``NO_CODE_REASONS``). Un pro suspendu peut terminer une intervention en cours.
+
+    - ``422 completion_proof_required`` : ni code ni motif, ou les deux ;
+    - ``422 after_photos_required`` : ni photo « après » ni ``photos_pending`` (et, pour
+      ``client_refuses``, une photo est obligatoire : ``photos_pending`` est refusé) ;
+    - ``422 completion_code_invalid`` (l'essai est compté, 5 au plus) puis
+      ``409 completion_code_locked`` ;
+    - ``422 no_code_reason_invalid`` (``code_locked`` seulement si le code est verrouillé).
+
+    Sans code, la fenêtre de contestation passe à 72 h. Rejouée une fois terminée : l'état courant.
+    Le code n'est jamais écrit dans un log, un audit ni une erreur.
+    """
+    failure: DomainError | None = None
+    with transaction.atomic():
+        booking = _lock_for_pro(booking, actor, verified=False)
+        if booking.status in _PAST_COMPLETE:
+            return booking
+        if booking.status != Status.IN_PROGRESS:
+            raise DomainError("transition_not_allowed", status=409)
+        code = code or None
+        no_code_reason = no_code_reason or None
+        if (code is None) == (no_code_reason is None):
+            raise DomainError("completion_proof_required", status=422)
+        if no_code_reason is not None and (
+            no_code_reason not in NO_CODE_REASONS
+            or (no_code_reason == "code_locked" and not booking.completion_code_locked)
+        ):
+            raise DomainError("no_code_reason_invalid", status=422)
+        if not has_photos(booking, "after") and (
+            no_code_reason == CLIENT_REFUSES or not photos_pending
+        ):
+            raise DomainError("after_photos_required", status=422)
+        check_occurred_at(booking, occurred_at, now=timezone.now())
+        if code is not None:
+            if booking.completion_code_locked:
+                raise DomainError("completion_code_locked", status=409)
+            failure = _check_completion_code(booking, actor, code)
+        if failure is None:
+            method = (
+                Booking.CompletionMethod.NO_CODE
+                if no_code_reason
+                else Booking.CompletionMethod.CODE
+            )
+            meta = {"completion_method": method} | _occurred(occurred_at)
+            if photos_pending:
+                meta["photos_pending"] = True
+            booking = transition(
+                booking, to=Status.COMPLETED, actor=actor, actor_kind=Actor.PRO, reason="completed",
+                metadata=meta,
+                fields={"completion_method": method, "no_code_reason": no_code_reason or ""},
+            )  # fmt: skip
+            audit(
+                action="bookings.booking.completed",
+                actor=actor,
+                target=booking,
+                metadata={"completion_method": method, "no_code_reason": no_code_reason or ""},
+            )
+            events.notify(events.BOOKING_COMPLETED, [booking.client], booking.public_id)
+    if failure is not None:
+        raise failure  # après le commit : l'essai compté reste
+    return booking
+
+
+def _check_completion_code(booking: Booking, actor: User, code: str) -> DomainError | None:
+    """Compare en temps constant. Un code mal formé ne compte pas comme un essai (il ne peut pas
+    être juste) ; un code faux le compte, et le 5e verrouille. Renvoie l'erreur à lever."""
+    if not (code.isascii() and code.isdigit() and len(code) == settings.COMPLETION_CODE_DIGITS):
+        return DomainError("completion_code_invalid", status=422)
+    expected = crypto.decrypt(booking.completion_code_enc) or ""
+    if expected and hmac.compare_digest(expected.encode(), code.encode()):
+        return None
+    booking.completion_code_attempts += 1
+    booking.completion_code_locked = (
+        booking.completion_code_attempts >= settings.COMPLETION_CODE_MAX_ATTEMPTS
+    )
+    booking.save(update_fields=["completion_code_attempts", "completion_code_locked", "updated_at"])
+    audit(
+        action="bookings.completion_code.failed",
+        actor=actor,
+        target=booking,
+        metadata={
+            "attempts": booking.completion_code_attempts,
+            "locked": booking.completion_code_locked,
+        },
+    )
+    return DomainError("completion_code_invalid", status=422)
 
 
 # --- No-show : « le pro n'est pas venu » (spec 004) ----------------------------------------------
