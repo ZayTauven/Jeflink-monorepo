@@ -2,9 +2,9 @@
 // et que dois-je faire maintenant ? ». Une seule action principale selon l'état : choisir un devis,
 // attendre le pro, ou joindre le pro.
 //
-// Un seul appel pour la demande, ses devis et sa réservation (réseau faible). L'identifiant est
+// Un seul appel pour la demande, ses devis, sa réservation et le désistement du pro (réseau faible). L'identifiant est
 // validé en UUID avant tout appel ; une demande d'un autre compte répond 404.
-import { type ClientRequest, bookingsList, requestsRetrieve } from "@jeflink/api-client";
+import { type ClientRequest, requestsRetrieve } from "@jeflink/api-client";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -20,14 +20,8 @@ import { rethrowApiError, serverApiWithSession } from "@/lib/bff";
 import { localized } from "@/lib/requests/catalog";
 import { formatDay } from "@/lib/requests/format";
 import { isUuid } from "@/lib/requests/ids";
-import { isBooking, readPage } from "@/lib/requests/list";
 import { choosableQuotes, sortQuotes } from "@/lib/requests/quotes";
-import {
-  STATE_TONE,
-  canCancelRequest,
-  providerWithdrew,
-  requestState,
-} from "@/lib/requests/status";
+import { STATE_TONE, canCancelRequest, requestState } from "@/lib/requests/status";
 import { readSiteConfig } from "@/lib/site-config";
 
 import { CancelPanel } from "../_components/cancel-panel";
@@ -60,23 +54,6 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     throw error; // coupure entre le serveur et l'API : error.tsx, avec « Réessayer »
   }
 
-  // Désistement du pro : le détail n'embarque que la réservation active ; la demande, revenue à
-  // `open` ou `quoted`, doit expliquer pourquoi. On regarde les réservations du client, sans
-  // jamais bloquer la page si cet appel échoue.
-  let withdrew = false;
-  if (request.booking === null && request.first_quoted_at !== null) {
-    try {
-      const response = await bookingsList(undefined, api.options);
-      withdrew = providerWithdrew(
-        request.public_id,
-        request.status,
-        readPage(response.data, isBooking).results,
-      );
-    } catch {
-      withdrew = false;
-    }
-  }
-
   const now = new Date().toISOString();
   const state = requestState(request.status);
   const trade = localized(request.trade.name, locale);
@@ -86,6 +63,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const awaiting = request.status === "booked" && booking?.status === "accepted";
   const statusKey = awaiting ? "awaiting" : (state ?? "unknown");
   const live = request.status === "open" || request.status === "quoted";
+  const withdrew = live && request.withdrawn_by_provider;
 
   return (
     <PageShell>

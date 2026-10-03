@@ -52,32 +52,3 @@ export function validateCancel(reason: string, note: string): "reason" | "note" 
   if (reason === "other" && (!note.trim() || note.trim().length > MAX_NOTE)) return "note";
   return null;
 }
-
-type BookingLike = {
-  request: string;
-  status: string;
-  cancelled_by: string;
-  cancel_reason?: string;
-  created_at: string;
-};
-
-/**
- * Le pro s'est désisté : une réservation annulée par le pro ou le système, pour cette demande,
- * alors que la demande est revenue à `open` ou `quoted`. La plus récente fait foi.
- */
-export function providerWithdrew(
-  requestId: string,
-  requestStatus: string,
-  bookings: readonly BookingLike[],
-): boolean {
-  if (requestStatus !== "open" && requestStatus !== "quoted") return false;
-  const last = bookings
-    .filter((booking) => booking.request === requestId && booking.status === "cancelled")
-    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))[0];
-  return (
-    last !== undefined &&
-    (last.cancelled_by === "pro" ||
-      last.cancelled_by === "system" ||
-      last.cancel_reason === "pro_withdrew")
-  );
-}

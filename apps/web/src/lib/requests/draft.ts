@@ -3,11 +3,13 @@
 // partagé, minimisation). Tout accès au stockage est protégé : bloqué, plein ou absent, le
 // formulaire marche sans.
 
+import type { PreferredPeriodEnum, PreferredWhenEnum } from "@jeflink/api-client";
+
 export const DRAFT_KEY = "jf-request-draft";
 export const DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-export type When = "asap" | "date";
-export type Period = "morning" | "afternoon" | "evening" | "any";
+export type When = PreferredWhenEnum;
+export type Period = PreferredPeriodEnum;
 
 export type Draft = {
   tradeSlug: string;

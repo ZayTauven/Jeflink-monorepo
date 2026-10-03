@@ -24,7 +24,7 @@ import { buildRequestBody, hasErrors, validateDraft, withZoneChoice } from "./pa
 import { callAction } from "./result.ts";
 import { choosableQuotes, readableLabel, sortQuotes } from "./quotes.ts";
 import { searchTrades, searchZones } from "./search.ts";
-import { providerWithdrew, validateCancel } from "./status.ts";
+import { validateCancel } from "./status.ts";
 
 class ApiError extends Error {
   readonly status: number;
@@ -543,52 +543,6 @@ describe("annulation", () => {
   });
 });
 
-describe("désistement du pro", () => {
-  const cancelled = (by: string, at: string) => ({
-    request: "r1",
-    status: "cancelled",
-    cancelled_by: by,
-    created_at: at,
-  });
-  it("vrai si la dernière réservation a été annulée par le pro ou le système", () => {
-    assert.equal(
-      providerWithdrew("r1", "quoted", [cancelled("pro", "2026-10-03T10:00:00Z")]),
-      true,
-    );
-    assert.equal(
-      providerWithdrew("r1", "open", [cancelled("system", "2026-10-03T10:00:00Z")]),
-      true,
-    );
-  });
-  it("faux si c'est le client, une autre demande, ou une demande qui n'a pas rouvert", () => {
-    assert.equal(
-      providerWithdrew("r1", "quoted", [cancelled("client", "2026-10-03T10:00:00Z")]),
-      false,
-    );
-    assert.equal(
-      providerWithdrew("r2", "quoted", [cancelled("pro", "2026-10-03T10:00:00Z")]),
-      false,
-    );
-    assert.equal(
-      providerWithdrew("r1", "booked", [cancelled("pro", "2026-10-03T10:00:00Z")]),
-      false,
-    );
-    assert.equal(
-      providerWithdrew("r1", "cancelled", [cancelled("pro", "2026-10-03T10:00:00Z")]),
-      false,
-    );
-  });
-  it("la plus récente fait foi", () => {
-    assert.equal(
-      providerWithdrew("r1", "quoted", [
-        cancelled("pro", "2026-10-01T10:00:00Z"),
-        cancelled("client", "2026-10-02T10:00:00Z"),
-      ]),
-      false,
-    );
-  });
-});
-
 describe("identifiants et curseurs", () => {
   it("isUuid", () => {
     assert.equal(isUuid("123e4567-e89b-42d3-a456-426614174000"), true);
@@ -606,23 +560,6 @@ describe("identifiants et curseurs", () => {
     assert.equal(safeCursor("<script>"), undefined);
     assert.equal(safeCursor("a".repeat(201)), undefined);
     assert.equal(safeCursor(undefined), undefined);
-  });
-});
-
-describe("désistement signalé par cancel_reason", () => {
-  it("pro_withdrew suffit, même sans cancelled_by lisible", () => {
-    assert.equal(
-      providerWithdrew("r1", "open", [
-        {
-          request: "r1",
-          status: "cancelled",
-          cancelled_by: "",
-          cancel_reason: "pro_withdrew",
-          created_at: "2026-10-03T10:00:00Z",
-        },
-      ]),
-      true,
-    );
   });
 });
 

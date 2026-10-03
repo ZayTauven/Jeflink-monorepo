@@ -428,9 +428,6 @@
       "display_name_length": "Votre nom est trop court ou trop long.",
       "display_name_invalid": "Ce nom n'est pas accepté. Écrivez votre prénom ou votre nom.",
       "display_name_reserved": "Ce nom n'est pas disponible. Choisissez-en un autre."
-    },
-    "cancelReasons": {
-      "pro_withdrew": "Le pro ne peut plus venir."
     }
   }
 }

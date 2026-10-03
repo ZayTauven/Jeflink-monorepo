@@ -3,7 +3,7 @@
 //
 // Liste paginée par curseur (`?curseur=`) : jamais tout d'un coup sur un réseau lent. Page
 // authentifiée : `private, no-store` posé par le proxy, jamais prérendue (`serverApi`).
-import { requestsList } from "@jeflink/api-client";
+import { type PaginatedClientRequestSummaryList, requestsList } from "@jeflink/api-client";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -16,7 +16,6 @@ import { rethrowApiError, serverApiWithSession } from "@/lib/bff";
 import { localized } from "@/lib/requests/catalog";
 import { formatDay } from "@/lib/requests/format";
 import { cursorFromNext, safeCursor } from "@/lib/requests/ids";
-import { type Page, type RequestSummary, isRequestSummary, readPage } from "@/lib/requests/list";
 import { STATE_TONE, requestState } from "@/lib/requests/status";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -33,10 +32,10 @@ export default async function RequestsPage({ searchParams }: { searchParams: Sea
   const t = await getTranslations("requests");
   const locale = await getLocale();
 
-  let page: Page<RequestSummary> | null = null;
+  let page: PaginatedClientRequestSummaryList | null = null;
   try {
     const response = await requestsList(cursor ? { cursor } : undefined, api.options);
-    page = readPage(response.data, isRequestSummary);
+    page = response.status === 200 ? response.data : null;
   } catch (error) {
     if (error instanceof Error && error.name === "ApiError") {
       await rethrowApiError(error, api); // 401 → refresh ou connexion ; sinon relancée

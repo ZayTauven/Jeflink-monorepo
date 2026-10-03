@@ -2,7 +2,9 @@
 // son libellé i18n (`requests.errors.<clé>`). Le résultat est sérialisable : une Server Action le
 // renvoie tel quel au navigateur.
 
-export type Candidate = { slug: string; name: string };
+import type { ErrorCandidate } from "@jeflink/api-client";
+
+export type Candidate = ErrorCandidate;
 
 export type RequestError = {
   /** Code de l'API, ou `network`, `generic`. */
