@@ -1,6 +1,6 @@
 # Spec 003 — Demande, devis, réservation
 
-Statut : validée · 2026-10-03 (Zay) · ADR lié : 0010 (demande et réservation, accepté) · Revue `terrain-reviewer` intégrée (Q1 à Q7 acceptées, Q2 et Q4 ajustées)
+Statut : livrée (api, web) · validée le 2026-10-03 (Zay) · ADR lié : 0010 (demande et réservation, accepté) · Revue `terrain-reviewer` intégrée (Q1 à Q7 acceptées, Q2 et Q4 ajustées)
 
 ## Problème
 
