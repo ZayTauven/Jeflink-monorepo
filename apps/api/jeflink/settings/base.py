@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "jeflink.catalog",
     "jeflink.zones",
     "jeflink.providers",
+    "jeflink.analytics",
 ]
 
 MIDDLEWARE = [
