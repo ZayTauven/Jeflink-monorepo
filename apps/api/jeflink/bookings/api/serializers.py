@@ -12,13 +12,21 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from jeflink.bookings.machine import DISCLOSED_STATUSES, Actor
-from jeflink.bookings.models import Booking, BookingPhoto, NoShowReport
+from jeflink.bookings.models import (
+    Amendment,
+    AmendmentLine,
+    Booking,
+    BookingPhoto,
+    NoShowReport,
+)
 from jeflink.bookings.services import (
     CODE_STATUSES,
     can_report_no_show,
+    change_pct,
     contest_deadline,
     no_show_available_at,
     photo_urls,
+    requires_confirmation,
     visible_completion_code,
 )
 from jeflink.requests.api.refs import (
@@ -31,6 +39,8 @@ from jeflink.requests.api.refs import (
 # Étapes horodatées (UTC) et fin de la fenêtre de contestation : nulles tant qu'elles n'ont pas eu
 # lieu. Mêmes champs pour le client et le pro.
 TIMELINE_FIELDS = (
+    "original_amount_xof",
+    "amendments",
     "completion_method",
     "en_route_at",
     "on_site_at",
@@ -39,6 +49,63 @@ TIMELINE_FIELDS = (
     "closed_at",
     "dispute_deadline",
 )
+
+
+class AmendmentLineSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AmendmentLine
+        fields = ["kind", "label", "amount_xof"]
+        read_only_fields = fields
+
+
+class AmendmentSerializer(serializers.ModelSerializer):
+    """Un avenant : le nouveau prix complet, l'ancien, l'écart en % et les lignes.
+
+    ``requires_confirmation`` : une hausse au-delà de ``AMENDMENT_CONFIRM_THRESHOLD_PCT`` demande
+    une confirmation de plus au client ; une baisse, aucune. « Vous ne payez pas plus tant que
+    vous n'avez pas accepté » : seul le client, depuis sa session, fait changer le montant.
+    """
+
+    lines = AmendmentLineSerializer(many=True)
+    change_pct = serializers.SerializerMethodField()
+    requires_confirmation = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Amendment
+        fields = [
+            "public_id",
+            "status",
+            "reason",
+            "note",
+            "previous_amount_xof",
+            "total_xof",
+            "change_pct",
+            "requires_confirmation",
+            "lines",
+            "created_at",
+            "decided_at",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_change_pct(self, amendment: Amendment) -> int:
+        return change_pct(amendment)
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_requires_confirmation(self, amendment: Amendment) -> bool:
+        return requires_confirmation(amendment)
+
+
+def booking_amendments(booking: Booking) -> list[dict]:
+    return AmendmentSerializer(booking.amendments.all(), many=True).data
+
+
+class AmendmentsMixin:
+    """Les avenants de la réservation, du plus ancien au plus récent (client et pro)."""
+
+    @extend_schema_field(AmendmentSerializer(many=True))
+    def get_amendments(self, booking: Booking) -> list[dict]:
+        return booking_amendments(booking)
 
 
 class PhotoSerializer(serializers.ModelSerializer):
@@ -134,7 +201,7 @@ class ClientContactSerializer(serializers.Serializer):
     phone = serializers.CharField()
 
 
-class ClientBookingSerializer(serializers.ModelSerializer):
+class ClientBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
     request = serializers.SlugRelatedField(slug_field="public_id", read_only=True)
     trade = TradeRefSerializer(source="request.trade")
     zone = ZoneRefSerializer(source="request.zone")
@@ -145,6 +212,7 @@ class ClientBookingSerializer(serializers.ModelSerializer):
     cancel_reason = serializers.SerializerMethodField()
     can_report_no_show = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
+    amendments = serializers.SerializerMethodField()
     completion_code = serializers.SerializerMethodField()
     can_regenerate_completion_code = serializers.SerializerMethodField()
     can_send_completion_code_sms = serializers.SerializerMethodField()
@@ -256,7 +324,7 @@ class LocationOutSerializer(serializers.Serializer):
     lon = serializers.FloatField()
 
 
-class ProBookingSerializer(serializers.ModelSerializer):
+class ProBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
     """La réservation vue du pro. Avant ``scheduled`` : ni nom, ni numéro, ni repère, ni position
     du client, et les numéros de la description sont masqués."""
 
@@ -271,6 +339,7 @@ class ProBookingSerializer(serializers.ModelSerializer):
     location = serializers.SerializerMethodField()
     no_show = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
+    amendments = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -369,3 +438,20 @@ class PhotoUploadSerializer(serializers.Serializer):
     phase = serializers.ChoiceField(choices=BookingPhoto.Phase.choices)
     file = serializers.FileField(allow_empty_file=False)
     taken_at = serializers.DateTimeField(required=False, allow_null=True, default=None)
+
+
+class AmendmentLineInputSerializer(serializers.Serializer):
+    # Valeurs vérifiées par le service (422 amendment_total_invalid).
+    kind = serializers.CharField(max_length=6)
+    amount_xof = serializers.IntegerField()
+    label = serializers.CharField(max_length=60, required=False, allow_blank=True, default="")
+
+
+class AmendmentProposeSerializer(serializers.Serializer):
+    """Le nouveau prix **complet** (somme des lignes), avec un motif. Bornes et somme vérifiées par
+    le service (422 amendment_total_invalid)."""
+
+    reason = serializers.CharField(max_length=15)
+    note = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+    total_xof = serializers.IntegerField()
+    lines = AmendmentLineInputSerializer(many=True)

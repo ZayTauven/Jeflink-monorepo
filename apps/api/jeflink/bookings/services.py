@@ -25,7 +25,8 @@ from jeflink.notifications import events
 from jeflink.providers.models import Provider
 from jeflink.requests import quotes as quote_services
 from jeflink.requests import services as request_services
-from jeflink.requests.models import Quote, ServiceRequest
+from jeflink.requests.models import Quote, QuoteLine, ServiceRequest
+from jeflink.requests.quotes import QuoteLineInput
 from jeflink.requests.reasons import CLIENT_REASONS, PRO_REASONS, check_reason, clean_note
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
@@ -42,7 +43,7 @@ from .machine import (
     is_late,
     reliability_weight,
 )
-from .models import Booking, BookingEvent, BookingPhoto, NoShowReport
+from .models import Amendment, AmendmentLine, Booking, BookingEvent, BookingPhoto, NoShowReport
 
 # Clés permises dans ``BookingEvent.metadata`` (schéma fermé). Jamais de texte libre, de numéro,
 # de code de fin ni de position.
@@ -510,6 +511,235 @@ def remind_disputes(*, now: datetime | None = None) -> int:
     return sent
 
 
+# --- Avenants (spec 004) -------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CreatedAmendment:
+    amendment: Amendment
+    created: bool  # False : même clé et même corps, l'avenant existant est rendu
+
+
+def change_pct(amendment: Amendment) -> int:
+    """Écart en % (signé, arrondi) entre l'ancien et le nouveau prix."""
+    delta = amendment.total_xof - amendment.previous_amount_xof
+    return round(delta * 100 / amendment.previous_amount_xof)
+
+
+def requires_confirmation(amendment: Amendment) -> bool:
+    """Une hausse au-delà du seuil demande une confirmation de plus ; une baisse, aucune."""
+    delta = amendment.total_xof - amendment.previous_amount_xof
+    # Comparaison exacte en entiers (pas sur le pourcentage arrondi affiché).
+    return delta * 100 > settings.AMENDMENT_CONFIRM_THRESHOLD_PCT * amendment.previous_amount_xof
+
+
+def _amendment_hash(reason: str, note: str, total: int, lines: tuple[QuoteLineInput, ...]) -> str:
+    body = repr((reason, note, total, [(ln.kind, ln.amount_xof, ln.label) for ln in lines]))
+    return hmac.new(settings.PII_HMAC_KEY.encode(), body.encode(), hashlib.sha256).hexdigest()
+
+
+def _check_amendment(
+    booking: Booking, reason: str, note: str, total: int, lines: tuple[QuoteLineInput, ...]
+) -> str:
+    """Contrôles sans verrou. Renvoie la note nettoyée."""
+    if reason not in Amendment.Reason.values:
+        raise DomainError("amendment_reason_invalid", status=422)
+    clean = clean_note(note)  # 422 note_invalid : numéros refusés, 200 caractères
+    if reason == Amendment.Reason.OTHER and not clean:
+        raise DomainError("note_invalid", status=422)
+    if not 1 <= len(lines) <= settings.QUOTE_MAX_LINES:
+        raise DomainError("amendment_total_invalid", status=422)
+    for line in lines:
+        if line.kind not in QuoteLine.Kind.values or line.amount_xof <= 0:
+            raise DomainError("amendment_total_invalid", status=422)
+        if len(line.label.strip()) > 60:
+            raise DomainError("text_too_long", status=422)
+    if sum(line.amount_xof for line in lines) != total or not 0 < total <= settings.QUOTE_MAX_XOF:
+        raise DomainError("amendment_total_invalid", status=422)
+    return clean
+
+
+def propose_amendment(
+    *,
+    booking: Booking,
+    actor: User,
+    reason: str,
+    note: str,
+    lines: tuple[QuoteLineInput, ...],
+    total_xof: int,
+    idempotency_key: str,
+) -> CreatedAmendment:
+    """Le pro propose le nouveau prix complet d'une intervention ``in_progress``.
+
+    Refus : ``422 amendment_total_invalid`` (somme des lignes, ``0 < total ≤ QUOTE_MAX_XOF``,
+    total égal au montant courant), ``amendment_reason_invalid``, ``note_invalid`` ;
+    ``409 amendment_pending`` (un seul en attente), ``amendment_limit`` (3 par réservation),
+    ``transition_not_allowed`` (hors ``in_progress``), ``idempotency_key_reused``. Le client est
+    prévenu par SMS (ancien et nouveau prix).
+    """
+    if not request_services.IDEMPOTENCY_KEY.match(idempotency_key or ""):
+        raise DomainError("idempotency_key_required")
+    clean = _check_amendment(booking, reason, note, total_xof, lines)
+    digest = _amendment_hash(reason, clean, total_xof, lines)
+    try:
+        with transaction.atomic():
+            return _insert_amendment(
+                booking, actor, reason, clean, total_xof, lines, idempotency_key, digest
+            )
+    except IntegrityError:
+        # Course : même clé (la première gagne) ou deuxième avenant en attente.
+        existing = Amendment.objects.filter(
+            booking=booking, idempotency_key=idempotency_key
+        ).first()
+        if existing is not None and existing.payload_hash == digest:
+            return CreatedAmendment(existing, created=False)
+        raise DomainError("amendment_pending", status=409) from None
+
+
+def _insert_amendment(
+    booking, actor, reason, note, total_xof, lines, key, digest
+) -> CreatedAmendment:
+    booking = _lock_for_pro(booking, actor, verified=True)
+    existing = Amendment.objects.filter(booking=booking, idempotency_key=key).first()
+    if existing is not None:
+        if existing.payload_hash != digest:
+            raise DomainError("idempotency_key_reused", status=409)
+        return CreatedAmendment(existing, created=False)
+    if booking.status != Status.IN_PROGRESS:
+        raise DomainError("transition_not_allowed", status=409)
+    if total_xof == booking.amount_xof:
+        raise DomainError("amendment_total_invalid", status=422)
+    existing_all = Amendment.objects.filter(booking=booking)
+    if existing_all.filter(status=Amendment.Status.PROPOSED).exists():
+        raise DomainError("amendment_pending", status=409)
+    if existing_all.count() >= settings.BOOKING_AMENDMENTS_MAX:
+        raise DomainError("amendment_limit", status=409)
+    amendment = Amendment.objects.create(
+        booking=booking,
+        reason=reason,
+        note=note,
+        previous_amount_xof=booking.amount_xof,
+        total_xof=total_xof,
+        idempotency_key=key,
+        payload_hash=digest,
+    )
+    AmendmentLine.objects.bulk_create(
+        AmendmentLine(
+            amendment=amendment,
+            position=index,
+            kind=line.kind,
+            label=" ".join(line.label.split()),
+            amount_xof=line.amount_xof,
+        )
+        for index, line in enumerate(lines, start=1)
+    )
+    audit(
+        action="bookings.amendment.proposed",
+        actor=actor,
+        target=amendment,
+        metadata={
+            "previous_xof": amendment.previous_amount_xof,
+            "total_xof": amendment.total_xof,
+            "reason": reason,
+        },
+    )
+    events.notify(events.AMENDMENT_PROPOSED, [booking.client], booking.public_id)
+    return CreatedAmendment(amendment, created=True)
+
+
+def _lock_amendment(amendment: Amendment) -> tuple[Booking, Amendment]:
+    """Verrous dans l'ordre commun (fiche, demande, réservation), puis l'avenant."""
+    _, _, booking = _lock_for_booking(amendment.booking)
+    return booking, Amendment.objects.select_for_update().get(pk=amendment.pk)
+
+
+@transaction.atomic
+def withdraw_amendment(*, amendment: Amendment, actor: User) -> Amendment:
+    """Le pro retire son avenant en attente. Rejoué : l'état courant ; ``409
+    amendment_not_pending`` si le client a déjà décidé."""
+    booking, amendment = _lock_amendment(amendment)
+    provider = Provider.objects.get(pk=booking.provider_id)
+    if provider.owner_id != actor.id:
+        raise DomainError("not_found", status=404)
+    if provider.status != Provider.Status.VERIFIED:
+        raise DomainError("provider_not_verified", status=403)
+    if amendment.status == Amendment.Status.WITHDRAWN:
+        return amendment
+    if amendment.status != Amendment.Status.PROPOSED:
+        raise DomainError("amendment_not_pending", status=409)
+    _close_amendment(amendment, Amendment.Status.WITHDRAWN)
+    audit(action="bookings.amendment.withdrawn", actor=actor, target=amendment)
+    return amendment
+
+
+def _close_amendment(amendment: Amendment, status: str) -> None:
+    amendment.status = status
+    amendment.decided_at = timezone.now()
+    amendment.save(update_fields=["status", "decided_at", "updated_at"])
+
+
+def _lapse_amendments(booking: Booking) -> None:
+    """``complete`` rend caduc un avenant encore en attente (réservation déjà verrouillée)."""
+    Amendment.objects.filter(booking=booking, status=Amendment.Status.PROPOSED).update(
+        status=Amendment.Status.LAPSED, decided_at=timezone.now(), updated_at=timezone.now()
+    )
+
+
+def _decide_amendment(*, amendment: Amendment, actor: User, accept: bool) -> Booking:
+    booking, amendment = _lock_amendment(amendment)
+    if booking.client_id != actor.id:
+        raise DomainError("not_found", status=404)
+    done = Amendment.Status.ACCEPTED if accept else Amendment.Status.DECLINED
+    if amendment.status == done:
+        return booking  # rejeu
+    if amendment.status != Amendment.Status.PROPOSED:
+        raise DomainError("amendment_not_pending", status=409)
+    if booking.status != Status.IN_PROGRESS:
+        raise DomainError("transition_not_allowed", status=409)
+    provider_owner = Provider.objects.select_related("owner").get(pk=booking.provider_id).owner
+    if accept:
+        # Le seul endroit où ``amount_xof`` change : session du client, sous verrou.
+        booking = transition(
+            booking, to=Status.IN_PROGRESS, actor=actor, actor_kind=Actor.CLIENT,
+            reason="amendment_accepted",
+            metadata={
+                "amendment": {
+                    "public_id": str(amendment.public_id),
+                    "previous_xof": amendment.previous_amount_xof,
+                    "total_xof": amendment.total_xof,
+                }
+            },
+            fields={"amount_xof": amendment.total_xof},
+        )  # fmt: skip
+        audit(
+            action="bookings.amendment.accepted",
+            actor=actor,
+            target=amendment,
+            metadata={
+                "previous_xof": amendment.previous_amount_xof,
+                "total_xof": amendment.total_xof,
+            },
+        )
+    else:
+        audit(action="bookings.amendment.declined", actor=actor, target=amendment)
+    _close_amendment(amendment, done)
+    events.notify(events.AMENDMENT_DECIDED, [provider_owner], booking.public_id)
+    return booking
+
+
+@transaction.atomic
+def accept_amendment(*, amendment: Amendment, actor: User) -> Booking:
+    """Le client accepte (depuis sa session seulement) : ``amount_xof`` prend le total de
+    l'avenant, via ``transition(in_progress → in_progress)``. Rejoué : 200."""
+    return _decide_amendment(amendment=amendment, actor=actor, accept=True)
+
+
+@transaction.atomic
+def decline_amendment(*, amendment: Amendment, actor: User) -> Booking:
+    """Le client refuse : le travail continue au prix courant. Rejoué : 200."""
+    return _decide_amendment(amendment=amendment, actor=actor, accept=False)
+
+
 # --- Photos (spec 004, ADR 0011) ------------------------------------------------------------------
 
 # Statuts où l'envoi est ouvert : de la présence du pro à la contestation.
@@ -879,6 +1109,7 @@ def complete_work(
                 raise DomainError("completion_code_locked", status=409)
             failure = _check_completion_code(booking, actor, code)
         if failure is None:
+            _lapse_amendments(booking)
             method = (
                 Booking.CompletionMethod.NO_CODE
                 if no_code_reason
@@ -1212,5 +1443,8 @@ def anonymize_bookings(user: User) -> None:
     purge_booking_photos(
         BookingPhoto.objects.filter(Q(booking__client=user) | Q(booking__provider__owner=user))
     )
+    # Note d'avenant et libellés de ses lignes : textes libres du pro.
+    Amendment.objects.filter(booking__provider__owner=user).update(note="")
+    AmendmentLine.objects.filter(amendment__booking__provider__owner=user).update(label="")
     # La note de contestation d'un no-show est un texte libre du pro.
     NoShowReport.objects.filter(booking__provider__owner=user).update(contest_note="")

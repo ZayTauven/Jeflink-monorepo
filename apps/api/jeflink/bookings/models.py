@@ -215,6 +215,85 @@ class BookingPhoto(BaseModel):
         return f"photo {self.phase} {self.status}"
 
 
+class Amendment(BaseModel):
+    """Avenant : le pro propose le **nouveau prix complet** pendant l'intervention ; seul le client
+    le fait changer, depuis sa session (spec 004). Aucun mouvement d'argent : informatif."""
+
+    class Status(models.TextChoices):
+        PROPOSED = "proposed", "Proposé"
+        ACCEPTED = "accepted", "Accepté"
+        DECLINED = "declined", "Refusé"
+        WITHDRAWN = "withdrawn", "Retiré"
+        LAPSED = "lapsed", "Caduc"
+
+    class Reason(models.TextChoices):
+        VISIT_DIAGNOSIS = "visit_diagnosis", "Diagnostic sur place"
+        EXTRA_WORK = "extra_work", "Travail en plus"
+        PARTS = "parts", "Pièces"
+        OTHER = "other", "Autre"
+
+    booking = models.ForeignKey(Booking, on_delete=models.PROTECT, related_name="amendments")
+    status = models.CharField(max_length=9, choices=Status.choices, default=Status.PROPOSED)
+    reason = models.CharField(max_length=15, choices=Reason.choices)
+    # Texte libre du pro (numéros refusés) : effacé à la suppression de son compte.
+    note = models.CharField(max_length=NOTE_MAX_LENGTH, blank=True)
+    previous_amount_xof = models.PositiveBigIntegerField()
+    total_xof = models.PositiveBigIntegerField()
+    idempotency_key = models.CharField(max_length=64)
+    payload_hash = models.CharField(max_length=64)
+    decided_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "avenant"
+        ordering = ("created_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("booking", "idempotency_key"), name="amendment_idempotency"
+            ),
+            # Un seul avenant en attente à la fois, par réservation.
+            models.UniqueConstraint(
+                fields=("booking",),
+                condition=Q(status="proposed"),
+                name="amendment_one_proposed_per_booking",
+            ),
+            models.CheckConstraint(
+                condition=Q(total_xof__gt=0) & Q(previous_amount_xof__gt=0),
+                name="amendment_amounts_positive",
+            ),
+            models.CheckConstraint(
+                condition=~Q(total_xof=models.F("previous_amount_xof")),
+                name="amendment_changes_the_price",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"avenant {self.status}"
+
+
+class AmendmentLine(models.Model):
+    """Ligne d'un avenant (1 à 8), mêmes règles qu'une ligne de devis."""
+
+    amendment = models.ForeignKey(Amendment, on_delete=models.CASCADE, related_name="lines")
+    position = models.PositiveSmallIntegerField()
+    kind = models.CharField(max_length=6)
+    label = models.CharField(max_length=60, blank=True)
+    amount_xof = models.PositiveBigIntegerField()
+
+    class Meta:
+        ordering = ("position",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("amendment", "position"), name="amendmentline_position"
+            ),
+            models.CheckConstraint(
+                condition=Q(amount_xof__gt=0), name="amendmentline_amount_positive"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.kind} {self.amount_xof}"
+
+
 class BookingEventQuerySet(models.QuerySet):
     """Journal immuable : ni mise à jour ni suppression en masse. Seule exception, l'effacement
     des notes à la suppression d'un compte (``wipe_notes``)."""

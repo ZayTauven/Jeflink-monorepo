@@ -22,34 +22,43 @@ from jeflink.accounts.permissions import (
 from jeflink.bookings.machine import Actor
 from jeflink.bookings.models import Booking
 from jeflink.bookings.selectors import (
+    amendment_for_client,
+    amendment_for_provider,
     booking_for_client,
     booking_for_provider,
     bookings_for_client,
     bookings_for_provider,
 )
 from jeflink.bookings.services import (
+    accept_amendment,
     cancel_booking,
     complete_work,
     confirm_booking,
     contest_no_show,
     create_from_quote,
     declare_no_show,
+    decline_amendment,
     mark_arrived,
     mark_en_route,
+    propose_amendment,
     regenerate_completion_code,
     report_photo,
     send_completion_code_sms,
     start_work,
     upload_photo,
+    withdraw_amendment,
 )
 from jeflink.common.api.idempotency import IDEMPOTENCY_PARAMETER, idempotency_key
 from jeflink.common.errors import DomainError
 from jeflink.providers.models import Provider
 from jeflink.providers.selectors import provider_for_owner
 from jeflink.requests.api.serializers import ApiErrorSerializer, ReasonSerializer
+from jeflink.requests.quotes import QuoteLineInput
 from jeflink.requests.selectors import quote_for_client
 
 from .serializers import (
+    AmendmentProposeSerializer,
+    AmendmentSerializer,
     ClientBookingSerializer,
     CompleteSerializer,
     ContestNoShowSerializer,
@@ -233,6 +242,56 @@ class BookingPhotoReportView(APIView):
         report_photo(booking=booking, photo_public_id=photo_id, actor=request.user)
         booking = booking_for_client(user=request.user, public_id=public_id)
         return Response(ClientBookingSerializer(booking).data)
+
+
+class BookingAmendmentDecisionView(APIView):
+    """Le client décide d'un avenant, depuis sa session seulement (ni le pro, ni un lien SMS)."""
+
+    permission_classes = [IsClient]
+    accept = True
+
+    def post(self, request: Request, public_id, amendment_id) -> Response:
+        amendment = amendment_for_client(
+            user=request.user, booking_public_id=public_id, public_id=amendment_id
+        )
+        decide = accept_amendment if self.accept else decline_amendment
+        decide(amendment=amendment, actor=request.user)
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        return Response(ClientBookingSerializer(booking).data)
+
+
+DECISION_ERRORS = {
+    409: error("amendment_not_pending, transition_not_allowed"),
+    **ERRORS,
+}
+
+
+class BookingAmendmentAcceptView(BookingAmendmentDecisionView):
+    accept = True
+
+    @extend_schema(
+        tags=["bookings"],
+        operation_id="bookings_amendments_accept",
+        request=None,
+        responses={200: ClientBookingSerializer, **DECISION_ERRORS},
+    )
+    def post(self, request: Request, public_id, amendment_id) -> Response:
+        """Accepte l'avenant : le montant de la réservation devient son total. Rejoué : 200."""
+        return super().post(request, public_id, amendment_id)
+
+
+class BookingAmendmentDeclineView(BookingAmendmentDecisionView):
+    accept = False
+
+    @extend_schema(
+        tags=["bookings"],
+        operation_id="bookings_amendments_decline",
+        request=None,
+        responses={200: ClientBookingSerializer, **DECISION_ERRORS},
+    )
+    def post(self, request: Request, public_id, amendment_id) -> Response:
+        """Refuse l'avenant : le travail continue au prix courant. Rejoué : 200."""
+        return super().post(request, public_id, amendment_id)
 
 
 # --- Côté pro ----------------------------------------------------------------------------------
@@ -516,3 +575,68 @@ class ProBookingPhotoUploadView(APIView):
         )
         code = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
         return Response(PhotoSerializer(result.photo).data, status=code)
+
+
+class ProBookingAmendmentCreateView(APIView):
+    permission_classes = [IsVerifiedPro, IsProOwner]
+
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_bookings_amendments_create",
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=AmendmentProposeSerializer,
+        responses={
+            201: AmendmentSerializer,
+            200: OpenApiResponse(AmendmentSerializer, description="Rejeu : même avenant"),
+            400: error("invalid, idempotency_key_required"),
+            409: error(
+                "amendment_pending, amendment_limit, idempotency_key_reused, transition_not_allowed"
+            ),
+            422: error(
+                "amendment_total_invalid, amendment_reason_invalid, note_invalid, text_too_long"
+            ),
+            **ERRORS,
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        """Propose le **nouveau prix complet** (pas la différence) pendant l'intervention. Le
+        client reçoit un SMS avec l'ancien et le nouveau prix et décide seul."""
+        booking = booking_for_provider(provider=request.provider, public_id=public_id)
+        self.check_object_permissions(request, booking)
+        serializer = AmendmentProposeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        result = propose_amendment(
+            booking=booking,
+            actor=request.user,
+            reason=data["reason"],
+            note=data["note"],
+            total_xof=data["total_xof"],
+            lines=tuple(
+                QuoteLineInput(line["kind"], line["amount_xof"], line["label"])
+                for line in data["lines"]
+            ),
+            idempotency_key=idempotency_key(request),
+        )
+        code = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
+        return Response(AmendmentSerializer(result.amendment).data, status=code)
+
+
+class ProAmendmentWithdrawView(APIView):
+    permission_classes = [IsVerifiedPro, IsProOwner]
+
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_amendments_withdraw",
+        request=None,
+        responses={200: ProBookingSerializer, **DECISION_ERRORS},
+    )
+    def post(self, request: Request, amendment_id) -> Response:
+        """Retire son avenant tant que le client n'a pas décidé. Rejoué : 200."""
+        amendment = amendment_for_provider(provider=request.provider, public_id=amendment_id)
+        self.check_object_permissions(request, amendment.booking)
+        withdraw_amendment(amendment=amendment, actor=request.user)
+        booking = booking_for_provider(
+            provider=request.provider, public_id=amendment.booking.public_id
+        )
+        return Response(ProBookingSerializer(booking).data)

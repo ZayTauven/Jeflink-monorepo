@@ -312,7 +312,219 @@ export function useBookingsRetrieve<TData = Awaited<ReturnType<typeof bookingsRe
 
 
 
-export type bookingsCancelResponse200 = {
+export type bookingsAmendmentsAcceptResponse200 = {
+  data: ClientBooking
+  status: 200
+}
+
+export type bookingsAmendmentsAcceptResponse401 = {
+  data: void
+  status: 401
+}
+
+export type bookingsAmendmentsAcceptResponse403 = {
+  data: void
+  status: 403
+}
+
+export type bookingsAmendmentsAcceptResponse404 = {
+  data: void
+  status: 404
+}
+
+export type bookingsAmendmentsAcceptResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type bookingsAmendmentsAcceptResponseSuccess = (bookingsAmendmentsAcceptResponse200) & {
+  headers: Headers;
+};
+export type bookingsAmendmentsAcceptResponseError = (bookingsAmendmentsAcceptResponse401 | bookingsAmendmentsAcceptResponse403 | bookingsAmendmentsAcceptResponse404 | bookingsAmendmentsAcceptResponse409) & {
+  headers: Headers;
+};
+
+export type bookingsAmendmentsAcceptResponse = (bookingsAmendmentsAcceptResponseSuccess | bookingsAmendmentsAcceptResponseError)
+
+export const getBookingsAmendmentsAcceptUrl = (publicId: string,
+    amendmentId: string,) => {
+
+
+
+
+  return `/api/bookings/${encodeURIComponent(String(publicId))}/amendments/${encodeURIComponent(String(amendmentId))}/accept/`
+}
+
+/**
+ * Accepte l'avenant : le montant de la réservation devient son total. Rejoué : 200.
+ */
+export const bookingsAmendmentsAccept = async (publicId: string,
+    amendmentId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsAmendmentsAcceptResponse> => {
+
+  return jeflinkFetch<bookingsAmendmentsAcceptResponse>(getBookingsAmendmentsAcceptUrl(publicId,amendmentId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBookingsAmendmentsAcceptMutationKey = () => ['bookingsAmendmentsAccept'] as const;
+
+export const getBookingsAmendmentsAcceptMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsAmendmentsAccept>>, TError,BookingsAmendmentsAcceptMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bookingsAmendmentsAccept>>, TError,BookingsAmendmentsAcceptMutationVariables, TContext> => {
+
+const mutationKey = getBookingsAmendmentsAcceptMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bookingsAmendmentsAccept>>, BookingsAmendmentsAcceptMutationVariables> = (props) => {
+          const {publicId,amendmentId} = props ?? {};
+
+          return  bookingsAmendmentsAccept(publicId,amendmentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BookingsAmendmentsAcceptMutationResult = NonNullable<Awaited<ReturnType<typeof bookingsAmendmentsAccept>>>
+
+    export type BookingsAmendmentsAcceptMutationError = ErrorType<void | ApiError>
+    export type BookingsAmendmentsAcceptMutationVariables = {publicId: string;amendmentId: string}
+
+    export const useBookingsAmendmentsAccept = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsAmendmentsAccept>>, TError,BookingsAmendmentsAcceptMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bookingsAmendmentsAccept>>,
+        TError,
+        BookingsAmendmentsAcceptMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBookingsAmendmentsAcceptMutationOptions(options), queryClient);
+    }
+    export type bookingsAmendmentsDeclineResponse200 = {
+  data: ClientBooking
+  status: 200
+}
+
+export type bookingsAmendmentsDeclineResponse401 = {
+  data: void
+  status: 401
+}
+
+export type bookingsAmendmentsDeclineResponse403 = {
+  data: void
+  status: 403
+}
+
+export type bookingsAmendmentsDeclineResponse404 = {
+  data: void
+  status: 404
+}
+
+export type bookingsAmendmentsDeclineResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type bookingsAmendmentsDeclineResponseSuccess = (bookingsAmendmentsDeclineResponse200) & {
+  headers: Headers;
+};
+export type bookingsAmendmentsDeclineResponseError = (bookingsAmendmentsDeclineResponse401 | bookingsAmendmentsDeclineResponse403 | bookingsAmendmentsDeclineResponse404 | bookingsAmendmentsDeclineResponse409) & {
+  headers: Headers;
+};
+
+export type bookingsAmendmentsDeclineResponse = (bookingsAmendmentsDeclineResponseSuccess | bookingsAmendmentsDeclineResponseError)
+
+export const getBookingsAmendmentsDeclineUrl = (publicId: string,
+    amendmentId: string,) => {
+
+
+
+
+  return `/api/bookings/${encodeURIComponent(String(publicId))}/amendments/${encodeURIComponent(String(amendmentId))}/decline/`
+}
+
+/**
+ * Refuse l'avenant : le travail continue au prix courant. Rejoué : 200.
+ */
+export const bookingsAmendmentsDecline = async (publicId: string,
+    amendmentId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsAmendmentsDeclineResponse> => {
+
+  return jeflinkFetch<bookingsAmendmentsDeclineResponse>(getBookingsAmendmentsDeclineUrl(publicId,amendmentId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBookingsAmendmentsDeclineMutationKey = () => ['bookingsAmendmentsDecline'] as const;
+
+export const getBookingsAmendmentsDeclineMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsAmendmentsDecline>>, TError,BookingsAmendmentsDeclineMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bookingsAmendmentsDecline>>, TError,BookingsAmendmentsDeclineMutationVariables, TContext> => {
+
+const mutationKey = getBookingsAmendmentsDeclineMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bookingsAmendmentsDecline>>, BookingsAmendmentsDeclineMutationVariables> = (props) => {
+          const {publicId,amendmentId} = props ?? {};
+
+          return  bookingsAmendmentsDecline(publicId,amendmentId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BookingsAmendmentsDeclineMutationResult = NonNullable<Awaited<ReturnType<typeof bookingsAmendmentsDecline>>>
+
+    export type BookingsAmendmentsDeclineMutationError = ErrorType<void | ApiError>
+    export type BookingsAmendmentsDeclineMutationVariables = {publicId: string;amendmentId: string}
+
+    export const useBookingsAmendmentsDecline = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsAmendmentsDecline>>, TError,BookingsAmendmentsDeclineMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bookingsAmendmentsDecline>>,
+        TError,
+        BookingsAmendmentsDeclineMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBookingsAmendmentsDeclineMutationOptions(options), queryClient);
+    }
+    export type bookingsCancelResponse200 = {
   data: ClientBooking
   status: 200
 }

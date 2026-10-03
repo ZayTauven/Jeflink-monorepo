@@ -77,4 +77,24 @@ urlpatterns = [
         views.ProBookingPhotoUploadView.as_view(),
         name="pro-booking-photos",
     ),
+    path(
+        "bookings/<uuid:public_id>/amendments/<uuid:amendment_id>/accept/",
+        views.BookingAmendmentAcceptView.as_view(),
+        name="booking-amendment-accept",
+    ),
+    path(
+        "bookings/<uuid:public_id>/amendments/<uuid:amendment_id>/decline/",
+        views.BookingAmendmentDeclineView.as_view(),
+        name="booking-amendment-decline",
+    ),
+    path(
+        "pro/bookings/<uuid:public_id>/amendments/",
+        views.ProBookingAmendmentCreateView.as_view(),
+        name="pro-booking-amendments",
+    ),
+    path(
+        "pro/amendments/<uuid:amendment_id>/withdraw/",
+        views.ProAmendmentWithdrawView.as_view(),
+        name="pro-amendment-withdraw",
+    ),
 ]

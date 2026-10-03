@@ -355,3 +355,75 @@ def test_aucune_ecriture_du_statut_d_une_demande_hors_de_requests_services():
             if name != "requests/models.py"
         ]
     assert offenders == []
+
+
+def field_writes(source: str, model: str, instance_hint: str, field: str) -> list[int]:
+    """Lignes où ``field`` d'un ``model`` est écrit : affectation sur une variable ou un attribut
+    dont le nom contient ``instance_hint``, ou ``model.objects…update/create(field=…)``."""
+    lines = []
+    for node in ast.walk(ast.parse(source)):
+        targets = []
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AugAssign | ast.AnnAssign):
+            targets = [node.target]
+        for target in targets:
+            if (
+                isinstance(target, ast.Attribute)
+                and target.attr == field
+                and any(
+                    (isinstance(n, ast.Name) and instance_hint in n.id.lower())
+                    or (isinstance(n, ast.Attribute) and instance_hint in n.attr.lower())
+                    for n in ast.walk(target.value)
+                )
+            ):
+                lines.append(node.lineno)
+        if isinstance(node, ast.Call) and any(k.arg == field for k in node.keywords):
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr in WRITES:
+                if _mentions_name(func, model):
+                    lines.append(node.lineno)
+            elif isinstance(func, ast.Name) and func.id == model:
+                lines.append(node.lineno)
+    return lines
+
+
+def test_le_detecteur_d_ecriture_du_montant_voit_les_ecritures_interdites():
+    assert field_writes("booking.amount_xof = 1", "Booking", "booking", "amount_xof") == [1]
+    assert field_writes(
+        "Booking.objects.filter(pk=1).update(amount_xof=1)", "Booking", "booking", "amount_xof"
+    )
+    assert field_writes("Booking(amount_xof=1)", "Booking", "booking", "amount_xof")
+    assert not field_writes("print(booking.amount_xof)", "Booking", "booking", "amount_xof")
+    assert not field_writes(
+        "Quote.objects.create(amount_xof=1)", "Booking", "booking", "amount_xof"
+    )
+
+
+def test_aucune_ecriture_du_montant_d_une_reservation_hors_de_bookings_services():
+    offenders = []
+    for path, name in _source_files():
+        if name == "bookings/services.py":
+            continue
+        offenders += [
+            f"{name}:{line}"
+            for line in field_writes(
+                path.read_text(encoding="utf-8"), "Booking", "booking", "amount_xof"
+            )
+        ]
+    assert offenders == []
+
+
+def test_amount_xof_n_est_ecrit_que_par_la_creation_et_l_avenant_accepte():
+    """Dans bookings/services.py même : la création, et ``accept_amendment`` (via transition)."""
+    source = (Path(jeflink.__file__).parent / "bookings/services.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    writers = set()
+    for func in ast.walk(tree):
+        if isinstance(func, ast.FunctionDef):
+            body = ast.unparse(func)
+            if "amount_xof=" in body.replace(" ", "") and "Booking.objects.create" in body:
+                writers.add(func.name)
+            if "'amount_xof'" in body and "fields=" in body:
+                writers.add(func.name)
+    assert writers == {"_create_from_quote", "_decide_amendment"}

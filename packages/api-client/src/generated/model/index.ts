@@ -8,6 +8,11 @@
 
 export * from './acceptInvitationRequest.ts';
 export * from './accessToken.ts';
+export * from './amendment.ts';
+export * from './amendmentLine.ts';
+export * from './amendmentLineInputRequest.ts';
+export * from './amendmentProposeRequest.ts';
+export * from './amendmentStatusEnum.ts';
 export * from './apiError.ts';
 export * from './appD8cEnum.ts';
 export * from './authConfig.ts';
@@ -109,6 +114,7 @@ export * from './quoteLine.ts';
 export * from './quoteLineInputRequest.ts';
 export * from './quoteLineKindEnum.ts';
 export * from './quoteStatusEnum.ts';
+export * from './reasonEnum.ts';
 export * from './reasonRequest.ts';
 export * from './refreshRequestRequest.ts';
 export * from './region.ts';

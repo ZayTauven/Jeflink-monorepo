@@ -435,6 +435,9 @@ BOOKING_PHOTO_THUMB_EDGE = 400  # miniature (environ 20 Ko)
 BOOKING_PHOTO_THUMB_QUALITY = 70
 BOOKING_PHOTO_MAX_PER_PHASE = 5  # de 1 à 5 photos par phase
 BOOKING_PHOTO_RETENTION = timedelta(days=365)  # gardées 12 mois après la clôture
+# Avenants (spec 004) : le pro propose un nouveau prix complet, le client décide.
+BOOKING_AMENDMENTS_MAX = 3  # propositions par réservation, toutes issues confondues
+AMENDMENT_CONFIRM_THRESHOLD_PCT = 50  # une hausse au-delà demande une confirmation de plus
 # Repère et position de la demande, vidés après la clôture de la réservation (spec 003, ouvert).
 BOOKING_CONTACT_RETENTION = timedelta(days=90)
 

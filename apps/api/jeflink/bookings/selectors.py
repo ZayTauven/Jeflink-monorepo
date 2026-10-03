@@ -12,7 +12,7 @@ from jeflink.common.errors import DomainError
 from jeflink.providers.models import Provider
 from jeflink.requests.models import ServiceRequest
 
-from .models import Booking, BookingPhoto
+from .models import Amendment, Booking, BookingPhoto
 
 
 def _photos() -> Prefetch:
@@ -32,7 +32,7 @@ def bookings_for_client(*, user: User, now: datetime | None = None) -> QuerySet[
     return (
         Booking.objects.filter(_alive(now or timezone.now()), client=user)
         .select_related("provider", "request__trade", "request__zone", "quote", "no_show")
-        .prefetch_related("quote__lines", _photos())
+        .prefetch_related("quote__lines", _photos(), "amendments__lines")
     )
 
 
@@ -48,7 +48,7 @@ def bookings_for_provider(*, provider: Provider, now: datetime | None = None) ->
     return (
         Booking.objects.filter(_alive(now or timezone.now()), provider=provider)
         .select_related("client", "request__trade", "request__zone", "quote", "no_show")
-        .prefetch_related("quote__lines", _photos())
+        .prefetch_related("quote__lines", _photos(), "amendments__lines")
     )
 
 
@@ -82,6 +82,31 @@ def active_booking_for_request(
         Booking.objects.filter(_alive(now or timezone.now()), request=request)
         .exclude(status=Booking.Status.CANCELLED)
         .select_related("provider", "quote")
-        .prefetch_related("quote__lines", _photos())
+        .prefetch_related("quote__lines", _photos(), "amendments__lines")
         .first()
     )
+
+
+def amendment_for_provider(*, provider: Provider, public_id) -> Amendment:
+    """L'avenant d'une réservation de ce pro ; celui d'un autre répond 404."""
+    amendment = (
+        Amendment.objects.filter(public_id=public_id, booking__provider=provider)
+        .select_related("booking")
+        .first()
+    )
+    if amendment is None:
+        raise DomainError("not_found", status=404)
+    return amendment
+
+
+def amendment_for_client(*, user: User, booking_public_id, public_id) -> Amendment:
+    amendment = (
+        Amendment.objects.filter(
+            public_id=public_id, booking__public_id=booking_public_id, booking__client=user
+        )
+        .select_related("booking")
+        .first()
+    )
+    if amendment is None:
+        raise DomainError("not_found", status=404)
+    return amendment

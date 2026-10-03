@@ -5,6 +5,7 @@
  * Contrat unique des fronts et apps Jeflink (client TS généré depuis ce schéma).
  * OpenAPI spec version: 0.1.0
  */
+import type { Amendment } from './amendment.ts';
 import type { BookingStatusEnum } from './bookingStatusEnum.ts';
 import type { CancelledByEnum } from './cancelledByEnum.ts';
 import type { CompletionMethodEnum } from './completionMethodEnum.ts';
@@ -39,6 +40,8 @@ export interface ProBooking {
   readonly location: LocationOut | null;
   readonly no_show: NoShowState | null;
   readonly photos: readonly Photo[];
+  readonly original_amount_xof: number;
+  readonly amendments: readonly Amendment[];
   readonly completion_method: CompletionMethodEnum;
   /** @nullable */
   readonly en_route_at: string | null;

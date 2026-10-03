@@ -5,6 +5,7 @@
  * Contrat unique des fronts et apps Jeflink (client TS généré depuis ce schéma).
  * OpenAPI spec version: 0.1.0
  */
+import type { Amendment } from './amendment.ts';
 import type { BookingStatusEnum } from './bookingStatusEnum.ts';
 import type { CancelledByEnum } from './cancelledByEnum.ts';
 import type { ClientContact } from './clientContact.ts';
@@ -15,6 +16,9 @@ import type { Photo } from './photo.ts';
 import type { TradeRef } from './tradeRef.ts';
 import type { ZoneRef } from './zoneRef.ts';
 
+/**
+ * Les avenants de la réservation, du plus ancien au plus récent (client et pro).
+ */
 export interface ClientBooking {
   readonly public_id: string;
   readonly request: string;
@@ -38,6 +42,8 @@ export interface ClientBooking {
   readonly can_send_completion_code_sms: boolean;
   readonly no_show_available_at: string;
   readonly no_show: NoShowState | null;
+  readonly original_amount_xof: number;
+  readonly amendments: readonly Amendment[];
   readonly completion_method: CompletionMethodEnum;
   /** @nullable */
   readonly en_route_at: string | null;

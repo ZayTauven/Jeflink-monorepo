@@ -39,6 +39,15 @@ class BookingsConfig(AppConfig):
         register_audit_schema("bookings.completion_code.failed", {"attempts": int, "locked": bool})
         register_audit_schema("bookings.completion_code.regenerated", {"regenerations": int})
         register_audit_schema("bookings.completion_code.sms", {"automatic": bool, "sent": int})
+        register_audit_schema(
+            "bookings.amendment.proposed",
+            {"previous_xof": int, "total_xof": int, "reason": str},
+        )
+        register_audit_schema("bookings.amendment.withdrawn", {})
+        register_audit_schema("bookings.amendment.declined", {})
+        register_audit_schema(
+            "bookings.amendment.accepted", {"previous_xof": int, "total_xof": int}
+        )
         register_audit_schema("bookings.photo.uploaded", {"phase": str})
         register_audit_schema("bookings.photo.reported", {"phase": str})
         register_audit_schema("bookings.photos.purged", {"count": int, "reason": str})
