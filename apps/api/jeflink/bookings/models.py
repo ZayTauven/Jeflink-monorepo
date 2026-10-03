@@ -155,6 +155,66 @@ class NoShowReport(BaseModel):
         return f"no-show {self.status}"
 
 
+class BookingPhotoQuerySet(models.QuerySet):
+    def visible(self):
+        """Photos montrées au client et au pro : ni signalées, ni purgées, ni en échec."""
+        return self.filter(hidden_at__isnull=True, purged_at__isnull=True).exclude(
+            status=BookingPhoto.Status.FAILED
+        )
+
+
+class BookingPhoto(BaseModel):
+    """Photo « avant » ou « après » d'une intervention (spec 004, ADR 0011).
+
+    Seul le WebP réencodé sans métadonnée est stocké (jamais l'original ni son GPS). Les clés
+    d'objet ne portent que des ``public_id``. Signalée par le client, une photo est masquée (le
+    pro ne la voit plus) mais gardée pour l'Ops ; purgée 12 mois après la clôture.
+    """
+
+    class Phase(models.TextChoices):
+        BEFORE = "before", "Avant"
+        AFTER = "after", "Après"
+
+    class Status(models.TextChoices):
+        PROCESSING = "processing", "Miniature en cours"
+        READY = "ready", "Prête"
+        FAILED = "failed", "En échec"
+
+    booking = models.ForeignKey(Booking, on_delete=models.PROTECT, related_name="photos")
+    phase = models.CharField(max_length=6, choices=Phase.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PROCESSING)
+    image_key = models.CharField(max_length=120, blank=True)
+    thumb_key = models.CharField(max_length=120, blank=True)
+    width = models.PositiveIntegerField(default=0)
+    height = models.PositiveIntegerField(default=0)
+    size_bytes = models.PositiveIntegerField(default=0)
+    # Heure déclarée par l'appareil, facultative : l'heure du serveur (``created_at``) fait foi.
+    taken_at = models.DateTimeField(null=True, blank=True)
+    idempotency_key = models.CharField(max_length=64)
+    # Empreinte du fichier reçu et de sa phase : un rejeu avec un autre contenu est refusé.
+    source_hash = models.CharField(max_length=64)
+    hidden_at = models.DateTimeField(null=True, blank=True)
+    hidden_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    purged_at = models.DateTimeField(null=True, blank=True)
+
+    objects = BookingPhotoQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = "photo"
+        ordering = ("created_at", "id")
+        indexes = [models.Index(fields=("booking", "phase"))]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("booking", "idempotency_key"), name="bookingphoto_idempotency"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"photo {self.phase} {self.status}"
+
+
 class BookingEventQuerySet(models.QuerySet):
     """Journal immuable : ni mise à jour ni suppression en masse. Seule exception, l'effacement
     des notes à la suppression d'un compte (``wipe_notes``)."""

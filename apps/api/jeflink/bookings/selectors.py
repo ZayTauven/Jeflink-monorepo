@@ -4,7 +4,7 @@ est passée n'est plus montrée : un retard de la tâche d'annulation ne la fait
 
 from datetime import datetime
 
-from django.db.models import Q, QuerySet
+from django.db.models import Prefetch, Q, QuerySet
 from django.utils import timezone
 
 from jeflink.accounts.models import User
@@ -12,7 +12,16 @@ from jeflink.common.errors import DomainError
 from jeflink.providers.models import Provider
 from jeflink.requests.models import ServiceRequest
 
-from .models import Booking
+from .models import Booking, BookingPhoto
+
+
+def _photos() -> Prefetch:
+    """Photos visibles, préchargées : une requête pour toutes les réservations de la page."""
+    return Prefetch(
+        "photos",
+        queryset=BookingPhoto.objects.visible().order_by("created_at", "id"),
+        to_attr="visible_photos",
+    )
 
 
 def _alive(now: datetime) -> Q:
@@ -23,7 +32,7 @@ def bookings_for_client(*, user: User, now: datetime | None = None) -> QuerySet[
     return (
         Booking.objects.filter(_alive(now or timezone.now()), client=user)
         .select_related("provider", "request__trade", "request__zone", "quote", "no_show")
-        .prefetch_related("quote__lines")
+        .prefetch_related("quote__lines", _photos())
     )
 
 
@@ -39,7 +48,7 @@ def bookings_for_provider(*, provider: Provider, now: datetime | None = None) ->
     return (
         Booking.objects.filter(_alive(now or timezone.now()), provider=provider)
         .select_related("client", "request__trade", "request__zone", "quote", "no_show")
-        .prefetch_related("quote__lines")
+        .prefetch_related("quote__lines", _photos())
     )
 
 
@@ -73,6 +82,6 @@ def active_booking_for_request(
         Booking.objects.filter(_alive(now or timezone.now()), request=request)
         .exclude(status=Booking.Status.CANCELLED)
         .select_related("provider", "quote")
-        .prefetch_related("quote__lines")
+        .prefetch_related("quote__lines", _photos())
         .first()
     )

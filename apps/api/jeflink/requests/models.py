@@ -94,9 +94,11 @@ class ServiceRequest(BaseModel):
             models.UniqueConstraint(
                 fields=("client", "idempotency_key"), name="request_idempotency_per_client"
             ),
-            # Un repère ou une position, tant que la demande vit (vidés ensuite, RGPD).
+            # Un repère ou une position, tant que la demande vit (vidés ensuite, RGPD). Une demande
+            # ``booked`` n'y est plus tenue : 90 jours après la clôture de sa réservation, ses
+            # données sont vidées (spec 004).
             models.CheckConstraint(
-                condition=~Q(status__in=("needs_zone", "open", "quoted", "booked"))
+                condition=~Q(status__in=("needs_zone", "open", "quoted"))
                 | ~Q(landmark="")
                 | Q(location__isnull=False),
                 name="request_landmark_or_location",

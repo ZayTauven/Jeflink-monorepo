@@ -32,6 +32,8 @@ import type {
   PaginatedProBookingList,
   PaginatedProQuoteList,
   PaginatedProRequestList,
+  Photo,
+  PhotoUploadRequest,
   ProBooking,
   ProBookingsListParams,
   ProProvider,
@@ -1043,6 +1045,138 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getProBookingsEnRouteMutationOptions(options), queryClient);
+    }
+    export type proBookingsPhotosUploadResponse200 = {
+  data: Photo
+  status: 200
+}
+
+export type proBookingsPhotosUploadResponse201 = {
+  data: Photo
+  status: 201
+}
+
+export type proBookingsPhotosUploadResponse400 = {
+  data: ApiError
+  status: 400
+}
+
+export type proBookingsPhotosUploadResponse401 = {
+  data: void
+  status: 401
+}
+
+export type proBookingsPhotosUploadResponse403 = {
+  data: void
+  status: 403
+}
+
+export type proBookingsPhotosUploadResponse404 = {
+  data: void
+  status: 404
+}
+
+export type proBookingsPhotosUploadResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type proBookingsPhotosUploadResponse413 = {
+  data: ApiError
+  status: 413
+}
+
+export type proBookingsPhotosUploadResponse422 = {
+  data: ApiError
+  status: 422
+}
+
+export type proBookingsPhotosUploadResponseSuccess = (proBookingsPhotosUploadResponse200 | proBookingsPhotosUploadResponse201) & {
+  headers: Headers;
+};
+export type proBookingsPhotosUploadResponseError = (proBookingsPhotosUploadResponse400 | proBookingsPhotosUploadResponse401 | proBookingsPhotosUploadResponse403 | proBookingsPhotosUploadResponse404 | proBookingsPhotosUploadResponse409 | proBookingsPhotosUploadResponse413 | proBookingsPhotosUploadResponse422) & {
+  headers: Headers;
+};
+
+export type proBookingsPhotosUploadResponse = (proBookingsPhotosUploadResponseSuccess | proBookingsPhotosUploadResponseError)
+
+export const getProBookingsPhotosUploadUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/pro/bookings/${encodeURIComponent(String(publicId))}/photos/`
+}
+
+/**
+ * Photo « avant » ou « après » (1 à 5 par phase). Réencodée sans EXIF ni GPS ;
+ * « Photographiez seulement le travail, pas les personnes. »
+ */
+export const proBookingsPhotosUpload = async (publicId: string,
+    photoUploadRequest: PhotoUploadRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<proBookingsPhotosUploadResponse> => {
+    const formData = new FormData();
+formData.append(`phase`, photoUploadRequest.phase);
+formData.append(`file`, photoUploadRequest.file);
+if(photoUploadRequest.taken_at !== undefined && photoUploadRequest.taken_at !== null) {
+ formData.append(`taken_at`, photoUploadRequest.taken_at);
+ }
+
+  return jeflinkFetch<proBookingsPhotosUploadResponse>(getProBookingsPhotosUploadUrl(publicId),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getProBookingsPhotosUploadMutationKey = () => ['proBookingsPhotosUpload'] as const;
+
+export const getProBookingsPhotosUploadMutationOptions = <TError = ErrorType<ApiError | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsPhotosUpload>>, TError,ProBookingsPhotosUploadMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof proBookingsPhotosUpload>>, TError,ProBookingsPhotosUploadMutationVariables, TContext> => {
+
+const mutationKey = getProBookingsPhotosUploadMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof proBookingsPhotosUpload>>, ProBookingsPhotosUploadMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  proBookingsPhotosUpload(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProBookingsPhotosUploadMutationResult = NonNullable<Awaited<ReturnType<typeof proBookingsPhotosUpload>>>
+    export type ProBookingsPhotosUploadMutationBody = BodyType<PhotoUploadRequest>
+    export type ProBookingsPhotosUploadMutationError = ErrorType<ApiError | void>
+    export type ProBookingsPhotosUploadMutationVariables = {publicId: string;data: BodyType<PhotoUploadRequest>}
+
+    export const useProBookingsPhotosUpload = <TError = ErrorType<ApiError | void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proBookingsPhotosUpload>>, TError,ProBookingsPhotosUploadMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof proBookingsPhotosUpload>>,
+        TError,
+        ProBookingsPhotosUploadMutationVariables,
+        TContext
+      > => {
+      return useMutation(getProBookingsPhotosUploadMutationOptions(options), queryClient);
     }
     export type proBookingsStartResponse200 = {
   data: ProBooking

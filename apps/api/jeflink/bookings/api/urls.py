@@ -67,4 +67,14 @@ urlpatterns = [
         views.ProBookingCompleteView.as_view(),
         name="pro-booking-complete",
     ),
+    path(
+        "bookings/<uuid:public_id>/photos/<uuid:photo_id>/report/",
+        views.BookingPhotoReportView.as_view(),
+        name="booking-photo-report",
+    ),
+    path(
+        "pro/bookings/<uuid:public_id>/photos/",
+        views.ProBookingPhotoUploadView.as_view(),
+        name="pro-booking-photos",
+    ),
 ]

@@ -331,6 +331,16 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 300,
         "options": {"expires": 240},
     },
+    "bookings-purge-photos": {
+        "task": "jeflink.bookings.tasks.purge_photos",
+        "schedule": 24 * 3600,
+        "options": {"expires": 6 * 3600},
+    },
+    "bookings-purge-contact": {
+        "task": "jeflink.bookings.tasks.purge_contact",
+        "schedule": 24 * 3600,
+        "options": {"expires": 6 * 3600},
+    },
     "requests-purge-locations": {
         "task": "jeflink.requests.tasks.purge_locations",
         "schedule": 24 * 3600,
@@ -417,6 +427,16 @@ STORAGES = {
 # Taille décodée maximale d'une image envoyée (anti « bombe de décompression »).
 IMAGE_MAX_PIXELS = 40_000_000
 BOOKING_PHOTO_URL_TTL = 600  # secondes : validité d'une URL signée de photo
+# Photos d'une intervention (spec 004) : avant et après, du logement seulement.
+BOOKING_PHOTO_MAX_BYTES = 8 * 1024 * 1024  # envoi : 8 Mo au plus
+BOOKING_PHOTO_MAX_EDGE = 1600  # côté long de l'image stockée, en pixels
+BOOKING_PHOTO_QUALITY = 75  # WebP
+BOOKING_PHOTO_THUMB_EDGE = 400  # miniature (environ 20 Ko)
+BOOKING_PHOTO_THUMB_QUALITY = 70
+BOOKING_PHOTO_MAX_PER_PHASE = 5  # de 1 à 5 photos par phase
+BOOKING_PHOTO_RETENTION = timedelta(days=365)  # gardées 12 mois après la clôture
+# Repère et position de la demande, vidés après la clôture de la réservation (spec 003, ouvert).
+BOOKING_CONTACT_RETENTION = timedelta(days=90)
 
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")

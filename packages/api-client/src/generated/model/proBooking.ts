@@ -10,6 +10,7 @@ import type { CancelledByEnum } from './cancelledByEnum.ts';
 import type { CompletionMethodEnum } from './completionMethodEnum.ts';
 import type { LocationOut } from './locationOut.ts';
 import type { NoShowState } from './noShowState.ts';
+import type { Photo } from './photo.ts';
 import type { ProClientContact } from './proClientContact.ts';
 import type { ServiceRef } from './serviceRef.ts';
 import type { TradeRef } from './tradeRef.ts';
@@ -37,6 +38,7 @@ export interface ProBooking {
   readonly landmark: string | null;
   readonly location: LocationOut | null;
   readonly no_show: NoShowState | null;
+  readonly photos: readonly Photo[];
   readonly completion_method: CompletionMethodEnum;
   /** @nullable */
   readonly en_route_at: string | null;

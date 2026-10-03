@@ -11,6 +11,7 @@ import type { ClientContact } from './clientContact.ts';
 import type { ClientProvider } from './clientProvider.ts';
 import type { CompletionMethodEnum } from './completionMethodEnum.ts';
 import type { NoShowState } from './noShowState.ts';
+import type { Photo } from './photo.ts';
 import type { TradeRef } from './tradeRef.ts';
 import type { ZoneRef } from './zoneRef.ts';
 
@@ -29,6 +30,7 @@ export interface ClientBooking {
   readonly contact: ClientContact | null;
   readonly payment: string;
   readonly can_report_no_show: boolean;
+  readonly photos: readonly Photo[];
   /** @nullable */
   readonly completion_code: string | null;
   readonly completion_code_locked: boolean;

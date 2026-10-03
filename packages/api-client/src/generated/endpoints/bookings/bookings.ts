@@ -750,6 +750,108 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getBookingsNoShowMutationOptions(options), queryClient);
     }
+    export type bookingsPhotosReportResponse200 = {
+  data: ClientBooking
+  status: 200
+}
+
+export type bookingsPhotosReportResponse401 = {
+  data: void
+  status: 401
+}
+
+export type bookingsPhotosReportResponse403 = {
+  data: void
+  status: 403
+}
+
+export type bookingsPhotosReportResponse404 = {
+  data: void
+  status: 404
+}
+
+export type bookingsPhotosReportResponseSuccess = (bookingsPhotosReportResponse200) & {
+  headers: Headers;
+};
+export type bookingsPhotosReportResponseError = (bookingsPhotosReportResponse401 | bookingsPhotosReportResponse403 | bookingsPhotosReportResponse404) & {
+  headers: Headers;
+};
+
+export type bookingsPhotosReportResponse = (bookingsPhotosReportResponseSuccess | bookingsPhotosReportResponseError)
+
+export const getBookingsPhotosReportUrl = (publicId: string,
+    photoId: string,) => {
+
+
+
+
+  return `/api/bookings/${encodeURIComponent(String(publicId))}/photos/${encodeURIComponent(String(photoId))}/report/`
+}
+
+/**
+ * « Signaler cette photo » : masquée pour le client et le pro, gardée pour l'Ops.
+ * Rejoué : 200.
+ */
+export const bookingsPhotosReport = async (publicId: string,
+    photoId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsPhotosReportResponse> => {
+
+  return jeflinkFetch<bookingsPhotosReportResponse>(getBookingsPhotosReportUrl(publicId,photoId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getBookingsPhotosReportMutationKey = () => ['bookingsPhotosReport'] as const;
+
+export const getBookingsPhotosReportMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsPhotosReport>>, TError,BookingsPhotosReportMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bookingsPhotosReport>>, TError,BookingsPhotosReportMutationVariables, TContext> => {
+
+const mutationKey = getBookingsPhotosReportMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bookingsPhotosReport>>, BookingsPhotosReportMutationVariables> = (props) => {
+          const {publicId,photoId} = props ?? {};
+
+          return  bookingsPhotosReport(publicId,photoId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BookingsPhotosReportMutationResult = NonNullable<Awaited<ReturnType<typeof bookingsPhotosReport>>>
+
+    export type BookingsPhotosReportMutationError = ErrorType<void>
+    export type BookingsPhotosReportMutationVariables = {publicId: string;photoId: string}
+
+    export const useBookingsPhotosReport = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsPhotosReport>>, TError,BookingsPhotosReportMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bookingsPhotosReport>>,
+        TError,
+        BookingsPhotosReportMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBookingsPhotosReportMutationOptions(options), queryClient);
+    }
     export type quotesAcceptResponse200 = {
   data: ClientBooking
   status: 200

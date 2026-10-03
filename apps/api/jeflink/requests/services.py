@@ -458,6 +458,16 @@ def purge_locations(*, now: datetime | None = None) -> int:
     )
 
 
+def clear_contact(request_ids: list[int]) -> int:
+    """Vide repère et position de ces demandes (point laissé ouvert par la spec 003 : 90 jours
+    après la clôture de la réservation, appelé par ``bookings``). Idempotent."""
+    return (
+        ServiceRequest.objects.filter(pk__in=request_ids)
+        .exclude(landmark="", location__isnull=True)
+        .update(landmark="", location=None, updated_at=timezone.now())
+    )
+
+
 @transaction.atomic
 def anonymize_requests(user: User) -> None:
     """Anonymiseur : annule les demandes ouvertes (devis refusés) et vide les données perso.

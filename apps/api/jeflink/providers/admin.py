@@ -19,6 +19,7 @@ class ProviderAdmin(admin.ModelAdmin):
         "status",
         "masked_numbers_count",
         "no_code_share",
+        "photos_missing",
         "is_demo",
         "created_at",
     )
@@ -45,6 +46,17 @@ class ProviderAdmin(admin.ModelAdmin):
     def no_code_share(self, provider: Provider) -> str:
         """« 2 / 10 » : fins de mission sans code du client, sur l'ensemble des fins du pro."""
         return f"{provider.no_code_completions} / {provider.completions}"
+
+    @admin.display(description="Photos manquantes (avant / après)")
+    def photos_missing(self, provider: Provider) -> str:
+        """Réservations closes sans photo « avant » / « après », sur le total des closes."""
+        from jeflink.bookings.services import missing_photos
+
+        flags = missing_photos(provider)
+        return (
+            f"{flags['before_photos_missing']} / {flags['after_photos_missing']}"
+            f" sur {flags['closed']}"
+        )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False

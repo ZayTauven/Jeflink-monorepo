@@ -12,12 +12,13 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from jeflink.bookings.machine import DISCLOSED_STATUSES, Actor
-from jeflink.bookings.models import Booking, NoShowReport
+from jeflink.bookings.models import Booking, BookingPhoto, NoShowReport
 from jeflink.bookings.services import (
     CODE_STATUSES,
     can_report_no_show,
     contest_deadline,
     no_show_available_at,
+    photo_urls,
     visible_completion_code,
 )
 from jeflink.requests.api.refs import (
@@ -38,6 +39,62 @@ TIMELINE_FIELDS = (
     "closed_at",
     "dispute_deadline",
 )
+
+
+class PhotoSerializer(serializers.ModelSerializer):
+    """Une photo : miniature par défaut (environ 20 Ko), image pleine à la demande (1 600 px).
+
+    Les deux URL sont signées et valables ``expires_at`` (10 min) : une page restée ouverte les
+    renouvelle en rechargeant la réservation. Tant que la miniature se prépare, ``thumb_url``
+    est l'image pleine.
+    """
+
+    thumb_url = serializers.SerializerMethodField()
+    url = serializers.SerializerMethodField()
+    expires_at = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BookingPhoto
+        fields = [
+            "public_id",
+            "phase",
+            "status",
+            "width",
+            "height",
+            "taken_at",
+            "created_at",
+            "thumb_url",
+            "url",
+            "expires_at",
+        ]
+        read_only_fields = fields
+
+    def _urls(self, photo: BookingPhoto) -> dict:
+        """Signées une seule fois par photo et par rendu (trois champs les lisent)."""
+        cached = getattr(photo, "_signed", None)
+        if cached is None:
+            cached = photo._signed = photo_urls(photo)
+        return cached
+
+    @extend_schema_field(serializers.URLField())
+    def get_thumb_url(self, photo: BookingPhoto) -> str:
+        return self._urls(photo)["thumb_url"]
+
+    @extend_schema_field(serializers.URLField())
+    def get_url(self, photo: BookingPhoto) -> str:
+        return self._urls(photo)["url"]
+
+    @extend_schema_field(serializers.DateTimeField())
+    def get_expires_at(self, photo: BookingPhoto) -> Any:
+        return self._urls(photo)["expires_at"]
+
+
+def booking_photos(booking: Booking) -> list[BookingPhoto]:
+    """Photos visibles (préchargées par les sélecteurs, sinon une requête)."""
+    loaded = getattr(booking, "visible_photos", None)
+    if loaded is not None:
+        return loaded
+    return list(booking.photos.visible().order_by("created_at", "id"))
 
 
 class NoShowStateSerializer(serializers.Serializer):
@@ -87,6 +144,7 @@ class ClientBookingSerializer(serializers.ModelSerializer):
     payment = serializers.SerializerMethodField()
     cancel_reason = serializers.SerializerMethodField()
     can_report_no_show = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
     completion_code = serializers.SerializerMethodField()
     can_regenerate_completion_code = serializers.SerializerMethodField()
     can_send_completion_code_sms = serializers.SerializerMethodField()
@@ -110,6 +168,7 @@ class ClientBookingSerializer(serializers.ModelSerializer):
             "contact",
             "payment",
             "can_report_no_show",
+            "photos",
             "completion_code",
             "completion_code_locked",
             "can_regenerate_completion_code",
@@ -150,6 +209,10 @@ class ClientBookingSerializer(serializers.ModelSerializer):
             settings.COMPLETION_CODE_SMS_AUTO if booking.en_route_at else 0
         )
         return booking.status in CODE_STATUSES and booking.completion_code_sms_sent < limit
+
+    @extend_schema_field(PhotoSerializer(many=True))
+    def get_photos(self, booking: Booking) -> list[dict]:
+        return PhotoSerializer(booking_photos(booking), many=True).data
 
     @extend_schema_field(serializers.BooleanField())
     def get_can_report_no_show(self, booking: Booking) -> bool:
@@ -207,6 +270,7 @@ class ProBookingSerializer(serializers.ModelSerializer):
     landmark = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
     no_show = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -227,6 +291,7 @@ class ProBookingSerializer(serializers.ModelSerializer):
             "landmark",
             "location",
             "no_show",
+            "photos",
             *TIMELINE_FIELDS,
             "cancelled_by",
             "cancel_reason",
@@ -237,6 +302,10 @@ class ProBookingSerializer(serializers.ModelSerializer):
     @extend_schema_field(NoShowStateSerializer(allow_null=True))
     def get_no_show(self, booking: Booking) -> dict | None:
         return no_show_state(booking, for_pro=True)
+
+    @extend_schema_field(PhotoSerializer(many=True))
+    def get_photos(self, booking: Booking) -> list[dict]:
+        return PhotoSerializer(booking_photos(booking), many=True).data
 
     @staticmethod
     def _disclosed(booking: Booking) -> bool:
@@ -291,3 +360,12 @@ class CompleteSerializer(OccurredAtSerializer):
         max_length=24, required=False, allow_blank=True, default=""
     )
     photos_pending = serializers.BooleanField(required=False, default=False)
+
+
+class PhotoUploadSerializer(serializers.Serializer):
+    """Envoi multipart : la phase, le fichier (JPEG, PNG ou WebP, 8 Mo au plus) et, facultative,
+    l'heure de la prise de vue. Le type est vérifié par décodage, jamais par l'extension."""
+
+    phase = serializers.ChoiceField(choices=BookingPhoto.Phase.choices)
+    file = serializers.FileField(allow_empty_file=False)
+    taken_at = serializers.DateTimeField(required=False, allow_null=True, default=None)

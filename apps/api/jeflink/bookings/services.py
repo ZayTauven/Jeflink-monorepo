@@ -5,20 +5,22 @@ Ordre des verrous, partout : comptes (par id), fiche pro, demande, réservation.
 motif « autre » n'est jamais écrite dans un log ni dans un audit.
 """
 
+import hashlib
 import hmac
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from jeflink.accounts.models import User
-from jeflink.common import crypto
+from jeflink.common import crypto, storage
 from jeflink.common.errors import DomainError
+from jeflink.common.images import InvalidImage, reencode
 from jeflink.notifications import events
 from jeflink.providers.models import Provider
 from jeflink.requests import quotes as quote_services
@@ -40,7 +42,7 @@ from .machine import (
     is_late,
     reliability_weight,
 )
-from .models import Booking, BookingEvent, NoShowReport
+from .models import Booking, BookingEvent, BookingPhoto, NoShowReport
 
 # Clés permises dans ``BookingEvent.metadata`` (schéma fermé). Jamais de texte libre, de numéro,
 # de code de fin ni de position.
@@ -421,8 +423,8 @@ def mark_arrived(*, booking: Booking, actor: User, occurred_at: datetime | None 
 
 
 def has_photos(booking: Booking, phase: str) -> bool:
-    """Une photo de la phase est-elle arrivée ? (branché sur ``BookingPhoto`` à la tâche 5)."""
-    return False
+    """Une photo visible de la phase est-elle arrivée ?"""
+    return BookingPhoto.objects.visible().filter(booking=booking, phase=phase).exists()
 
 
 @transaction.atomic
@@ -506,6 +508,238 @@ def remind_disputes(*, now: datetime | None = None) -> int:
             events.notify(events.DISPUTE_REMINDER, [locked.client], locked.public_id)
             sent += 1
     return sent
+
+
+# --- Photos (spec 004, ADR 0011) ------------------------------------------------------------------
+
+# Statuts où l'envoi est ouvert : de la présence du pro à la contestation.
+PHOTO_STATUSES = (Status.ON_SITE, Status.IN_PROGRESS, Status.COMPLETED, Status.DISPUTED)
+
+
+@dataclass(frozen=True)
+class UploadedPhoto:
+    photo: BookingPhoto
+    created: bool  # False : même clé et même fichier, la photo existante est rendue
+
+
+def photo_keys(photo: BookingPhoto) -> tuple[str, str]:
+    """Clés d'objet : des ``public_id`` seulement, jamais un nom, un numéro ni une date."""
+    base = f"bookings/{photo.booking.public_id}/{photo.public_id}"
+    return f"{base}.webp", f"{base}-thumb.webp"
+
+
+def upload_photo(
+    *,
+    booking: Booking,
+    actor: User,
+    phase: str,
+    content: bytes,
+    idempotency_key: str,
+    taken_at: datetime | None = None,
+) -> UploadedPhoto:
+    """Le gérant envoie une photo (de ``on_site`` à ``disputed``) : vérifiée par décodage,
+    redressée, réduite à 1 600 px et réencodée en WebP **sans métadonnée**. L'original et son GPS
+    ne sont jamais écrits. Idempotent par ``(réservation, Idempotency-Key)``.
+
+    Refus : ``413 photo_too_large``, ``422 photo_invalid`` (image illisible, type ou taille
+    décodée non permis, phase inconnue, ``taken_at`` dans le futur), ``409 photo_limit_reached``
+    (5 par phase), ``409 idempotency_key_reused`` (autre fichier), ``409 transition_not_allowed``
+    (hors de ``on_site`` à ``disputed``). Un pro suspendu n'envoie que pour une intervention
+    ``in_progress`` (``403 provider_not_verified`` sinon).
+    """
+    from .tasks import make_thumbnail
+
+    if not request_services.IDEMPOTENCY_KEY.match(idempotency_key or ""):
+        raise DomainError("idempotency_key_required")
+    if phase not in BookingPhoto.Phase.values:
+        raise DomainError("photo_invalid", status=422)
+    if len(content) > settings.BOOKING_PHOTO_MAX_BYTES:
+        raise DomainError("photo_too_large", status=413)
+    digest = hashlib.sha256(phase.encode() + b"\0" + content).hexdigest()
+    written: list[str] = []
+    try:
+        with transaction.atomic():
+            provider, _, locked = _lock_for_booking(booking)
+            if provider.owner_id != actor.id:
+                raise DomainError("not_found", status=404)
+            replay = BookingPhoto.objects.filter(booking=locked, idempotency_key=idempotency_key)
+            existing = replay.first()
+            if existing is not None:
+                if existing.source_hash != digest:
+                    raise DomainError("idempotency_key_reused", status=409)
+                return UploadedPhoto(existing, created=False)
+            if locked.status not in PHOTO_STATUSES:
+                raise DomainError("transition_not_allowed", status=409)
+            if provider.status != Provider.Status.VERIFIED and locked.status != Status.IN_PROGRESS:
+                raise DomainError("provider_not_verified", status=403)
+            now = timezone.now()
+            if taken_at is not None and taken_at > now + timedelta(minutes=5):
+                raise DomainError("photo_invalid", status=422)
+            taken = BookingPhoto.objects.filter(
+                booking=locked, phase=phase, purged_at__isnull=True
+            ).exclude(status=BookingPhoto.Status.FAILED)
+            if taken.count() >= settings.BOOKING_PHOTO_MAX_PER_PHASE:
+                raise DomainError("photo_limit_reached", status=409)
+            try:
+                image = reencode(
+                    content,
+                    max_edge=settings.BOOKING_PHOTO_MAX_EDGE,
+                    quality=settings.BOOKING_PHOTO_QUALITY,
+                )
+            except InvalidImage:
+                raise DomainError("photo_invalid", status=422) from None
+            photo = BookingPhoto(
+                booking=locked,
+                phase=phase,
+                width=image.width,
+                height=image.height,
+                size_bytes=image.size_bytes,
+                taken_at=taken_at,
+                idempotency_key=idempotency_key,
+                source_hash=digest,
+            )
+            photo.image_key = photo_keys(photo)[0]
+            storage.put(photo.image_key, image.content)
+            written.append(photo.image_key)
+            photo.save()
+            audit(
+                action="bookings.photo.uploaded",
+                actor=actor,
+                target=photo,
+                metadata={"phase": phase},
+            )
+            public_id = str(photo.public_id)
+            transaction.on_commit(lambda: make_thumbnail.delay(public_id))
+            return UploadedPhoto(photo, created=True)
+    except Exception:
+        for key in written:  # rien ne reste dans le stockage si la base a refusé
+            storage.delete(key)
+        raise
+
+
+def photo_urls(photo: BookingPhoto) -> dict:
+    """URL signées (10 min) de la miniature et de l'image pleine, et leur échéance. Tant que la
+    miniature n'existe pas, ``thumb_url`` est l'image pleine."""
+    expires_at = timezone.now() + timedelta(seconds=settings.BOOKING_PHOTO_URL_TTL)
+    full = storage.signed_url(photo.image_key)
+    thumb = storage.signed_url(photo.thumb_key) if photo.thumb_key else full
+    return {"thumb_url": thumb, "url": full, "expires_at": expires_at}
+
+
+def make_thumbnail(*, photo_public_id: str) -> bool:
+    """Produit la miniature (400 px, WebP) et passe la photo à ``ready``. Idempotente : une photo
+    prête, purgée ou inconnue ne fait rien. Image absente du stockage : ``failed``."""
+    photo = BookingPhoto.objects.select_related("booking").filter(public_id=photo_public_id).first()
+    if photo is None or photo.purged_at or (photo.thumb_key and photo.status == "ready"):
+        return False
+    try:
+        original = storage.read(photo.image_key)
+    except FileNotFoundError:
+        BookingPhoto.objects.filter(pk=photo.pk).update(status=BookingPhoto.Status.FAILED)
+        return False
+    thumb = reencode(
+        original,
+        max_edge=settings.BOOKING_PHOTO_THUMB_EDGE,
+        quality=settings.BOOKING_PHOTO_THUMB_QUALITY,
+    )
+    thumb_key = photo_keys(photo)[1]
+    storage.put(thumb_key, thumb.content)
+    BookingPhoto.objects.filter(pk=photo.pk, purged_at__isnull=True).update(
+        thumb_key=thumb_key, status=BookingPhoto.Status.READY
+    )
+    return True
+
+
+@transaction.atomic
+def report_photo(*, booking: Booking, photo_public_id, actor: User) -> BookingPhoto:
+    """Le client signale une photo : elle est masquée pour lui et pour le pro, et gardée pour
+    l'Ops (litige). Rejoué : l'état courant."""
+    booking = Booking.objects.select_for_update().get(pk=booking.pk)
+    if booking.client_id != actor.id:
+        raise DomainError("not_found", status=404)
+    photo = (
+        BookingPhoto.objects.select_for_update()
+        .filter(booking=booking, public_id=photo_public_id, purged_at__isnull=True)
+        .first()
+    )
+    if photo is None:
+        raise DomainError("not_found", status=404)
+    if photo.hidden_at is None:
+        photo.hidden_at = timezone.now()
+        photo.hidden_by = actor
+        photo.save(update_fields=["hidden_at", "hidden_by", "updated_at"])
+        audit(
+            action="bookings.photo.reported",
+            actor=actor,
+            target=photo,
+            metadata={"phase": photo.phase},
+        )
+    return photo
+
+
+def purge_booking_photos(photos) -> int:
+    """Supprime les objets de ces photos (après le commit) et marque les lignes purgées.
+    Renvoie le nombre de photos purgées. Les écritures sont atomiques, les suppressions d'objets
+    partent après le commit de la transaction englobante."""
+    from .tasks import delete_objects
+
+    with transaction.atomic():
+        rows = list(photos.select_for_update().filter(purged_at__isnull=True))
+        if not rows:
+            return 0
+        keys = [key for row in rows for key in (row.image_key, row.thumb_key) if key]
+        BookingPhoto.objects.filter(pk__in=[row.pk for row in rows]).update(
+            purged_at=timezone.now(), image_key="", thumb_key=""
+        )
+        transaction.on_commit(lambda: delete_objects.delay(keys))
+    return len(rows)
+
+
+def purge_photos(*, now: datetime | None = None) -> int:
+    """Rétention : les photos sont gardées 12 mois après la clôture, puis supprimées. Idempotent."""
+    now = now or timezone.now()
+    due = BookingPhoto.objects.filter(
+        booking__status=Status.CLOSED,
+        booking__closed_at__lte=now - settings.BOOKING_PHOTO_RETENTION,
+        purged_at__isnull=True,
+    )
+    with transaction.atomic():
+        count = purge_booking_photos(due)
+        if count:
+            audit(
+                action="bookings.photos.purged",
+                actor_kind=AuditEvent.ActorKind.SYSTEM,
+                metadata={"count": count, "reason": "retention"},
+            )
+    return count
+
+
+def purge_contact(*, now: datetime | None = None) -> int:
+    """Repère et position des demandes dont la réservation est close depuis 90 jours : vidés."""
+    now = now or timezone.now()
+    cutoff = now - settings.BOOKING_CONTACT_RETENTION
+    request_ids = list(
+        Booking.objects.filter(status=Status.CLOSED, closed_at__lte=cutoff).values_list(
+            "request_id", flat=True
+        )
+    )
+    return request_services.clear_contact(request_ids)
+
+
+def missing_photos(provider: Provider) -> dict[str, int]:
+    """Drapeaux pour l'Ops : réservations closes d'un pro sans aucune photo « avant » ou
+    « après » arrivée, malgré ``photos_pending``."""
+    closed = Booking.objects.filter(provider=provider, status=Status.CLOSED)
+    with_photos = BookingPhoto.objects.visible().filter(booking=OuterRef("pk"))
+    return {
+        "closed": closed.count(),
+        "before_photos_missing": closed.filter(started_at__isnull=False)
+        .exclude(Exists(with_photos.filter(phase="before")))
+        .count(),
+        "after_photos_missing": closed.filter(completed_at__isnull=False)
+        .exclude(Exists(with_photos.filter(phase="after")))
+        .count(),
+    }
 
 
 # --- Code de fin de mission (spec 004) -----------------------------------------------------------
@@ -974,5 +1208,9 @@ def anonymize_bookings(user: User) -> None:
     BookingEvent.objects.filter(
         Q(actor=user) | Q(booking__client=user) | Q(booking__provider__owner=user)
     ).wipe_notes()
+    # Photos du logement : objets supprimés après le commit (client ou gérant).
+    purge_booking_photos(
+        BookingPhoto.objects.filter(Q(booking__client=user) | Q(booking__provider__owner=user))
+    )
     # La note de contestation d'un no-show est un texte libre du pro.
     NoShowReport.objects.filter(booking__provider__owner=user).update(contest_note="")

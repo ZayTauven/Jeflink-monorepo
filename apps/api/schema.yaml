@@ -534,6 +534,40 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/bookings/{public_id}/photos/{photo_id}/report/:
+    post:
+      operationId: bookings_photos_report
+      description: |-
+        « Signaler cette photo » : masquée pour le client et le pro, gardée pour l'Ops.
+        Rejoué : 200.
+      parameters:
+      - in: path
+        name: photo_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
   /api/catalog/trades/:
     get:
       operationId: catalog_trades_list
@@ -1603,6 +1637,78 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/pro/bookings/{public_id}/photos/:
+    post:
+      operationId: pro_bookings_photos_upload
+      description: |-
+        Photo « avant » ou « après » (1 à 5 par phase). Réencodée sans EXIF ni GPS ;
+        « Photographiez seulement le travail, pas les personnes. »
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie (22 à 64 caractères : lettres, chiffres,
+          « - », « _ »). Même clé et même corps : même réponse (200 au rejeu). Même
+          clé et autre corps : 409 idempotency_key_reused.'
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhotoUploadRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+          description: 'Rejeu : même photo'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: invalid, idempotency_key_required
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: photo_limit_reached, idempotency_key_reused, transition_not_allowed
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: photo_too_large
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: photo_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
   /api/pro/bookings/{public_id}/start/:
     post:
       operationId: pro_bookings_start
@@ -2250,6 +2356,11 @@ components:
         can_report_no_show:
           type: boolean
           readOnly: true
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+          readOnly: true
         completion_code:
           type: string
           nullable: true
@@ -2338,6 +2449,7 @@ components:
       - no_show_available_at
       - on_site_at
       - payment
+      - photos
       - provider
       - public_id
       - quote
@@ -3462,6 +3574,14 @@ components:
             maxLength: 0
         preferred_language:
           $ref: '#/components/schemas/PreferredLanguageEnum'
+    PhaseEnum:
+      enum:
+      - before
+      - after
+      type: string
+      description: |-
+        * `before` - Avant
+        * `after` - Après
     PhoneChangeApproveRequest:
       type: object
       properties:
@@ -3586,6 +3706,93 @@ components:
       - requested_by
       - requires_approval
       - status
+    Photo:
+      type: object
+      description: |-
+        Une photo : miniature par défaut (environ 20 Ko), image pleine à la demande (1 600 px).
+
+        Les deux URL sont signées et valables ``expires_at`` (10 min) : une page restée ouverte les
+        renouvelle en rechargeant la réservation. Tant que la miniature se prépare, ``thumb_url``
+        est l'image pleine.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        phase:
+          allOf:
+          - $ref: '#/components/schemas/PhaseEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PhotoStatusEnum'
+          readOnly: true
+        width:
+          type: integer
+          readOnly: true
+        height:
+          type: integer
+          readOnly: true
+        taken_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        thumb_url:
+          type: string
+          format: uri
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - expires_at
+      - height
+      - phase
+      - public_id
+      - status
+      - taken_at
+      - thumb_url
+      - url
+      - width
+    PhotoStatusEnum:
+      enum:
+      - processing
+      - ready
+      - failed
+      type: string
+      description: |-
+        * `processing` - Miniature en cours
+        * `ready` - Prête
+        * `failed` - En échec
+    PhotoUploadRequest:
+      type: object
+      description: |-
+        Envoi multipart : la phase, le fichier (JPEG, PNG ou WebP, 8 Mo au plus) et, facultative,
+        l'heure de la prise de vue. Le type est vérifié par décodage, jamais par l'extension.
+      properties:
+        phase:
+          $ref: '#/components/schemas/PhaseEnum'
+        file:
+          type: string
+          format: binary
+        taken_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - file
+      - phase
     PreferredLanguageEnum:
       enum:
       - fr
@@ -3679,6 +3886,11 @@ components:
           - $ref: '#/components/schemas/NoShowState'
           nullable: true
           readOnly: true
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+          readOnly: true
         completion_method:
           allOf:
           - $ref: '#/components/schemas/CompletionMethodEnum'
@@ -3741,6 +3953,7 @@ components:
       - location
       - no_show
       - on_site_at
+      - photos
       - public_id
       - request
       - service

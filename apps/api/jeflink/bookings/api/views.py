@@ -4,8 +4,10 @@ Un objet d'un autre utilisateur répond 404. Une fiche pro suspendue lit encore 
 (``HasOwnerRole`` + ``IsProOwner``) mais n'écrit plus (``IsVerifiedPro``).
 """
 
+from django.conf import settings
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, status
+from rest_framework.parsers import MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -35,9 +37,12 @@ from jeflink.bookings.services import (
     mark_arrived,
     mark_en_route,
     regenerate_completion_code,
+    report_photo,
     send_completion_code_sms,
     start_work,
+    upload_photo,
 )
+from jeflink.common.api.idempotency import IDEMPOTENCY_PARAMETER, idempotency_key
 from jeflink.common.errors import DomainError
 from jeflink.providers.models import Provider
 from jeflink.providers.selectors import provider_for_owner
@@ -49,6 +54,8 @@ from .serializers import (
     CompleteSerializer,
     ContestNoShowSerializer,
     OccurredAtSerializer,
+    PhotoSerializer,
+    PhotoUploadSerializer,
     ProBookingSerializer,
     StartSerializer,
 )
@@ -206,6 +213,24 @@ class BookingCodeSmsView(APIView):
         """Renvoie le code de fin par SMS (2 fois sur demande, en plus de l'envoi automatique)."""
         booking = booking_for_client(user=request.user, public_id=public_id)
         send_completion_code_sms(booking=booking, actor=request.user)
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        return Response(ClientBookingSerializer(booking).data)
+
+
+class BookingPhotoReportView(APIView):
+    permission_classes = [IsClient]
+
+    @extend_schema(
+        tags=["bookings"],
+        operation_id="bookings_photos_report",
+        request=None,
+        responses={200: ClientBookingSerializer, **ERRORS},
+    )
+    def post(self, request: Request, public_id, photo_id) -> Response:
+        """« Signaler cette photo » : masquée pour le client et le pro, gardée pour l'Ops.
+        Rejoué : 200."""
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        report_photo(booking=booking, photo_public_id=photo_id, actor=request.user)
         booking = booking_for_client(user=request.user, public_id=public_id)
         return Response(ClientBookingSerializer(booking).data)
 
@@ -447,3 +472,47 @@ class ProBookingCompleteView(APIView):
         )
         booking = booking_for_provider(provider=provider, public_id=public_id)
         return Response(ProBookingSerializer(booking).data)
+
+
+class ProBookingPhotoUploadView(APIView):
+    # Un pro suspendu envoie encore pour une intervention en cours (le service le vérifie).
+    permission_classes = [HasOwnerRole, IsProOwner]
+    parser_classes = [MultiPartParser]
+
+    @extend_schema(
+        tags=["pro"],
+        operation_id="pro_bookings_photos_upload",
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request={"multipart/form-data": PhotoUploadSerializer},
+        responses={
+            201: PhotoSerializer,
+            200: OpenApiResponse(PhotoSerializer, description="Rejeu : même photo"),
+            400: error("invalid, idempotency_key_required"),
+            409: error("photo_limit_reached, idempotency_key_reused, transition_not_allowed"),
+            413: error("photo_too_large"),
+            422: error("photo_invalid"),
+            **ERRORS,
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        """Photo « avant » ou « après » (1 à 5 par phase). Réencodée sans EXIF ni GPS ;
+        « Photographiez seulement le travail, pas les personnes. »"""
+        provider = owned_provider(request)
+        booking = booking_for_provider(provider=provider, public_id=public_id)
+        self.check_object_permissions(request, booking)
+        serializer = PhotoUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        upload = data["file"]
+        if upload.size > settings.BOOKING_PHOTO_MAX_BYTES:  # avant toute lecture du contenu
+            raise DomainError("photo_too_large", status=413)
+        result = upload_photo(
+            booking=booking,
+            actor=request.user,
+            phase=data["phase"],
+            content=upload.read(),
+            idempotency_key=idempotency_key(request),
+            taken_at=data["taken_at"],
+        )
+        code = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
+        return Response(PhotoSerializer(result.photo).data, status=code)
