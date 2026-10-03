@@ -1,6 +1,6 @@
 # Spec 004 — Déroulé de la mission, code de fin, photos, avis
 
-Statut : brouillon · ADR lié : 0011 (stockage d'objets et photos, proposé) · Revue `terrain-reviewer` intégrée (Q1 à Q7 acceptées avec ajustements)
+Statut : validée · 2026-10-03 (Zay) · ADR lié : 0011 (stockage d'objets et photos, accepté) · Revue `terrain-reviewer` intégrée (Q1 à Q7 acceptées avec ajustements)
 
 ## Problème
 
@@ -218,7 +218,7 @@ Chacune livrable et testable seule, dans l'ordre. `make openapi` à chaque tâch
 
 ## Questions à trancher (Zay)
 
-Revue terrain : Q1 à Q7 acceptées, avec les ajustements intégrés ci-dessus. Reste la validation de Zay.
+✅ Q1 à Q7 acceptées par Zay le 2026-10-03, avec les ajustements terrain intégrés ci-dessus.
 
 1. **Code de fin** : 4 chiffres, visible dès `scheduled`, avec un avertissement d'une ligne ; notification SMS automatique à `en_route`, 2 de plus sur demande ; partage à un proche. _Proposition : oui. Terrain : accepté, avec le SMS automatique à `en_route`._
 2. **Fin sans code** : 4 motifs, dont `client_refuses` qui exige une photo après ; contestation sur 72 h ; part par pro suivie par l'Ops. _Proposition : oui. Terrain : accepté, avec `client_refuses` et photo obligatoire._

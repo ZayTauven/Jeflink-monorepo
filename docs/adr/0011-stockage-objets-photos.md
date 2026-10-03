@@ -1,6 +1,6 @@
 # ADR 0011 — Stockage d'objets et photos : envoi par l'API, réencodage avant stockage, URL signées
 
-Statut : proposé · 2026-10-03 · Spec : `docs/specs/004-mission-completion-reviews.md`
+Statut : accepté · 2026-10-03 (Zay) · Spec : `docs/specs/004-mission-completion-reviews.md`
 
 ## Contexte
 
