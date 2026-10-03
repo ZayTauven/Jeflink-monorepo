@@ -1,0 +1,159 @@
+"""Sérialiseurs des réservations (spec 003) : une vue pour le client, une pour le pro.
+
+Aucune logique métier. Le contact (numéro du pro, nom, numéro, repère et position du client) n'est
+renvoyé qu'à partir de ``scheduled`` (``DISCLOSED_STATUSES``), jamais après une annulation.
+"""
+
+from typing import Any
+
+from drf_spectacular.utils import extend_schema_field
+from rest_framework import serializers
+
+from jeflink.bookings.machine import DISCLOSED_STATUSES
+from jeflink.bookings.models import Booking
+from jeflink.requests.api.refs import (
+    ServiceRefSerializer,
+    TradeRefSerializer,
+    ZoneRefSerializer,
+    masked,
+)
+
+
+class ClientProviderSerializer(serializers.Serializer):
+    """Le pro, tel que le client le voit avant la confirmation : nom commercial et badge."""
+
+    business_name = serializers.CharField()
+    verified = serializers.SerializerMethodField()
+
+    def get_verified(self, provider) -> bool:
+        return provider.status == "verified"
+
+
+class ClientContactSerializer(serializers.Serializer):
+    """Le pro une fois la réservation planifiée : nom commercial et numéro (E.164)."""
+
+    business_name = serializers.CharField()
+    phone = serializers.CharField()
+
+
+class ClientBookingSerializer(serializers.ModelSerializer):
+    request = serializers.SlugRelatedField(slug_field="public_id", read_only=True)
+    trade = TradeRefSerializer(source="request.trade")
+    zone = ZoneRefSerializer(source="request.zone")
+    provider = ClientProviderSerializer()
+    quote = serializers.SlugRelatedField(slug_field="public_id", read_only=True)
+    contact = serializers.SerializerMethodField()
+    payment = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Booking
+        fields = [
+            "public_id",
+            "request",
+            "status",
+            "trade",
+            "zone",
+            "provider",
+            "quote",
+            "amount_xof",
+            "slot_start",
+            "slot_end",
+            "confirm_deadline",
+            "contact",
+            "payment",
+            "cancelled_by",
+            "cancel_reason",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(ClientContactSerializer(allow_null=True))
+    def get_contact(self, booking: Booking) -> dict[str, str] | None:
+        """Le numéro du pro n'est partagé qu'à ``scheduled`` (et jamais après une annulation)."""
+        if booking.status not in DISCLOSED_STATUSES:
+            return None
+        return {
+            "business_name": booking.provider.business_name,
+            "phone": booking.provider.owner.phone or "",
+        }
+
+    @extend_schema_field(serializers.CharField())
+    def get_payment(self, booking: Booking) -> str:
+        """Mention fixe : « À régler au pro, en espèces ou par mobile money. Jeflink ne garde
+        aucun argent pour l'instant. » La phrase est une clé i18n côté front."""
+        return "direct_to_pro"
+
+
+class ProClientContactSerializer(serializers.Serializer):
+    """Le client, une fois la réservation planifiée : nom et numéro (E.164)."""
+
+    display_name = serializers.CharField()
+    phone = serializers.CharField()
+
+
+class LocationOutSerializer(serializers.Serializer):
+    lat = serializers.FloatField()
+    lon = serializers.FloatField()
+
+
+class ProBookingSerializer(serializers.ModelSerializer):
+    """La réservation vue du pro. Avant ``scheduled`` : ni nom, ni numéro, ni repère, ni position
+    du client, et les numéros de la description sont masqués."""
+
+    request = serializers.SlugRelatedField(slug_field="public_id", read_only=True)
+    trade = TradeRefSerializer(source="request.trade")
+    service = ServiceRefSerializer(source="request.service", allow_null=True)
+    zone = ZoneRefSerializer(source="request.zone")
+    urgent = serializers.BooleanField(source="request.urgent")
+    description = serializers.SerializerMethodField()
+    client = serializers.SerializerMethodField()
+    landmark = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Booking
+        fields = [
+            "public_id",
+            "request",
+            "status",
+            "trade",
+            "service",
+            "zone",
+            "urgent",
+            "description",
+            "amount_xof",
+            "slot_start",
+            "slot_end",
+            "confirm_deadline",
+            "client",
+            "landmark",
+            "location",
+            "cancelled_by",
+            "cancel_reason",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    @staticmethod
+    def _disclosed(booking: Booking) -> bool:
+        return booking.status in DISCLOSED_STATUSES
+
+    def get_description(self, booking: Booking) -> str:
+        return masked(booking.request.description, disclosed=self._disclosed(booking))
+
+    @extend_schema_field(ProClientContactSerializer(allow_null=True))
+    def get_client(self, booking: Booking) -> dict[str, str] | None:
+        if not self._disclosed(booking):
+            return None
+        return {"display_name": booking.client.display_name, "phone": booking.client.phone or ""}
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_landmark(self, booking: Booking) -> str | None:
+        return booking.request.landmark if self._disclosed(booking) else None
+
+    @extend_schema_field(LocationOutSerializer(allow_null=True))
+    def get_location(self, booking: Booking) -> dict[str, Any] | None:
+        point = booking.request.location
+        if not self._disclosed(booking) or point is None:
+            return None
+        return {"lat": point.y, "lon": point.x}

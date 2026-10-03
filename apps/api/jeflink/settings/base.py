@@ -128,6 +128,15 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    # Noms stables des énumérations de la demande, des devis et des réservations (client TS).
+    "ENUM_NAME_OVERRIDES": {
+        "RequestStatusEnum": "jeflink.requests.models.ServiceRequest.Status",
+        "QuoteStatusEnum": "jeflink.requests.models.Quote.Status",
+        "QuoteKindEnum": "jeflink.requests.models.Quote.Kind",
+        "QuoteLineKindEnum": "jeflink.requests.models.QuoteLine.Kind",
+        "BookingStatusEnum": "jeflink.bookings.models.Booking.Status",
+        "ProviderStatusEnum": "jeflink.providers.models.Provider.Status",
+    },
 }
 
 REDIS_URL = env("REDIS_URL")
