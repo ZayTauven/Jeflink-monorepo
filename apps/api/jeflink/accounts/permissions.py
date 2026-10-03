@@ -158,19 +158,47 @@ def HasOpsPerm(perm: str, *, step_up: bool) -> type[BasePermission]:
     return _HasOpsPerm
 
 
-class _DenyByDefault(BasePermission):
-    """Réservé aux classes objet de providers et bookings : refuse tant qu'elles n'existent pas."""
+class IsVerifiedPro(HasOwnerRole):
+    """Gérant dont la fiche pro est ``verified`` (spec 003) : voir les demandes, deviser, confirmer.
+
+    Une fiche ``pending`` ou ``suspended`` est refusée. La fiche est gardée sur la requête
+    (``request.provider``) pour la vue.
+    """
+
+    code = "provider_not_verified"
+    message = "provider_not_verified"
+
+    def has_permission(self, request: Request, view: Any) -> bool:
+        from jeflink.providers.models import Provider
+        from jeflink.providers.selectors import provider_for_owner
+
+        self.code = self.message = "role_required"
+        if not super().has_permission(request, view):
+            return False
+        provider = provider_for_owner(request.user)
+        if provider is None or provider.status != Provider.Status.VERIFIED:
+            self.code = self.message = "provider_not_verified"
+            return False
+        request.provider = provider
+        return True
+
+
+class IsProOwner(HasOwnerRole):
+    """Contrôle d'objet : ``obj.provider`` appartient au gérant (Quote, Booking).
+
+    Les sélecteurs doublent ce contrôle : un objet d'un autre pro répond 404 avant d'arriver ici.
+    """
+
+    def has_object_permission(self, request: Request, view: Any, obj: Any) -> bool:
+        provider = getattr(obj, "provider", None)
+        return provider is not None and provider.owner_id == request.user.id
+
+
+class IsTechnicianAssigned(BasePermission):
+    """Réservé à l'étape 4 (affectation d'un technicien) : refuse tant qu'elle n'existe pas."""
 
     def has_permission(self, request: Request, view: Any) -> bool:
         return False
 
     def has_object_permission(self, request: Request, view: Any, obj: Any) -> bool:
         return False
-
-
-class IsProOwner(_DenyByDefault):
-    pass
-
-
-class IsTechnicianAssigned(_DenyByDefault):
-    pass
