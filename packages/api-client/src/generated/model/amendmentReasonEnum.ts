@@ -12,10 +12,10 @@
  * * `parts` - Pièces
  * * `other` - Autre
  */
-export type ReasonEnum = typeof ReasonEnum[keyof typeof ReasonEnum];
+export type AmendmentReasonEnum = typeof AmendmentReasonEnum[keyof typeof AmendmentReasonEnum];
 
 
-export const ReasonEnum = {
+export const AmendmentReasonEnum = {
   visit_diagnosis: 'visit_diagnosis',
   extra_work: 'extra_work',
   parts: 'parts',

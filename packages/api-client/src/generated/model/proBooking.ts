@@ -9,6 +9,7 @@ import type { Amendment } from './amendment.ts';
 import type { BookingStatusEnum } from './bookingStatusEnum.ts';
 import type { CancelledByEnum } from './cancelledByEnum.ts';
 import type { CompletionMethodEnum } from './completionMethodEnum.ts';
+import type { DisputeState } from './disputeState.ts';
 import type { LocationOut } from './locationOut.ts';
 import type { NoShowState } from './noShowState.ts';
 import type { Photo } from './photo.ts';
@@ -40,6 +41,7 @@ export interface ProBooking {
   readonly location: LocationOut | null;
   readonly no_show: NoShowState | null;
   readonly photos: readonly Photo[];
+  readonly dispute: DisputeState | null;
   readonly original_amount_xof: number;
   readonly amendments: readonly Amendment[];
   readonly completion_method: CompletionMethodEnum;

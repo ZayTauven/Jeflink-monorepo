@@ -579,6 +579,58 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/bookings/{public_id}/dispute/:
+    post:
+      operationId: bookings_dispute
+      description: |-
+        « Signaler un problème » après la fin du travail, avant ``dispute_deadline``.
+        Jeflink examine et décide : pas de remboursement pour l'instant. Rejoué : 200.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisputeOpenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DisputeOpenRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DisputeOpenRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: dispute_window_closed, transition_not_allowed
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: reason_invalid, description_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
   /api/bookings/{public_id}/no-show/:
     post:
       operationId: bookings_no_show
@@ -2398,7 +2450,7 @@ components:
           readOnly: true
         reason:
           allOf:
-          - $ref: '#/components/schemas/ReasonEnum'
+          - $ref: '#/components/schemas/AmendmentReasonEnum'
           readOnly: true
         note:
           type: string
@@ -2496,6 +2548,18 @@ components:
       - lines
       - reason
       - total_xof
+    AmendmentReasonEnum:
+      enum:
+      - visit_diagnosis
+      - extra_work
+      - parts
+      - other
+      type: string
+      description: |-
+        * `visit_diagnosis` - Diagnostic sur place
+        * `extra_work` - Travail en plus
+        * `parts` - Pièces
+        * `other` - Autre
     AmendmentStatusEnum:
       enum:
       - proposed
@@ -2674,6 +2738,9 @@ components:
         can_report_no_show:
           type: boolean
           readOnly: true
+        can_dispute:
+          type: boolean
+          readOnly: true
         photos:
           type: array
           items:
@@ -2699,6 +2766,11 @@ components:
         no_show:
           allOf:
           - $ref: '#/components/schemas/NoShowState'
+          nullable: true
+          readOnly: true
+        dispute:
+          allOf:
+          - $ref: '#/components/schemas/DisputeState'
           nullable: true
           readOnly: true
         original_amount_xof:
@@ -2757,6 +2829,7 @@ components:
       required:
       - amendments
       - amount_xof
+      - can_dispute
       - can_regenerate_completion_code
       - can_report_no_show
       - can_send_completion_code_sms
@@ -2770,6 +2843,7 @@ components:
       - confirm_deadline
       - contact
       - created_at
+      - dispute
       - dispute_deadline
       - en_route_at
       - no_show
@@ -3063,6 +3137,16 @@ components:
           maxLength: 500
       required:
       - note
+    DecisionEnum:
+      enum:
+      - for_client
+      - for_pro
+      - no_fault
+      type: string
+      description: |-
+        * `for_client` - En faveur du client
+        * `for_pro` - En faveur du pro
+        * `no_fault` - Sans faute
     DeletionConfirmRequest:
       type: object
       properties:
@@ -3165,6 +3249,73 @@ components:
         * `android` - Android
         * `ios` - iOS
         * `web` - Web
+    DisputeOpenRequest:
+      type: object
+      description: Motif de la liste fermée et texte de 10 à 1 000 caractères (vérifiés
+        par le service).
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 12
+        description:
+          type: string
+          maxLength: 2000
+      required:
+      - description
+      - reason
+    DisputeState:
+      type: object
+      description: |-
+        État du litige, sans le texte du client ni la note de l'Ops. ``decision`` est nulle tant
+        que le litige est ouvert.
+      properties:
+        status:
+          $ref: '#/components/schemas/DisputeStateStatusEnum'
+        reason:
+          $ref: '#/components/schemas/DisputeStateReasonEnum'
+        decision:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/DecisionEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        created_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - decision
+      - reason
+      - resolved_at
+      - status
+    DisputeStateReasonEnum:
+      enum:
+      - not_done
+      - poor_quality
+      - damage
+      - price
+      - behaviour
+      - other
+      type: string
+      description: |-
+        * `not_done` - Travail non fait
+        * `poor_quality` - Mauvaise qualité
+        * `damage` - Dégât
+        * `price` - Prix
+        * `behaviour` - Comportement
+        * `other` - Autre
+    DisputeStateStatusEnum:
+      enum:
+      - open
+      - resolved
+      type: string
+      description: |-
+        * `open` - Ouvert
+        * `resolved` - Tranché
     ErrorCandidate:
       type: object
       properties:
@@ -4219,6 +4370,11 @@ components:
           items:
             $ref: '#/components/schemas/Photo'
           readOnly: true
+        dispute:
+          allOf:
+          - $ref: '#/components/schemas/DisputeState'
+          nullable: true
+          readOnly: true
         original_amount_xof:
           type: integer
           readOnly: true
@@ -4284,6 +4440,7 @@ components:
       - confirm_deadline
       - created_at
       - description
+      - dispute
       - dispute_deadline
       - en_route_at
       - landmark
@@ -4597,18 +4754,6 @@ components:
         * `declined` - Refusé
         * `withdrawn` - Retiré
         * `expired` - Expiré
-    ReasonEnum:
-      enum:
-      - visit_diagnosis
-      - extra_work
-      - parts
-      - other
-      type: string
-      description: |-
-        * `visit_diagnosis` - Diagnostic sur place
-        * `extra_work` - Travail en plus
-        * `parts` - Pièces
-        * `other` - Autre
     ReasonRequest:
       type: object
       description: 'Annulation : un motif de la liste fermée, et une note si le motif

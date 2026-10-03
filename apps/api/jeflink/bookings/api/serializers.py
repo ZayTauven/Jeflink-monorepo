@@ -35,10 +35,12 @@ from jeflink.requests.api.refs import (
     ZoneRefSerializer,
     masked,
 )
+from jeflink.trust.models import Dispute
 
 # Étapes horodatées (UTC) et fin de la fenêtre de contestation : nulles tant qu'elles n'ont pas eu
 # lieu. Mêmes champs pour le client et le pro.
 TIMELINE_FIELDS = (
+    "dispute",
     "original_amount_xof",
     "amendments",
     "completion_method",
@@ -100,12 +102,40 @@ def booking_amendments(booking: Booking) -> list[dict]:
     return AmendmentSerializer(booking.amendments.all(), many=True).data
 
 
+class DisputeStateSerializer(serializers.Serializer):
+    """État du litige, sans le texte du client ni la note de l'Ops. ``decision`` est nulle tant
+    que le litige est ouvert."""
+
+    status = serializers.ChoiceField(choices=Dispute.Status.choices)
+    reason = serializers.ChoiceField(choices=Dispute.Reason.choices)
+    decision = serializers.ChoiceField(choices=Dispute.Decision.choices, allow_null=True)
+    created_at = serializers.DateTimeField()
+    resolved_at = serializers.DateTimeField(allow_null=True)
+
+
+def dispute_state(booking: Booking) -> dict | None:
+    dispute = getattr(booking, "dispute", None)
+    if dispute is None:
+        return None
+    return {
+        "status": dispute.status,
+        "reason": dispute.reason,
+        "decision": dispute.decision or None,
+        "created_at": dispute.created_at,
+        "resolved_at": dispute.resolved_at,
+    }
+
+
 class AmendmentsMixin:
     """Les avenants de la réservation, du plus ancien au plus récent (client et pro)."""
 
     @extend_schema_field(AmendmentSerializer(many=True))
     def get_amendments(self, booking: Booking) -> list[dict]:
         return booking_amendments(booking)
+
+    @extend_schema_field(DisputeStateSerializer(allow_null=True))
+    def get_dispute(self, booking: Booking) -> dict | None:
+        return dispute_state(booking)
 
 
 class PhotoSerializer(serializers.ModelSerializer):
@@ -211,8 +241,10 @@ class ClientBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
     payment = serializers.SerializerMethodField()
     cancel_reason = serializers.SerializerMethodField()
     can_report_no_show = serializers.SerializerMethodField()
+    can_dispute = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
     amendments = serializers.SerializerMethodField()
+    dispute = serializers.SerializerMethodField()
     completion_code = serializers.SerializerMethodField()
     can_regenerate_completion_code = serializers.SerializerMethodField()
     can_send_completion_code_sms = serializers.SerializerMethodField()
@@ -236,6 +268,7 @@ class ClientBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
             "contact",
             "payment",
             "can_report_no_show",
+            "can_dispute",
             "photos",
             "completion_code",
             "completion_code_locked",
@@ -281,6 +314,16 @@ class ClientBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
     @extend_schema_field(PhotoSerializer(many=True))
     def get_photos(self, booking: Booking) -> list[dict]:
         return PhotoSerializer(booking_photos(booking), many=True).data
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_can_dispute(self, booking: Booking) -> bool:
+        """Vrai de ``completed`` jusqu'à ``dispute_deadline`` ; l'heure limite est dans
+        ``dispute_deadline`` (UTC), à afficher en heure de Dakar."""
+        return (
+            booking.status == "completed"
+            and booking.dispute_deadline is not None
+            and timezone.now() <= booking.dispute_deadline
+        )
 
     @extend_schema_field(serializers.BooleanField())
     def get_can_report_no_show(self, booking: Booking) -> bool:
@@ -340,6 +383,7 @@ class ProBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
     no_show = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
     amendments = serializers.SerializerMethodField()
+    dispute = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -455,3 +499,10 @@ class AmendmentProposeSerializer(serializers.Serializer):
     note = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
     total_xof = serializers.IntegerField()
     lines = AmendmentLineInputSerializer(many=True)
+
+
+class DisputeOpenSerializer(serializers.Serializer):
+    """Motif de la liste fermée et texte de 10 à 1 000 caractères (vérifiés par le service)."""
+
+    reason = serializers.CharField(max_length=12)
+    description = serializers.CharField(max_length=2000, allow_blank=True)

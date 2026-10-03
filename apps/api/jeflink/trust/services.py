@@ -6,10 +6,17 @@ from typing import Any, Protocol
 
 from django.db import models, transaction
 
+from jeflink.common.errors import DomainError
 from jeflink.common.pii import MASKED_PHONE_RE, PHONE_HMAC_RE, contains_pii
 from jeflink.common.request_context import current_request_id
 
-from .models import AuditEvent
+from .models import (
+    DISPUTE_DESCRIPTION_MAX,
+    DISPUTE_DESCRIPTION_MIN,
+    DISPUTE_NOTE_MAX,
+    AuditEvent,
+    Dispute,
+)
 
 MAX_STRING = 280
 MAX_METADATA_BYTES = 4096
@@ -124,3 +131,57 @@ def audit(
     else:
         event.save()
     return event
+
+
+# --- Litiges (spec 004) : appelés par ``bookings.services``, jamais l'inverse --------------------
+
+
+def clean_dispute_text(reason: str, description: str | None) -> str:
+    """Motif de la liste fermée et texte de 10 à 1 000 caractères (``422 reason_invalid``,
+    ``description_invalid``). Le texte n'est jamais écrit dans un log ni dans une erreur."""
+    if reason not in Dispute.Reason.values:
+        raise DomainError("reason_invalid", status=422)
+    text = " ".join((description or "").split())
+    if not DISPUTE_DESCRIPTION_MIN <= len(text) <= DISPUTE_DESCRIPTION_MAX:
+        raise DomainError("description_invalid", status=422)
+    return text
+
+
+def open_dispute(*, booking: models.Model, reason: str, description: str) -> Dispute:
+    """Crée le litige d'une réservation (une seule), dans la transaction de la réservation."""
+    return Dispute.objects.create(
+        booking=booking, reason=reason, description=clean_dispute_text(reason, description)
+    )
+
+
+def lock_dispute(dispute: Dispute) -> Dispute:
+    return Dispute.objects.select_for_update().get(pk=dispute.pk)
+
+
+def record_decision(
+    *, dispute: Dispute, decision: str, note: str, operator: models.Model
+) -> Dispute:
+    """Enregistre la décision de l'Ops (litige déjà verrouillé). La note est obligatoire."""
+    from django.utils import timezone
+
+    if decision not in Dispute.Decision.values:
+        raise DomainError("decision_invalid", status=422)
+    clean = " ".join((note or "").split())
+    if not 1 <= len(clean) <= DISPUTE_NOTE_MAX:
+        raise DomainError("note_invalid", status=422)
+    dispute.status = Dispute.Status.RESOLVED
+    dispute.decision = decision
+    dispute.decision_note = clean
+    dispute.resolved_by = operator
+    dispute.resolved_at = timezone.now()
+    dispute.save(
+        update_fields=[
+            "status", "decision", "decision_note", "resolved_by", "resolved_at", "updated_at",
+        ]
+    )  # fmt: skip
+    return dispute
+
+
+def anonymize_disputes(user: models.Model) -> None:
+    """Anonymiseur : le texte d'un litige ouvert par ce client est effacé."""
+    Dispute.objects.filter(booking__client=user).update(description="")

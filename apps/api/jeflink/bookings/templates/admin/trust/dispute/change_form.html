@@ -1,0 +1,13 @@
+{% extends "admin/change_form.html" %}
+{% block after_field_sets %}
+<h2>Photos ({{ photos|length }})</h2>
+<p>Liens valables 10 minutes ; chaque affichage de cette page est journalisé.</p>
+<ul>
+{% for photo in photos %}
+  <li>{{ photo.phase }}{% if photo.hidden %} (signalée par le client){% endif %} :
+    <a href="{{ photo.url }}" target="_blank" rel="noopener noreferrer">image</a></li>
+{% empty %}
+  <li>Aucune photo.</li>
+{% endfor %}
+</ul>
+{% endblock %}

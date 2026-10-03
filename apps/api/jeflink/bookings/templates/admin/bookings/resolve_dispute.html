@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>{{ disputes_selected|length }} litige(s) ouvert(s). Joignez le client (appel ou WhatsApp) avant de trancher.
+Jeflink examine et décide : aucun remboursement pour l'instant.</p>
+<form method="post">
+  {% csrf_token %}
+  {% for item in disputes_selected %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ item.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="resolve">
+  <input type="hidden" name="apply" value="1">
+  {{ form.as_p }}
+  <input type="submit" value="Trancher">
+</form>
+{% endblock %}

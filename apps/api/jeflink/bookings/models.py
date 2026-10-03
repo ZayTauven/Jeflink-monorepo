@@ -204,6 +204,7 @@ class BookingPhoto(BaseModel):
     class Meta:
         verbose_name = "photo"
         ordering = ("created_at", "id")
+        permissions = [("restore_bookingphoto", "Médiation : réafficher une photo signalée")]
         indexes = [models.Index(fields=("booking", "phase"))]
         constraints = [
             models.UniqueConstraint(

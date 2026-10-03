@@ -28,6 +28,7 @@ import type {
   ApiError,
   BookingsListParams,
   ClientBooking,
+  DisputeOpenRequest,
   PaginatedClientBookingList,
   ReasonRequest
 } from '../../model';
@@ -857,6 +858,131 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getBookingsCompletionCodeSmsMutationOptions(options), queryClient);
+    }
+    export type bookingsDisputeResponse200 = {
+  data: ClientBooking
+  status: 200
+}
+
+export type bookingsDisputeResponse401 = {
+  data: void
+  status: 401
+}
+
+export type bookingsDisputeResponse403 = {
+  data: void
+  status: 403
+}
+
+export type bookingsDisputeResponse404 = {
+  data: void
+  status: 404
+}
+
+export type bookingsDisputeResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type bookingsDisputeResponse422 = {
+  data: ApiError
+  status: 422
+}
+
+export type bookingsDisputeResponseSuccess = (bookingsDisputeResponse200) & {
+  headers: Headers;
+};
+export type bookingsDisputeResponseError = (bookingsDisputeResponse401 | bookingsDisputeResponse403 | bookingsDisputeResponse404 | bookingsDisputeResponse409 | bookingsDisputeResponse422) & {
+  headers: Headers;
+};
+
+export type bookingsDisputeResponse = (bookingsDisputeResponseSuccess | bookingsDisputeResponseError)
+
+export const getBookingsDisputeUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/bookings/${encodeURIComponent(String(publicId))}/dispute/`
+}
+
+/**
+ * « Signaler un problème » après la fin du travail, avant ``dispute_deadline``.
+ * Jeflink examine et décide : pas de remboursement pour l'instant. Rejoué : 200.
+ */
+export const bookingsDispute = async (publicId: string,
+    disputeOpenRequest: DisputeOpenRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsDisputeResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<bookingsDisputeResponse>(getBookingsDisputeUrl(publicId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(disputeOpenRequest)
+  }
+);}
+
+
+
+
+
+export const getBookingsDisputeMutationKey = () => ['bookingsDispute'] as const;
+
+export const getBookingsDisputeMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsDispute>>, TError,BookingsDisputeMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bookingsDispute>>, TError,BookingsDisputeMutationVariables, TContext> => {
+
+const mutationKey = getBookingsDisputeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bookingsDispute>>, BookingsDisputeMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  bookingsDispute(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BookingsDisputeMutationResult = NonNullable<Awaited<ReturnType<typeof bookingsDispute>>>
+    export type BookingsDisputeMutationBody = BodyType<DisputeOpenRequest>
+    export type BookingsDisputeMutationError = ErrorType<void | ApiError>
+    export type BookingsDisputeMutationVariables = {publicId: string;data: BodyType<DisputeOpenRequest>}
+
+    export const useBookingsDispute = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsDispute>>, TError,BookingsDisputeMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bookingsDispute>>,
+        TError,
+        BookingsDisputeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBookingsDisputeMutationOptions(options), queryClient);
     }
     export type bookingsNoShowResponse200 = {
   data: ClientBooking

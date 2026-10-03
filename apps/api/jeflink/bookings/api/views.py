@@ -40,6 +40,7 @@ from jeflink.bookings.services import (
     decline_amendment,
     mark_arrived,
     mark_en_route,
+    open_dispute,
     propose_amendment,
     regenerate_completion_code,
     report_photo,
@@ -62,6 +63,7 @@ from .serializers import (
     ClientBookingSerializer,
     CompleteSerializer,
     ContestNoShowSerializer,
+    DisputeOpenSerializer,
     OccurredAtSerializer,
     PhotoSerializer,
     PhotoUploadSerializer,
@@ -292,6 +294,31 @@ class BookingAmendmentDeclineView(BookingAmendmentDecisionView):
     def post(self, request: Request, public_id, amendment_id) -> Response:
         """Refuse l'avenant : le travail continue au prix courant. Rejoué : 200."""
         return super().post(request, public_id, amendment_id)
+
+
+class BookingDisputeView(APIView):
+    permission_classes = [IsClient]
+
+    @extend_schema(
+        tags=["bookings"],
+        operation_id="bookings_dispute",
+        request=DisputeOpenSerializer,
+        responses={
+            200: ClientBookingSerializer,
+            409: error("dispute_window_closed, transition_not_allowed"),
+            422: error("reason_invalid, description_invalid"),
+            **ERRORS,
+        },
+    )
+    def post(self, request: Request, public_id) -> Response:
+        """« Signaler un problème » après la fin du travail, avant ``dispute_deadline``.
+        Jeflink examine et décide : pas de remboursement pour l'instant. Rejoué : 200."""
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        serializer = DisputeOpenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        open_dispute(booking=booking, actor=request.user, **serializer.validated_data)
+        booking = booking_for_client(user=request.user, public_id=public_id)
+        return Response(ClientBookingSerializer(booking).data)
 
 
 # --- Côté pro ----------------------------------------------------------------------------------

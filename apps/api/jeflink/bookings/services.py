@@ -28,7 +28,8 @@ from jeflink.requests import services as request_services
 from jeflink.requests.models import Quote, QuoteLine, ServiceRequest
 from jeflink.requests.quotes import QuoteLineInput
 from jeflink.requests.reasons import CLIENT_REASONS, PRO_REASONS, check_reason, clean_note
-from jeflink.trust.models import AuditEvent
+from jeflink.trust import services as trust_services
+from jeflink.trust.models import AuditEvent, Dispute
 from jeflink.trust.services import audit
 
 from .machine import (
@@ -1158,6 +1159,113 @@ def _check_completion_code(booking: Booking, actor: User, code: str) -> DomainEr
         },
     )
     return DomainError("completion_code_invalid", status=422)
+
+
+# --- Litige (spec 004) : ouverture par le client, décision de l'Ops ------------------------------
+
+DISPUTE_RELIABILITY_WEIGHT = 2  # un litige tranché en faveur du client, journalisé sur la clôture
+
+
+@transaction.atomic
+def open_dispute(*, booking: Booking, actor: User, reason: str, description: str) -> Booking:
+    """Le client conteste (``completed`` → ``disputed``) avant ``dispute_deadline``, avec un motif
+    et un texte de 10 à 1 000 caractères. Le litige (``trust.Dispute``) est créé dans la même
+    transaction. Rejoué : l'état courant.
+
+    ``409 dispute_window_closed`` après l'échéance ou la clôture ; ``409 transition_not_allowed``
+    avant ``completed`` ; ``422 reason_invalid`` et ``description_invalid``.
+    """
+    provider, _, booking = _lock_for_booking(booking)
+    if booking.client_id != actor.id:
+        raise DomainError("not_found", status=404)
+    if booking.status == Status.DISPUTED:
+        return booking
+    elapsed = booking.dispute_deadline is not None and timezone.now() > booking.dispute_deadline
+    if booking.status == Status.CLOSED or (booking.status == Status.COMPLETED and elapsed):
+        raise DomainError("dispute_window_closed", status=409)
+    if booking.status != Status.COMPLETED:
+        raise DomainError("transition_not_allowed", status=409)
+    text = trust_services.clean_dispute_text(reason, description)
+    booking = transition(
+        booking, to=Status.DISPUTED, actor=actor, actor_kind=Actor.CLIENT, reason="dispute_opened"
+    )
+    trust_services.open_dispute(booking=booking, reason=reason, description=text)
+    audit(
+        action="bookings.booking.disputed", actor=actor, target=booking, metadata={"reason": reason}
+    )
+    events.notify(events.BOOKING_DISPUTED, [provider.owner], booking.public_id)
+    return booking
+
+
+@transaction.atomic
+def resolve_dispute(*, dispute: Dispute, decision: str, note: str, operator: User) -> Booking:
+    """L'Ops tranche : ``disputed`` → ``closed`` (acteur ``ops``, motif ``dispute_<décision>``),
+    puis la décision est enregistrée par ``trust.services`` et auditée. Aucun remboursement en V1.
+
+    ``for_client`` : le pro est averti, un poids de fiabilité de 2 est journalisé sur l'événement
+    de clôture, et l'avis du client reste possible 7 jours après la décision. Les gestionnaires de
+    clôture reçoivent le motif ``dispute_<décision>`` (l'étape 5 y lira la décision).
+    """
+    if decision not in Dispute.Decision.values:
+        raise DomainError("decision_invalid", status=422)
+    provider, _, booking = _lock_for_booking(dispute.booking)
+    dispute = trust_services.lock_dispute(dispute)
+    if dispute.status != Dispute.Status.OPEN or booking.status != Status.DISPUTED:
+        raise DomainError("transition_not_allowed", status=409)
+    weight = DISPUTE_RELIABILITY_WEIGHT if decision == Dispute.Decision.FOR_CLIENT else 0
+    booking = transition(
+        booking, to=Status.CLOSED, actor=operator, actor_kind=Actor.OPS,
+        reason=f"dispute_{decision}",
+        metadata={"dispute_decision": decision, "reliability_weight": weight},
+    )  # fmt: skip
+    trust_services.record_decision(dispute=dispute, decision=decision, note=note, operator=operator)
+    audit(
+        action="bookings.dispute.decided",
+        actor=operator,
+        actor_kind=AuditEvent.ActorKind.OPS,
+        target=booking,
+        metadata={"decision": decision, "reliability_weight": weight},
+    )
+    events.notify(events.DISPUTE_DECIDED, [provider.owner, booking.client], booking.public_id)
+    return booking
+
+
+def dispute_photo_links(*, dispute: Dispute, operator: User) -> list[dict]:
+    """Photos du litige pour l'Ops, signalées comprises (le client a pu en masquer), en URL
+    signées de 10 min. Chaque consultation est auditée ; seul un litige donne accès aux photos."""
+    photos = list(
+        BookingPhoto.objects.filter(booking=dispute.booking, purged_at__isnull=True)
+        .exclude(status=BookingPhoto.Status.FAILED)
+        .order_by("created_at", "id")
+    )
+    audit(
+        action="bookings.photos.viewed",
+        actor=operator,
+        actor_kind=AuditEvent.ActorKind.OPS,
+        target=dispute,
+        metadata={"count": len(photos)},
+    )
+    return [{"phase": p.phase, "hidden": p.hidden_at is not None, **photo_urls(p)} for p in photos]
+
+
+@transaction.atomic
+def restore_photo(*, photo: BookingPhoto, operator: User) -> BookingPhoto:
+    """L'Ops réaffiche une photo signalée, seulement si la réservation a un litige. Audité."""
+    photo = BookingPhoto.objects.select_for_update().get(pk=photo.pk)
+    if photo.purged_at is not None or not Dispute.objects.filter(booking=photo.booking).exists():
+        raise DomainError("photo_restore_refused", status=409)
+    if photo.hidden_at is not None:
+        photo.hidden_at = None
+        photo.hidden_by = None
+        photo.save(update_fields=["hidden_at", "hidden_by", "updated_at"])
+        audit(
+            action="bookings.photo.restored",
+            actor=operator,
+            actor_kind=AuditEvent.ActorKind.OPS,
+            target=photo,
+            metadata={"phase": photo.phase},
+        )
+    return photo
 
 
 # --- No-show : « le pro n'est pas venu » (spec 004) ----------------------------------------------

@@ -48,6 +48,12 @@ class BookingsConfig(AppConfig):
         register_audit_schema(
             "bookings.amendment.accepted", {"previous_xof": int, "total_xof": int}
         )
+        register_audit_schema("bookings.booking.disputed", {"reason": str})
+        register_audit_schema(
+            "bookings.dispute.decided", {"decision": str, "reliability_weight": int}
+        )
+        register_audit_schema("bookings.photos.viewed", {"count": int})
+        register_audit_schema("bookings.photo.restored", {"phase": str})
         register_audit_schema("bookings.photo.uploaded", {"phase": str})
         register_audit_schema("bookings.photo.reported", {"phase": str})
         register_audit_schema("bookings.photos.purged", {"count": int, "reason": str})

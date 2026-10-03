@@ -97,4 +97,9 @@ urlpatterns = [
         views.ProAmendmentWithdrawView.as_view(),
         name="pro-amendment-withdraw",
     ),
+    path(
+        "bookings/<uuid:public_id>/dispute/",
+        views.BookingDisputeView.as_view(),
+        name="booking-dispute",
+    ),
 ]

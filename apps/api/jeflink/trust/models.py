@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from jeflink.common.models import BaseModel
+
 
 class AppendOnlyQuerySet(models.QuerySet):
     """Refuse les mises à jour et suppressions en masse (la base les refuse aussi, par trigger)."""
@@ -69,3 +71,63 @@ class AuditEvent(models.Model):
 
     def delete(self, *args, **kwargs):
         raise PermissionError("AuditEvent est en ajout seul.")
+
+
+DISPUTE_DESCRIPTION_MIN = 10
+DISPUTE_DESCRIPTION_MAX = 1000
+DISPUTE_NOTE_MAX = 500
+
+
+class Dispute(BaseModel):
+    """Litige ouvert par le client avant la fin de la fenêtre de contestation (spec 004).
+
+    Jeflink examine et décide : pas de remboursement en V1. La description (texte libre du client)
+    et la note de décision de l'Ops ne sont jamais écrites dans un log ni un audit. Le modèle vit
+    ici (``ARCHITECTURE.md`` y range litiges et garantie) : ``bookings.services`` appelle
+    ``trust.services``, jamais l'inverse.
+    """
+
+    class Reason(models.TextChoices):
+        NOT_DONE = "not_done", "Travail non fait"
+        POOR_QUALITY = "poor_quality", "Mauvaise qualité"
+        DAMAGE = "damage", "Dégât"
+        PRICE = "price", "Prix"
+        BEHAVIOUR = "behaviour", "Comportement"
+        OTHER = "other", "Autre"
+
+    class Status(models.TextChoices):
+        OPEN = "open", "Ouvert"
+        RESOLVED = "resolved", "Tranché"
+
+    class Decision(models.TextChoices):
+        FOR_CLIENT = "for_client", "En faveur du client"
+        FOR_PRO = "for_pro", "En faveur du pro"
+        NO_FAULT = "no_fault", "Sans faute"
+
+    booking = models.OneToOneField(
+        "bookings.Booking", on_delete=models.PROTECT, related_name="dispute"
+    )
+    reason = models.CharField(max_length=12, choices=Reason.choices)
+    description = models.CharField(max_length=DISPUTE_DESCRIPTION_MAX, blank=True)
+    status = models.CharField(max_length=8, choices=Status.choices, default=Status.OPEN)
+    decision = models.CharField(max_length=10, choices=Decision.choices, blank=True)
+    decision_note = models.CharField(max_length=DISPUTE_NOTE_MAX, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "litige"
+        ordering = ("-created_at",)
+        permissions = [("decide_dispute", "Médiation : trancher un litige")]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(status="open", decision="")
+                | (models.Q(status="resolved") & ~models.Q(decision="")),
+                name="dispute_decision_iff_resolved",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"litige {self.status}"

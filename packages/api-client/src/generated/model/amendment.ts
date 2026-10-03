@@ -6,8 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AmendmentLine } from './amendmentLine.ts';
+import type { AmendmentReasonEnum } from './amendmentReasonEnum.ts';
 import type { AmendmentStatusEnum } from './amendmentStatusEnum.ts';
-import type { ReasonEnum } from './reasonEnum.ts';
 
 /**
  * Un avenant : le nouveau prix complet, l'ancien, l'écart en % et les lignes.
@@ -19,7 +19,7 @@ import type { ReasonEnum } from './reasonEnum.ts';
 export interface Amendment {
   readonly public_id: string;
   readonly status: AmendmentStatusEnum;
-  readonly reason: ReasonEnum;
+  readonly reason: AmendmentReasonEnum;
   readonly note: string;
   readonly previous_amount_xof: number;
   readonly total_xof: number;

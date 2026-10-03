@@ -11,6 +11,7 @@ import type { CancelledByEnum } from './cancelledByEnum.ts';
 import type { ClientContact } from './clientContact.ts';
 import type { ClientProvider } from './clientProvider.ts';
 import type { CompletionMethodEnum } from './completionMethodEnum.ts';
+import type { DisputeState } from './disputeState.ts';
 import type { NoShowState } from './noShowState.ts';
 import type { Photo } from './photo.ts';
 import type { TradeRef } from './tradeRef.ts';
@@ -34,6 +35,7 @@ export interface ClientBooking {
   readonly contact: ClientContact | null;
   readonly payment: string;
   readonly can_report_no_show: boolean;
+  readonly can_dispute: boolean;
   readonly photos: readonly Photo[];
   /** @nullable */
   readonly completion_code: string | null;
@@ -42,6 +44,7 @@ export interface ClientBooking {
   readonly can_send_completion_code_sms: boolean;
   readonly no_show_available_at: string;
   readonly no_show: NoShowState | null;
+  readonly dispute: DisputeState | null;
   readonly original_amount_xof: number;
   readonly amendments: readonly Amendment[];
   readonly completion_method: CompletionMethodEnum;
