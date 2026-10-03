@@ -121,13 +121,15 @@ def _apply_status(
 
 @transaction.atomic
 def set_status(
-    *, provider: Provider, to: str, actor: User, reason: str = "admin_action"
+    *, provider: Provider, to: str, actor: User | None, reason: str = "admin_action"
 ) -> Provider:
-    """Vérifie, suspend ou rétablit un pro (actions d'admin, groupe « Validation pros »)."""
+    """Vérifie, suspend ou rétablit un pro (actions d'admin, groupe « Validation pros »).
+
+    Sans ``actor`` (commande de démonstration), l'événement est écrit au nom du système.
+    """
     provider = Provider.objects.select_for_update().get(pk=provider.pk)
-    return _apply_status(
-        provider, to, actor=actor, actor_kind=AuditEvent.ActorKind.OPS, reason=reason
-    )
+    kind = AuditEvent.ActorKind.OPS if actor else AuditEvent.ActorKind.SYSTEM
+    return _apply_status(provider, to, actor=actor, actor_kind=kind, reason=reason)
 
 
 @transaction.atomic
