@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AmendmentAcceptRequest,
   ApiError,
   BookingsListParams,
   ClientBooking,
@@ -339,10 +340,15 @@ export type bookingsAmendmentsAcceptResponse409 = {
   status: 409
 }
 
+export type bookingsAmendmentsAcceptResponse422 = {
+  data: ApiError
+  status: 422
+}
+
 export type bookingsAmendmentsAcceptResponseSuccess = (bookingsAmendmentsAcceptResponse200) & {
   headers: Headers;
 };
-export type bookingsAmendmentsAcceptResponseError = (bookingsAmendmentsAcceptResponse401 | bookingsAmendmentsAcceptResponse403 | bookingsAmendmentsAcceptResponse404 | bookingsAmendmentsAcceptResponse409) & {
+export type bookingsAmendmentsAcceptResponseError = (bookingsAmendmentsAcceptResponse401 | bookingsAmendmentsAcceptResponse403 | bookingsAmendmentsAcceptResponse404 | bookingsAmendmentsAcceptResponse409 | bookingsAmendmentsAcceptResponse422) & {
   headers: Headers;
 };
 
@@ -361,14 +367,29 @@ export const getBookingsAmendmentsAcceptUrl = (publicId: string,
  * Accepte l'avenant : le montant de la réservation devient son total. Rejoué : 200.
  */
 export const bookingsAmendmentsAccept = async (publicId: string,
-    amendmentId: string, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsAmendmentsAcceptResponse> => {
+    amendmentId: string,
+    amendmentAcceptRequest: AmendmentAcceptRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsAmendmentsAcceptResponse> => {
 
-  return jeflinkFetch<bookingsAmendmentsAcceptResponse>(getBookingsAmendmentsAcceptUrl(publicId,amendmentId),
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<bookingsAmendmentsAcceptResponse>(getBookingsAmendmentsAcceptUrl(publicId,amendmentId),
   {
     ...options,
-    method: 'POST'
-
-
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(amendmentAcceptRequest)
   }
 );}
 
@@ -393,9 +414,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
       const mutationFn: MutationFunction<Awaited<ReturnType<typeof bookingsAmendmentsAccept>>, BookingsAmendmentsAcceptMutationVariables> = (props) => {
-          const {publicId,amendmentId} = props ?? {};
+          const {publicId,amendmentId,data} = props ?? {};
 
-          return  bookingsAmendmentsAccept(publicId,amendmentId,requestOptions)
+          return  bookingsAmendmentsAccept(publicId,amendmentId,data,requestOptions)
         }
 
 
@@ -406,9 +427,9 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type BookingsAmendmentsAcceptMutationResult = NonNullable<Awaited<ReturnType<typeof bookingsAmendmentsAccept>>>
-
+    export type BookingsAmendmentsAcceptMutationBody = BodyType<AmendmentAcceptRequest>
     export type BookingsAmendmentsAcceptMutationError = ErrorType<void | ApiError>
-    export type BookingsAmendmentsAcceptMutationVariables = {publicId: string;amendmentId: string}
+    export type BookingsAmendmentsAcceptMutationVariables = {publicId: string;amendmentId: string;data: BodyType<AmendmentAcceptRequest>}
 
     export const useBookingsAmendmentsAccept = <TError = ErrorType<void | ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsAmendmentsAccept>>, TError,BookingsAmendmentsAcceptMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}

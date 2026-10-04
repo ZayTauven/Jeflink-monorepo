@@ -62,6 +62,7 @@ def test_les_onze_types_sont_declares_et_trois_partent_par_sms():
         events.COMPLETION_CODE_SMS,
         events.AMENDMENT_PROPOSED,
         events.DISPUTE_REMINDER,
+        events.BOOKING_COMPLETED_NO_CODE,
     } == events.SMS_KINDS
 
 
@@ -82,7 +83,11 @@ def test_chaque_type_est_declenche_par_son_parcours_sans_donnee_personnelle(line
             idempotency_key="notif-key-" + "0" * 22,
         ).amendment
     )  # fmt: skip
-    lines(lambda: services.accept_amendment(amendment=amendment, actor=scene.client))
+    lines(
+        lambda: services.accept_amendment(
+            amendment=amendment, actor=scene.client, total_xof=amendment.total_xof, confirm=True
+        )
+    )
     code = services.visible_completion_code(Booking.objects.get(pk=booking.pk))
     lines(
         lambda: services.complete_work(booking=booking, actor=owner, code=code, photos_pending=True)

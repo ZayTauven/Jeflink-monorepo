@@ -9,6 +9,7 @@
 export * from './acceptInvitationRequest.ts';
 export * from './accessToken.ts';
 export * from './amendment.ts';
+export * from './amendmentAcceptRequest.ts';
 export * from './amendmentLine.ts';
 export * from './amendmentLineInputRequest.ts';
 export * from './amendmentProposeRequest.ts';

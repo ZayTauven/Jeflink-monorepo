@@ -148,6 +148,15 @@ def transition(
         raise DomainError("transition_not_enabled", status=409)
     if set(fields or {}) - TRANSITION_FIELDS:
         raise ValueError("colonne hors de la liste des transitions")
+    if "amount_xof" in (fields or {}) and not (
+        (booking.status, to) == (Status.IN_PROGRESS, Status.IN_PROGRESS)
+        and actor_kind == Actor.CLIENT
+    ):
+        raise ValueError("amount_xof : seulement par l'acceptation d'un avenant (client)")
+    if {"completion_method", "no_code_reason"} & set(fields or {}) and not (
+        to == Status.COMPLETED and actor_kind == Actor.PRO
+    ):
+        raise ValueError("la méthode de fin ne s'écrit qu'à completed, par le pro")
     now = timezone.now()
     event_metadata: dict = dict(metadata or {})
     previous = booking.status
@@ -370,6 +379,13 @@ def _occurred(occurred_at: datetime | None) -> dict:
     return {"occurred_at": occurred_at.isoformat()} if occurred_at else {}
 
 
+def _check_not_too_early(booking: Booking) -> None:
+    """Ni « en route » ni « arrivé » avant le début du créneau moins ``BOOKING_EARLY_START_MARGIN``
+    (``409 too_early``) : une saisie à l'avance bloquerait la réservation."""
+    if timezone.now() < booking.slot_start - settings.BOOKING_EARLY_START_MARGIN:
+        raise DomainError("too_early", status=409)
+
+
 def _progress(
     booking: Booking, actor: User, *, to: str, chained: bool = False, metadata: dict | None = None
 ) -> Booking:
@@ -398,6 +414,7 @@ def mark_en_route(*, booking: Booking, actor: User, occurred_at: datetime | None
         return booking
     if booking.status != Status.SCHEDULED:
         raise DomainError("transition_not_allowed", status=409)
+    _check_not_too_early(booking)
     check_occurred_at(booking, occurred_at, now=timezone.now())
     booking = _progress(booking, actor, to=Status.EN_ROUTE, metadata=_occurred(occurred_at))
     events.notify(events.BOOKING_PROGRESS, [booking.client], booking.public_id)
@@ -413,6 +430,7 @@ def mark_arrived(*, booking: Booking, actor: User, occurred_at: datetime | None 
         return booking
     if booking.status not in {Status.SCHEDULED, Status.EN_ROUTE}:
         raise DomainError("transition_not_allowed", status=409)
+    _check_not_too_early(booking)
     check_occurred_at(booking, occurred_at, now=timezone.now())
     chained = booking.status == Status.SCHEDULED
     if chained:
@@ -686,7 +704,14 @@ def _lapse_amendments(booking: Booking) -> None:
     )
 
 
-def _decide_amendment(*, amendment: Amendment, actor: User, accept: bool) -> Booking:
+def _decide_amendment(
+    *,
+    amendment: Amendment,
+    actor: User,
+    accept: bool,
+    total_xof: int | None = None,
+    confirm: bool = False,
+) -> Booking:
     booking, amendment = _lock_amendment(amendment)
     if booking.client_id != actor.id:
         raise DomainError("not_found", status=404)
@@ -697,6 +722,12 @@ def _decide_amendment(*, amendment: Amendment, actor: User, accept: bool) -> Boo
         raise DomainError("amendment_not_pending", status=409)
     if booking.status != Status.IN_PROGRESS:
         raise DomainError("transition_not_allowed", status=409)
+    if accept:
+        # Le client accepte ce qu'il a vu, et confirme une forte hausse.
+        if total_xof != amendment.total_xof:
+            raise DomainError("amendment_total_mismatch", status=409)
+        if requires_confirmation(amendment) and confirm is not True:
+            raise DomainError("amendment_confirmation_required", status=422)
     provider_owner = Provider.objects.select_related("owner").get(pk=booking.provider_id).owner
     if accept:
         # Le seul endroit où ``amount_xof`` change : session du client, sous verrou.
@@ -729,10 +760,18 @@ def _decide_amendment(*, amendment: Amendment, actor: User, accept: bool) -> Boo
 
 
 @transaction.atomic
-def accept_amendment(*, amendment: Amendment, actor: User) -> Booking:
+def accept_amendment(
+    *, amendment: Amendment, actor: User, total_xof: int, confirm: bool = False
+) -> Booking:
     """Le client accepte (depuis sa session seulement) : ``amount_xof`` prend le total de
-    l'avenant, via ``transition(in_progress → in_progress)``. Rejoué : 200."""
-    return _decide_amendment(amendment=amendment, actor=actor, accept=True)
+    l'avenant, via ``transition(in_progress → in_progress)``. Rejoué : 200.
+
+    ``total_xof`` est le total que le client a vu : ``409 amendment_total_mismatch`` s'il diffère.
+    Une hausse au-delà du seuil exige ``confirm=True`` : ``422 amendment_confirmation_required``.
+    """
+    return _decide_amendment(
+        amendment=amendment, actor=actor, accept=True, total_xof=total_xof, confirm=confirm
+    )
 
 
 @transaction.atomic
@@ -806,9 +845,8 @@ def upload_photo(
             now = timezone.now()
             if taken_at is not None and taken_at > now + timedelta(minutes=5):
                 raise DomainError("photo_invalid", status=422)
-            taken = BookingPhoto.objects.filter(
-                booking=locked, phase=phase, purged_at__isnull=True
-            ).exclude(status=BookingPhoto.Status.FAILED)
+            # Une photo signalée par le client ne compte pas : il ne peut pas bloquer l'envoi.
+            taken = BookingPhoto.objects.visible().filter(booking=locked, phase=phase)
             if taken.count() >= settings.BOOKING_PHOTO_MAX_PER_PHASE:
                 raise DomainError("photo_limit_reached", status=409)
             try:
@@ -861,7 +899,12 @@ def make_thumbnail(*, photo_public_id: str) -> bool:
     """Produit la miniature (400 px, WebP) et passe la photo à ``ready``. Idempotente : une photo
     prête, purgée ou inconnue ne fait rien. Image absente du stockage : ``failed``."""
     photo = BookingPhoto.objects.select_related("booking").filter(public_id=photo_public_id).first()
-    if photo is None or photo.purged_at or (photo.thumb_key and photo.status == "ready"):
+    if photo is None:
+        return False
+    if photo.purged_at:
+        storage.delete(photo_keys(photo)[1])  # ne laisse rien derrière une photo purgée
+        return False
+    if photo.thumb_key and photo.status == "ready":
         return False
     try:
         original = storage.read(photo.image_key)
@@ -875,9 +918,12 @@ def make_thumbnail(*, photo_public_id: str) -> bool:
     )
     thumb_key = photo_keys(photo)[1]
     storage.put(thumb_key, thumb.content)
-    BookingPhoto.objects.filter(pk=photo.pk, purged_at__isnull=True).update(
+    updated = BookingPhoto.objects.filter(pk=photo.pk, purged_at__isnull=True).update(
         thumb_key=thumb_key, status=BookingPhoto.Status.READY
     )
+    if not updated:  # purgée entre-temps
+        storage.delete(thumb_key)
+        return False
     return True
 
 
@@ -915,14 +961,14 @@ def purge_booking_photos(photos) -> int:
     from .tasks import delete_objects
 
     with transaction.atomic():
-        rows = list(photos.select_for_update().filter(purged_at__isnull=True))
+        rows = list(photos.select_for_update(of=("self",)).filter(purged_at__isnull=True))
         if not rows:
             return 0
         keys = [key for row in rows for key in (row.image_key, row.thumb_key) if key]
         BookingPhoto.objects.filter(pk__in=[row.pk for row in rows]).update(
             purged_at=timezone.now(), image_key="", thumb_key=""
         )
-        transaction.on_commit(lambda: delete_objects.delay(keys))
+        transaction.on_commit(lambda: delete_objects.delay(keys), robust=True)
     return len(rows)
 
 
@@ -1100,9 +1146,10 @@ def complete_work(
             or (no_code_reason == "code_locked" and not booking.completion_code_locked)
         ):
             raise DomainError("no_code_reason_invalid", status=422)
-        if not has_photos(booking, "after") and (
-            no_code_reason == CLIENT_REFUSES or not photos_pending
-        ):
+        # Une fin sans code (sauf code verrouillé) se prouve par une photo « après » reçue :
+        # ``photos_pending`` ne suffit pas.
+        proof_needed = no_code_reason is not None and no_code_reason != "code_locked"
+        if not has_photos(booking, "after") and (proof_needed or not photos_pending):
             raise DomainError("after_photos_required", status=422)
         check_occurred_at(booking, occurred_at, now=timezone.now())
         if code is not None:
@@ -1130,7 +1177,11 @@ def complete_work(
                 target=booking,
                 metadata={"completion_method": method, "no_code_reason": no_code_reason or ""},
             )
-            events.notify(events.BOOKING_COMPLETED, [booking.client], booking.public_id)
+            events.notify(
+                events.BOOKING_COMPLETED_NO_CODE if no_code_reason else events.BOOKING_COMPLETED,
+                [booking.client],
+                booking.public_id,
+            )
     if failure is not None:
         raise failure  # après le commit : l'essai compté reste
     return booking
@@ -1462,7 +1513,59 @@ def _cancel(
 
 
 def _audit_kind(actor_kind: str) -> str:
-    return AuditEvent.ActorKind.SYSTEM if actor_kind == Actor.SYSTEM else AuditEvent.ActorKind.USER
+    return {
+        Actor.SYSTEM: AuditEvent.ActorKind.SYSTEM,
+        Actor.OPS: AuditEvent.ActorKind.OPS,
+    }.get(actor_kind, AuditEvent.ActorKind.USER)
+
+
+OPS_CANCEL_REASONS = ("pro_unreachable", "client_unreachable", "job_abandoned", "safety", "other")
+
+
+@transaction.atomic
+def cancel_by_ops(*, booking: Booking, operator: User, reason: str, note: str = "") -> Booking:
+    """L'Ops annule une mission bloquée (``on_site`` ou ``in_progress``), avec un motif et un
+    audit. Effets d'un désistement du pro (demande rouverte, pro exclu) sans poids de fiabilité.
+    Seul chemin de sortie d'une intervention commencée. ``422 reason_invalid`` ou
+    ``note_invalid`` ; ``409 transition_not_allowed`` hors de ces statuts.
+    """
+    clean = check_reason(reason, allowed=OPS_CANCEL_REASONS, note=note)
+    provider, request, booking = _lock_for_booking(booking)
+    if booking.status not in {Status.ON_SITE, Status.IN_PROGRESS}:
+        raise DomainError("transition_not_allowed", status=409)
+    _lapse_amendments(booking)
+    return _cancel(
+        booking, request, provider, actor=operator, actor_kind=Actor.OPS,
+        reason=f"ops_{reason}"[:24], note=clean,
+    )  # fmt: skip
+
+
+def flag_stuck(*, now: datetime | None = None) -> int:
+    """Signale une seule fois à l'Ops (alerte ``log``, filtre de l'admin) chaque réservation
+    restée ``on_site`` ou ``in_progress`` plus de ``BOOKING_STUCK_AFTER`` après la fin du créneau.
+    Aucune donnée personnelle dans l'alerte : le ``public_id`` seulement. Idempotent."""
+    from jeflink.common.alerts import alert_once
+
+    now = now or timezone.now()
+    due = Booking.objects.filter(
+        status__in=(Status.ON_SITE, Status.IN_PROGRESS),
+        stuck_flagged_at__isnull=True,
+        slot_end__lte=now - settings.BOOKING_STUCK_AFTER,
+    )
+    flagged = 0
+    for pk in list(due.values_list("pk", flat=True)):
+        with transaction.atomic():
+            locked = Booking.objects.select_for_update().get(pk=pk)
+            if locked.status not in {Status.ON_SITE, Status.IN_PROGRESS} or locked.stuck_flagged_at:
+                continue
+            locked.stuck_flagged_at = now
+            locked.save(update_fields=["stuck_flagged_at", "updated_at"])
+            alert_once(
+                f"booking_stuck:{locked.public_id}", 7 * 24 * 3600, "booking_stuck",
+                booking=locked.public_id, status=locked.status,
+            )  # fmt: skip
+            flagged += 1
+    return flagged
 
 
 def cancel_booking(

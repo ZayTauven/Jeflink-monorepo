@@ -558,3 +558,12 @@ class DisputeOpenSerializer(serializers.Serializer):
 
     reason = serializers.CharField(max_length=12)
     description = serializers.CharField(max_length=2000, allow_blank=True)
+
+
+class AmendmentAcceptSerializer(serializers.Serializer):
+    """Le client accepte **ce qu'il a vu** : ``total_xof`` est le nouveau prix affiché
+    (``409 amendment_total_mismatch`` s'il a changé). ``confirm`` doit être vrai quand
+    ``requires_confirmation`` l'est (``422 amendment_confirmation_required``)."""
+
+    total_xof = serializers.IntegerField()
+    confirm = serializers.BooleanField(required=False, default=False)

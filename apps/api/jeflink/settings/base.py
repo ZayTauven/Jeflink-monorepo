@@ -341,6 +341,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 300,
         "options": {"expires": 240},
     },
+    "bookings-flag-stuck": {
+        "task": "jeflink.bookings.tasks.flag_stuck",
+        "schedule": 3600,
+        "options": {"expires": 1800},
+    },
     "bookings-purge-photos": {
         "task": "jeflink.bookings.tasks.purge_photos",
         "schedule": 24 * 3600,
@@ -390,6 +395,11 @@ BOOKING_LATE_CANCEL_WINDOW = timedelta(hours=2)  # annulation « tardive » avan
 # Déroulé de l'intervention, clôture et litige (spec 004).
 BOOKING_DISPUTE_WINDOW = timedelta(hours=48)  # contestation possible après « terminé »
 BOOKING_DISPUTE_REMINDER = timedelta(hours=12)  # rappel au client avant la fin de la fenêtre
+# « En route » et « Arrivé » : pas avant le début du créneau moins cette marge.
+BOOKING_EARLY_START_MARGIN = timedelta(hours=2)
+# Une réservation restée sur place ou en cours plus longtemps après la fin du créneau est signalée
+# à l'Ops (elle ne peut être annulée que par lui).
+BOOKING_STUCK_AFTER = timedelta(hours=12)
 # Code de fin de mission (spec 004) : donné par le client au pro, qui le saisit en terminant.
 COMPLETION_CODE_DIGITS = 4
 COMPLETION_CODE_MAX_ATTEMPTS = 5  # après 5 codes faux, le code est verrouillé

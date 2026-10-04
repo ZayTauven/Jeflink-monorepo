@@ -33,6 +33,10 @@ def booking(settings):
     Provider.objects.filter(pk=scene.providers[0].pk).update(is_demo=True)
     created = services.create_from_quote(quote=scene.quotes[0], actor=scene.client)
     run("confirm", str(created.booking.public_id))
+    now = timezone.now()  # le créneau a commencé : « en route » est permis
+    Booking.objects.filter(pk=created.booking.pk).update(
+        slot_start=now - timedelta(hours=1), slot_end=now + timedelta(hours=3)
+    )
     created.booking.refresh_from_db()
     return scene, created.booking
 
@@ -48,7 +52,9 @@ def test_parcours_de_bout_en_bout(booking):
     out = run("amend", ref, "--total", "22000")
     assert "15000 → 22000" in out
     amendment = item.amendments.get()
-    services.accept_amendment(amendment=amendment, actor=scene.client)  # le client, sur le web
+    services.accept_amendment(
+        amendment=amendment, actor=scene.client, total_xof=amendment.total_xof, confirm=True
+    )  # le client, sur le web
     code = services.visible_completion_code(Booking.objects.get(pk=item.pk))
     assert "completed" in run("complete", ref, "--code", code, "--photo")
     item.refresh_from_db()
@@ -76,7 +82,7 @@ def test_fin_sans_code_et_refus_hors_local(booking, settings):
     ref = str(item.public_id)
     run("arrive", ref)
     run("start", ref, "--pending")
-    assert "no_code" in run("complete", ref, "--no-code", "client_absent", "--pending")
+    assert "no_code" in run("complete", ref, "--no-code", "client_absent", "--photo")
     settings.DJANGO_ENV = "test"
     with pytest.raises(CommandError, match="refusée hors"):
         run("en-route", ref)

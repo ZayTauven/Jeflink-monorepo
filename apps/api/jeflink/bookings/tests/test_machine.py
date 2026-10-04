@@ -55,12 +55,14 @@ def test_la_machine_est_declaree_en_entier():
         (Status.DISPUTED, Status.CLOSED),
         (Status.EN_ROUTE, Status.CANCELLED),
         (Status.ON_SITE, Status.CANCELLED),
+        (Status.IN_PROGRESS, Status.CANCELLED),
     }
 
 
 def test_acteurs_des_couples_ajoutes():
     assert DECLARED[(Status.EN_ROUTE, Status.CANCELLED)].actors == {"client", "pro", "system"}
-    assert DECLARED[(Status.ON_SITE, Status.CANCELLED)].actors == {"pro", "system"}
+    assert DECLARED[(Status.ON_SITE, Status.CANCELLED)].actors == {"pro", "system", "ops"}
+    assert DECLARED[(Status.IN_PROGRESS, Status.CANCELLED)].actors == {"ops"}
 
 
 def test_cycle_de_vie_ensembles_de_statuts():
@@ -426,4 +428,5 @@ def test_amount_xof_n_est_ecrit_que_par_la_creation_et_l_avenant_accepte():
                 writers.add(func.name)
             if "'amount_xof'" in body and "fields=" in body:
                 writers.add(func.name)
-    assert writers == {"_create_from_quote", "_decide_amendment"}
+    # ``transition`` porte le garde : amount_xof n'y passe que pour (in_progress, in_progress).
+    assert writers == {"_create_from_quote", "_decide_amendment", "transition"}

@@ -16,6 +16,7 @@ from jeflink.bookings.machine import Status
 from jeflink.bookings.models import Booking, BookingEvent
 from jeflink.common import crypto
 from jeflink.common.secrets import secret_problems
+from jeflink.common.tests.test_images import jpeg_with_gps
 from jeflink.notifications import events
 from jeflink.providers.models import Provider
 from jeflink.providers.tests.factories import VerifiedProviderFactory
@@ -50,8 +51,21 @@ def in_progress():
     return scene, advance(booking, Status.IN_PROGRESS)
 
 
+_photo_counter = iter(range(10_000))
+
+
 def complete(booking, **kwargs):
+    """Termine ; une fin sans code (sauf ``code_locked``) se prouve par une vraie photo « après »
+    (``photo=False`` pour ne pas en envoyer)."""
+    photo = kwargs.pop("photo", True)
     kwargs.setdefault("photos_pending", True)
+    reason = kwargs.get("no_code_reason")
+    if photo and reason and reason != "code_locked":
+        services.upload_photo(
+            booking=booking, actor=booking.provider.owner, phase="after",
+            content=jpeg_with_gps(size=(300 + next(_photo_counter), 200)),
+            idempotency_key=f"complete-photo-{next(_photo_counter):020d}",
+        )  # fmt: skip
     return services.complete_work(booking=booking, actor=booking.provider.owner, **kwargs)
 
 
@@ -238,7 +252,8 @@ def test_fin_sans_code_72_h_et_client_notifie(notified):
         "completion_method": "no_code",
         "photos_pending": True,
     }
-    assert (events.BOOKING_COMPLETED, [scene.client], booking.public_id) in notified
+    assert (events.BOOKING_COMPLETED_NO_CODE, [scene.client], booking.public_id) in notified
+    assert not any(kind == events.BOOKING_COMPLETED for kind, *_ in notified)
     assert AuditEvent.objects.get(action="bookings.booking.completed").metadata == {
         "completion_method": "no_code",
         "no_code_reason": "client_absent",
@@ -281,11 +296,32 @@ def test_sans_photo_ni_photos_pending_terminer_est_refuse():
     assert reload(booking).completion_code_attempts == 0  # ne brûle pas d'essai
 
 
-def test_client_refuses_n_accepte_pas_photos_pending():
+@pytest.mark.parametrize("reason", ["client_refuses", "client_absent", "client_no_phone"])
+def test_sans_code_une_photo_apres_recue_est_obligatoire(reason):
+    """``photos_pending`` ne suffit plus pour une fin sans code (sauf ``code_locked``)."""
     _, booking = in_progress()
     with expect("after_photos_required", 422):
-        complete(booking, no_code_reason="client_refuses", photos_pending=True)
+        complete(booking, no_code_reason=reason, photos_pending=True, photo=False)
     assert reload(booking).status == Status.IN_PROGRESS
+
+
+def test_code_locked_garde_photos_pending():
+    _, booking = in_progress()
+    Booking.objects.filter(pk=booking.pk).update(completion_code_locked=True)
+    assert complete(booking, no_code_reason="code_locked", photo=False).status == Status.COMPLETED
+
+
+def test_une_photo_signalee_par_le_client_ne_prouve_plus_la_fin_sans_code():
+    scene, booking = in_progress()
+    photo = services.upload_photo(
+        booking=booking, actor=booking.provider.owner, phase="after",
+        content=jpeg_with_gps(size=(333, 200)), idempotency_key="complete-photo-" + "9" * 20,
+    ).photo  # fmt: skip
+    services.report_photo(booking=booking, photo_public_id=photo.public_id, actor=scene.client)
+    with expect("after_photos_required", 422):
+        complete(booking, no_code_reason="client_refuses", photo=False)
+    # Le plafond ne compte pas la photo masquée : le pro peut en renvoyer une.
+    assert complete(booking, no_code_reason="client_refuses").status == Status.COMPLETED
 
 
 # --- Rejeu, permissions ------------------------------------------------------------------------

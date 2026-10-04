@@ -111,6 +111,7 @@ Awa a choisi Ibou, et la réservation est `scheduled` (spec 003). Rien ne trace 
 - **Pourquoi dans `trust`, et pas une table de `bookings`.** ARCHITECTURE.md y range déjà litiges et garantie. La reprise sous 7 jours, le remboursement (V2) et l'IA6 s'y grefferont ; une table dans `bookings` serait à migrer plus tard.
   - Les appels vont dans un seul sens : `bookings.services` appelle `trust.services`, jamais l'inverse.
   - L'action d'admin « Trancher » appelle `bookings.services.resolve_dispute`. Celle-ci fait `disputed → closed` (acteur `ops`, motif `dispute_<decision>`), puis appelle `trust.services.record_decision` et écrit un audit. Aucun remboursement en V1.
+- **Fin `no_code` et commission (étape 5).** Une fin `no_code` (`Booking.completion_method`) est traitée à part pour la commission : pas de preuve du client, la fenêtre de contestation dure 72 h, le client reçoit tout de suite `booking.completed_no_code` (SMS). Le gestionnaire de `wallet` lira `completion_method` avant d'écrire `pro_commission_due`.
 - **Point d'accroche pour l'étape 5.** `bookings.services.register_close_handler(fn)` est appelé dans la transaction de toute arrivée à `closed`, avec `(booking, reason)`.
   - `reviews` s'y inscrit pour publier les avis.
   - `wallet` s'y inscrira pour écrire `pro_commission_due` sur `amount_xof`, de façon idempotente par réservation. Il recevra la décision du litige, `for_client` comprise.
@@ -166,7 +167,8 @@ Tags existants (`bookings`, `pro`). Un objet d'un autre utilisateur répond `404
 - `amount_xof` n'est écrit que par `accept_amendment`, sous verrou, depuis la session du client. Le test d'architecture est étendu à `amount_xof`.
 - Avis : un seul par réservation terminée, et l'auteur doit être le client. Comptes de revue et pros de démo sont exclus des moyennes.
 - Admin : groupes dédiés. Décisions (litige, no-show) et consultation des photos sont auditées. Les textes du litige et de la contestation ne sont jamais journalisés.
-- Un pro suspendu n'a que `complete` et l'envoi de photos, sur une intervention `in_progress`.
+- Un pro suspendu n'a que `complete` et l'envoi de photos, sur une intervention `in_progress`. Il peut aussi contester un no-show (`contest-no-show`) : c'est sa défense, pas une nouvelle activité ; la revue de sécurité l'a validé.
+- Revue de sécurité (corrections) : l'avenant s'accepte avec le total vu et, au-delà du seuil, une confirmation explicite (`409 amendment_total_mismatch`, `422 amendment_confirmation_required`) ; une fin sans code exige une photo « après » reçue (sauf `code_locked`) ; une intervention commencée ne se débloque que par l'Ops ; `amount_xof` et la méthode de fin ne s'écrivent que par leur transition ; les photos signalées ne comptent pas dans le plafond de 5 ; l'anonymisation vide aussi les demandes `booked` dont la réservation est close ou annulée.
 - Revue `security-reviewer` une fois sur la feature (tâches [sécu]).
 
 ## IA (si applicable)

@@ -46,7 +46,9 @@ DECLARED: dict[tuple[str, str], Rule] = {
     (Status.DISPUTED, Status.CLOSED): _rule(OPS, enabled=True),
     # Le pro déjà parti ou arrivé peut renoncer ; le client ne peut plus annuler un pro sur place.
     (Status.EN_ROUTE, Status.CANCELLED): _rule(CLIENT, PRO, SYSTEM, enabled=True),
-    (Status.ON_SITE, Status.CANCELLED): _rule(PRO, SYSTEM, enabled=True),
+    (Status.ON_SITE, Status.CANCELLED): _rule(PRO, SYSTEM, OPS, enabled=True),
+    # Mission bloquée : seul l'Ops peut l'annuler une fois commencée (spec 004, revue sécurité).
+    (Status.IN_PROGRESS, Status.CANCELLED): _rule(OPS, enabled=True),
 }
 
 # Contact partagé (numéros des deux parties, repère et position du client) : le pro a confirmé,
@@ -65,7 +67,7 @@ DISCLOSED_STATUSES = frozenset(
 # --- Motifs : codes en dur, ils pilotent la fiabilité (contrairement aux libellés de données) ---
 # Un désistement du pro compte à partir de ``scheduled`` ; parti ou arrivé, il est toujours tardif.
 PRO_FAULT_FROM = (Status.SCHEDULED, Status.EN_ROUTE, Status.ON_SITE)
-ALWAYS_LATE_FROM = (Status.EN_ROUTE, Status.ON_SITE)
+ALWAYS_LATE_FROM = (Status.EN_ROUTE, Status.ON_SITE, Status.IN_PROGRESS)
 PRO_NO_SHOW = "pro_no_show"  # le client déclare que le pro n'est pas venu (acteur client)
 NO_SHOW_WEIGHT = 3  # poids d'un no-show, appliqué à la confirmation seulement
 CLIENT_ABSENT = "client_absent"  # le pro est sur place et le client n'y est pas : poids 0, tracé

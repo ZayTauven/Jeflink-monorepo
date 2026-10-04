@@ -59,6 +59,7 @@ from jeflink.requests.selectors import quote_for_client
 from jeflink.reviews.selectors import rating_for_providers
 
 from .serializers import (
+    AmendmentAcceptSerializer,
     AmendmentProposeSerializer,
     AmendmentSerializer,
     ClientBookingSerializer,
@@ -270,8 +271,12 @@ class BookingAmendmentDecisionView(APIView):
         amendment = amendment_for_client(
             user=request.user, booking_public_id=public_id, public_id=amendment_id
         )
-        decide = accept_amendment if self.accept else decline_amendment
-        decide(amendment=amendment, actor=request.user)
+        if self.accept:
+            body = AmendmentAcceptSerializer(data=request.data)
+            body.is_valid(raise_exception=True)
+            accept_amendment(amendment=amendment, actor=request.user, **body.validated_data)
+        else:
+            decline_amendment(amendment=amendment, actor=request.user)
         booking = booking_for_client(user=request.user, public_id=public_id)
         return Response(ClientBookingSerializer(booking).data)
 
@@ -288,8 +293,13 @@ class BookingAmendmentAcceptView(BookingAmendmentDecisionView):
     @extend_schema(
         tags=["bookings"],
         operation_id="bookings_amendments_accept",
-        request=None,
-        responses={200: ClientBookingSerializer, **DECISION_ERRORS},
+        request=AmendmentAcceptSerializer,
+        responses={
+            200: ClientBookingSerializer,
+            409: error("amendment_not_pending, transition_not_allowed, amendment_total_mismatch"),
+            422: error("amendment_confirmation_required"),
+            **ERRORS,
+        },
     )
     def post(self, request: Request, public_id, amendment_id) -> Response:
         """Accepte l'avenant : le montant de la réservation devient son total. Rejoué : 200."""
@@ -449,7 +459,7 @@ class ProBookingProgressView(APIView):
 
 
 PROGRESS_ERRORS = {
-    409: error("transition_not_allowed (étape non permise depuis ce statut)"),
+    409: error("transition_not_allowed, too_early (avant le créneau moins la marge)"),
     422: error("occurred_at_invalid"),
     **ERRORS,
 }

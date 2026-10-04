@@ -87,16 +87,17 @@ stateDiagram-v2
   scheduled --> en_route : le pro part (SMS du code)
   en_route --> cancelled : client, pro, système
   en_route --> on_site : le pro arrive
-  on_site --> cancelled : pro (client_absent, job_mismatch), système
+  on_site --> cancelled : pro (client_absent, job_mismatch), système, Ops
   on_site --> in_progress : photos « avant » ou photos_pending
   in_progress --> in_progress : avenant accepté par le client
+  in_progress --> cancelled : Ops seulement (mission bloquée)
   in_progress --> completed : code de fin, ou sans code avec motif
   completed --> closed : fin de la fenêtre de contestation (système)
   completed --> disputed : le client ouvre un litige
   disputed --> closed : décision de l'Ops
 ```
 
-Spec 004 : **tous les couples sont activés**. Un couple interdit lève `transition_not_allowed` ; le mécanisme `transition_not_enabled` reste pour un futur couple déclaré mais inactif. `scheduled`, `en_route` ou `on_site` peuvent finir en `cancelled` ; le client ne peut pas annuler un pro déjà sur place.
+Spec 004 : **tous les couples sont activés**. Un couple interdit lève `transition_not_allowed` ; le mécanisme `transition_not_enabled` reste pour un futur couple déclaré mais inactif. `scheduled`, `en_route` ou `on_site` peuvent finir en `cancelled` ; le client ne peut pas annuler un pro déjà sur place. Une intervention commencée (`on_site`, `in_progress`) ne se débloque que par l'Ops (action « Annuler la mission », groupe `Médiation`, motif et audit) ; la tâche `flag_stuck` la signale 12 h après `slot_end` (réglage `BOOKING_STUCK_AFTER`, filtre « bloquée » de l'admin). « En route » et « Arrivé » sont refusés avant le début du créneau moins 2 h (`BOOKING_EARLY_START_MARGIN`, `409 too_early`).
 
 Règles :
 

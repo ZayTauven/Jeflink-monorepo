@@ -183,5 +183,5 @@ def record_decision(
 
 
 def anonymize_disputes(user: models.Model) -> None:
-    """Anonymiseur : le texte d'un litige ouvert par ce client est effacé."""
-    Dispute.objects.filter(booking__client=user).update(description="")
+    """Anonymiseur : le texte du client et la note de décision de ses litiges sont effacés."""
+    Dispute.objects.filter(booking__client=user).update(description="", decision_note="")

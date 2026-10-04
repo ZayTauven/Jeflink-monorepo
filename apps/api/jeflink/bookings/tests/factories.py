@@ -76,7 +76,14 @@ def confirm(booking: Booking) -> Booking:
 def scheduled(*, pros: int = 1, urgent: bool = False) -> tuple[Scene, Booking]:
     """Une réservation confirmée par le pro (``scheduled``)."""
     scene = make_scene(pros=pros, urgent=urgent)
-    return scene, confirm(accept(scene))
+    booking = confirm(accept(scene))
+    # Le créneau a commencé : « en route » n'est permis qu'à partir de son début moins 2 h.
+    now = timezone.now()
+    Booking.objects.filter(pk=booking.pk).update(
+        slot_start=now - timedelta(hours=1), slot_end=now + timedelta(hours=3)
+    )
+    booking.refresh_from_db()
+    return scene, booking
 
 
 def advance(booking: Booking, to: str) -> Booking:

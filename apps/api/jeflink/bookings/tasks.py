@@ -66,3 +66,9 @@ def purge_photos() -> int:
 def purge_contact() -> int:
     """Vide le repère et la position des demandes 90 jours après la clôture ; chaque jour."""
     return services.purge_contact()
+
+
+@shared_task(acks_late=True)
+def flag_stuck() -> int:
+    """Signale à l'Ops les réservations restées sur place ou en cours après la fin du créneau."""
+    return services.flag_stuck()

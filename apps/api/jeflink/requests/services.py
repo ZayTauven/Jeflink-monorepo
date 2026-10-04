@@ -40,6 +40,11 @@ from .selectors import eligible_providers
 
 Status = ServiceRequest.Status
 
+# Statuts d'une réservation qui l'engagent encore (miroir de ``Booking.ENGAGED``, sans l'importer).
+ENGAGED_BOOKING_STATUSES = (
+    "accepted", "scheduled", "en_route", "on_site", "in_progress", "completed", "disputed",
+)  # fmt: skip
+
 IDEMPOTENCY_KEY = re.compile(r"^[A-Za-z0-9_-]{22,64}$")
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 
@@ -472,15 +477,18 @@ def clear_contact(request_ids: list[int]) -> int:
 def anonymize_requests(user: User) -> None:
     """Anonymiseur : annule les demandes ouvertes (devis refusés) et vide les données perso.
 
-    Une demande ``booked`` ne peut pas exister ici : la réservation en cours bloque la
-    suppression du compte (``deletion_blocker`` de ``bookings``).
+    Une demande ``booked`` dont la réservation est engagée ne peut pas exister ici (elle bloque
+    la suppression). Une demande ``booked`` dont la réservation est close ou annulée est vidée.
     """
     for request in ServiceRequest.objects.select_for_update().filter(client=user):
         if request.status in {Status.NEEDS_ZONE, Status.OPEN, Status.QUOTED}:
             transition_request(request, Status.CANCELLED, reason="account_deleted")
             _on_close(request, outcome=Quote.Status.DECLINED)
-        if request.status == Status.BOOKED:
-            continue
+        if (
+            request.status == Status.BOOKED
+            and request.bookings.filter(status__in=ENGAGED_BOOKING_STATUSES).exists()
+        ):
+            continue  # mission engagée : le blocage de suppression l'interdit déjà
         request.landmark = ""
         request.description = ""
         request.zone_text = ""

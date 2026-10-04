@@ -56,3 +56,11 @@ Règle : un besoin prod repéré pendant une feature s'ajoute à cette liste, av
 | Adaptateur SMS réel pour `completion_code.sms`, `amendment.proposed`, `booking.dispute_reminder` (gabarit GSM-7 rendu côté serveur, plafonds de SMS métier) ; le code de fin ne doit jamais apparaître dans les journaux du fournisseur | spec 004, api 4 et 9 |
 | Rotation de `DATA_ENCRYPTION_KEYS` : ajouter une clé en tête, chiffrer à nouveau les codes encore actifs, puis retirer l'ancienne | spec 004, api 4 |
 | Pros de démonstration exclus des moyennes d'avis : prévoir un jeu de données de recette avec de vrais avis pour la préproduction | spec 004, api 8 |
+| Fin `no_code` traitée à part pour la commission : le gestionnaire de clôture de `wallet` lit `completion_method` avant d'écrire `pro_commission_due` ; la notification `booking.completed_no_code` part en SMS | spec 004, revue sécurité |
+| Réencoder les photos hors de la transaction et des verrous de la réservation, et baisser `IMAGE_MAX_PIXELS` (40 M aujourd'hui) | spec 004, revue sécurité |
+| Tâche de rapprochement des objets photo orphelins (objet écrit mais ligne absente, ou ligne purgée sans suppression) | spec 004, revue sécurité |
+| `purge_contact` limité aux demandes qui ont encore un repère ou une position (éviter de réécrire les lignes déjà vidées) | spec 004, revue sécurité |
+| Durée de conservation du texte des litiges : 12 mois après la clôture, puis effacement | spec 004, revue sécurité |
+| Détection des avis de complaisance : numéro ou appareil du client qui recoupe celui du pro | spec 004, revue sécurité |
+| Vérifier au démarrage que le bucket refuse la lecture anonyme (hors local) | spec 004, revue sécurité |
+| Supervision de `flag_stuck` et de l'alerte `booking_stuck` ; l'Ops traite les missions bloquées par l'action « Annuler la mission » | spec 004, revue sécurité |

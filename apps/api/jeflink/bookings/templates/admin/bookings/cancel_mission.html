@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>{{ bookings_selected|length }} mission(s) sur place ou en cours. L'annulation rouvre la demande du client
+et exclut le pro de cette demande ; aucun poids de fiabilité. Joignez les deux parties avant d'annuler.</p>
+<form method="post">
+  {% csrf_token %}
+  {% for item in bookings_selected %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ item.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="cancel_mission">
+  <input type="hidden" name="apply" value="1">
+  {{ form.as_p }}
+  <input type="submit" value="Annuler la mission">
+</form>
+{% endblock %}

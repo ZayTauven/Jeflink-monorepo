@@ -15,8 +15,10 @@ from django.template.response import TemplateResponse
 from jeflink.common.errors import DomainError
 from jeflink.trust.models import Dispute
 
-from .models import BookingPhoto, NoShowReport
+from .models import Booking, BookingPhoto, NoShowReport
 from .services import (
+    OPS_CANCEL_REASONS,
+    cancel_by_ops,
     decide_no_show,
     dispute_photo_links,
     resolve_dispute,
@@ -261,3 +263,97 @@ class BookingPhotoAdmin(admin.ModelAdmin):
             except DomainError as exc:
                 self.message_user(request, f"{photo.public_id} : {exc.code}", messages.WARNING)
         self.message_user(request, f"{done} photo(s) traitée(s).", messages.SUCCESS)
+
+
+# --- Missions bloquées : annulation par l'Ops ------------------------------------------
+
+
+class CancelMissionForm(forms.Form):
+    reason = forms.ChoiceField(choices=[(code, code) for code in OPS_CANCEL_REASONS], label="Motif")
+    note = forms.CharField(
+        max_length=200, required=False, widget=forms.Textarea(attrs={"rows": 3}),
+        label="Note (obligatoire pour « other », sans numéro)",
+    )  # fmt: skip
+
+
+class StuckFilter(admin.SimpleListFilter):
+    """Réservations signalées : sur place ou en cours bien après la fin du créneau."""
+
+    title = "bloquée"
+    parameter_name = "bloquee"
+
+    def lookups(self, request, model_admin):
+        return [("oui", "Signalées à l'Ops")]
+
+    def queryset(self, request: HttpRequest, queryset: QuerySet[Booking]):
+        if self.value() == "oui":
+            return queryset.filter(
+                stuck_flagged_at__isnull=False, status__in=("on_site", "in_progress")
+            )
+        return queryset
+
+
+@admin.register(Booking)
+class BookingAdmin(admin.ModelAdmin):
+    """Réservations en lecture seule (ni nom, ni numéro, ni repère) ; le groupe « Médiation »
+    annule une mission bloquée, avec un motif et un audit."""
+
+    list_display = ("created_at", "status", "slot_end", "stuck_flagged_at")
+    list_filter = ("status", StuckFilter)
+    readonly_fields = (
+        "public_id", "status", "slot_start", "slot_end", "amount_xof", "en_route_at",
+        "on_site_at", "started_at", "completed_at", "closed_at", "stuck_flagged_at",
+        "cancelled_by", "cancel_reason", "created_at",
+    )  # fmt: skip
+    fields = readonly_fields
+    actions = ("cancel_mission",)
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
+
+    def has_change_permission(self, request: HttpRequest, obj=None) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
+        return False
+
+    def has_cancel_permission(self, request: HttpRequest) -> bool:
+        return request.user.has_perm("bookings.cancel_booking_ops")
+
+    def get_actions(self, request: HttpRequest):
+        return super().get_actions(request) if self.has_cancel_permission(request) else {}
+
+    @admin.action(description="Annuler la mission", permissions=("cancel",))
+    def cancel_mission(self, request: HttpRequest, queryset: QuerySet[Booking]):
+        selected = list(queryset.filter(status__in=("on_site", "in_progress")))
+        if not selected:
+            self.message_user(request, "Aucune mission sur place ou en cours.", messages.WARNING)
+            return None
+        if "apply" in request.POST:
+            form = CancelMissionForm(request.POST)
+            if form.is_valid():
+                done = 0
+                for booking in selected:
+                    try:
+                        cancel_by_ops(
+                            booking=booking, operator=request.user,
+                            reason=form.cleaned_data["reason"], note=form.cleaned_data["note"],
+                        )  # fmt: skip
+                        done += 1
+                    except DomainError as exc:
+                        self.message_user(
+                            request, f"{booking.public_id} : {exc.code}", messages.WARNING
+                        )
+                self.message_user(request, f"{done} mission(s) annulée(s).", messages.SUCCESS)
+                return HttpResponseRedirect(request.get_full_path())
+        else:
+            form = CancelMissionForm()
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Annuler la mission",
+            "form": form,
+            "bookings_selected": selected,
+            "action_checkbox_name": ACTION_CHECKBOX_NAME,
+            "opts": self.model._meta,
+        }
+        return TemplateResponse(request, "admin/bookings/cancel_mission.html", context)

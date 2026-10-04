@@ -89,10 +89,13 @@ class Booking(BaseModel):
     completion_code_sms_sent = models.PositiveSmallIntegerField(default=0)
     # « Le pro est-il venu ? » envoyé au client (une seule fois), le créneau et la marge passés.
     no_show_check_sent_at = models.DateTimeField(null=True, blank=True)
+    # Signalée à l'Ops : restée sur place ou en cours bien après la fin du créneau.
+    stuck_flagged_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "réservation"
         ordering = ("-created_at",)
+        permissions = [("cancel_booking_ops", "Médiation : annuler une mission bloquée")]
         indexes = [
             models.Index(fields=("status", "confirm_deadline")),
             models.Index(fields=("client", "status")),

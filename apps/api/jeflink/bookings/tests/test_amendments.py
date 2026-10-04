@@ -194,7 +194,9 @@ def test_retrait_refuse_apres_la_decision_ou_a_un_autre_pro():
     amendment = propose(booking).amendment
     with expect("not_found", 404):
         services.withdraw_amendment(amendment=amendment, actor=VerifiedProviderFactory().owner)
-    services.accept_amendment(amendment=amendment, actor=scene.client)
+    services.accept_amendment(
+        amendment=amendment, actor=scene.client, total_xof=amendment.total_xof, confirm=True
+    )
     with expect("amendment_not_pending"):
         services.withdraw_amendment(amendment=amendment, actor=booking.provider.owner)
 
@@ -206,7 +208,9 @@ def test_le_client_accepte_le_montant_change_par_une_transition(notified):
     scene, booking = in_progress()
     amendment = propose(booking).amendment
     notified.clear()
-    result = services.accept_amendment(amendment=amendment, actor=scene.client)
+    result = services.accept_amendment(
+        amendment=amendment, actor=scene.client, total_xof=amendment.total_xof, confirm=True
+    )
     assert (result.amount_xof, result.original_amount_xof, result.status) == (
         22_000,
         15_000,
@@ -232,16 +236,24 @@ def test_le_client_accepte_le_montant_change_par_une_transition(notified):
     assert (events.AMENDMENT_DECIDED, [booking.provider.owner], booking.public_id) in notified
     # Rejeu : 200, ni événement ni audit de plus.
     before = BookingEvent.objects.filter(booking=booking).count()
-    services.accept_amendment(amendment=amendment, actor=scene.client)
+    services.accept_amendment(
+        amendment=amendment, actor=scene.client, total_xof=amendment.total_xof, confirm=True
+    )
     assert BookingEvent.objects.filter(booking=booking).count() == before
 
 
 def test_un_second_avenant_part_du_montant_accepte():
     scene, booking = in_progress()
-    services.accept_amendment(amendment=propose(booking).amendment, actor=scene.client)
+    services.accept_amendment(
+        amendment=(first := propose(booking).amendment),
+        actor=scene.client,
+        total_xof=first.total_xof,
+    )
     second = propose(booking, total=30_000, n=1).amendment
     assert second.previous_amount_xof == 22_000
-    services.accept_amendment(amendment=second, actor=scene.client)
+    services.accept_amendment(
+        amendment=second, actor=scene.client, total_xof=second.total_xof, confirm=True
+    )
     booking.refresh_from_db()
     assert (booking.amount_xof, booking.original_amount_xof) == (30_000, 15_000)
 
@@ -257,16 +269,25 @@ def test_le_client_refuse_le_prix_ne_bouge_pas(notified):
     assert any(kind == events.AMENDMENT_DECIDED for kind, *_ in notified)
     services.decline_amendment(amendment=amendment, actor=scene.client)  # rejeu
     with expect("amendment_not_pending"):
-        services.accept_amendment(amendment=amendment, actor=scene.client)
+        services.accept_amendment(
+            amendment=amendment, actor=scene.client, total_xof=amendment.total_xof, confirm=True
+        )
 
 
 def test_decision_refusee_a_un_autre_compte_et_au_pro():
     scene, booking = in_progress()
     amendment = propose(booking).amendment
     with expect("not_found", 404):
-        services.accept_amendment(amendment=amendment, actor=CompleteUserFactory())
+        services.accept_amendment(
+            amendment=amendment, actor=CompleteUserFactory(), total_xof=amendment.total_xof
+        )
     with expect("not_found", 404):  # le pro n'est pas le client de la réservation
-        services.accept_amendment(amendment=amendment, actor=booking.provider.owner)
+        services.accept_amendment(
+            amendment=amendment,
+            actor=booking.provider.owner,
+            total_xof=amendment.total_xof,
+            confirm=True,
+        )
     booking.refresh_from_db()
     assert booking.amount_xof == 15_000 and scene.client
 
@@ -274,16 +295,18 @@ def test_decision_refusee_a_un_autre_compte_et_au_pro():
 def test_l_avenant_en_attente_devient_caduc_a_la_fin_de_mission():
     scene, booking = in_progress()
     amendment = propose(booking).amendment
+    code = services.visible_completion_code(Booking.objects.get(pk=booking.pk))
     services.complete_work(
-        booking=booking, actor=booking.provider.owner, no_code_reason="client_absent",
-        photos_pending=True,
-    )  # fmt: skip
+        booking=booking, actor=booking.provider.owner, code=code, photos_pending=True
+    )
     amendment.refresh_from_db()
     assert amendment.status == "lapsed" and amendment.decided_at
     booking.refresh_from_db()
     assert booking.amount_xof == 15_000
     with expect("amendment_not_pending"):
-        services.accept_amendment(amendment=amendment, actor=scene.client)
+        services.accept_amendment(
+            amendment=amendment, actor=scene.client, total_xof=amendment.total_xof, confirm=True
+        )
 
 
 def test_ecart_en_pourcentage_et_confirmation_au_dela_du_seuil(settings):
@@ -337,7 +360,9 @@ def test_accepter_et_retirer_en_meme_temps_un_seul_gagne():
 
     def accept(_):
         try:
-            services.accept_amendment(amendment=amendment, actor=scene.client)
+            services.accept_amendment(
+                amendment=amendment, actor=scene.client, total_xof=amendment.total_xof, confirm=True
+            )
             return "accepted"
         except DomainError as exc:
             return exc.code
@@ -373,7 +398,9 @@ def test_deux_acceptations_simultanees_ne_changent_le_montant_qu_une_fois():
 
     def accept(_):
         try:
-            services.accept_amendment(amendment=amendment, actor=scene.client)
+            services.accept_amendment(
+                amendment=amendment, actor=scene.client, total_xof=amendment.total_xof, confirm=True
+            )
             return "ok"
         except DomainError as exc:
             return exc.code
@@ -429,13 +456,13 @@ def test_api_le_parcours_complet(api_client):
     pro_detail = pro.get(reverse("pro-booking-detail", args=[booking.public_id])).json()
     assert pro_detail["amendments"][0]["total_xof"] == 22_000
     accept = reverse("booking-amendment-accept", args=[booking.public_id, data["public_id"]])
-    response = client.post(accept)
+    response = client.post(accept, {"total_xof": 22_000}, format="json")
     assert response.status_code == 200
     assert (response.json()["amount_xof"], response.json()["amendments"][0]["status"]) == (
         22_000,
         "accepted",
     )
-    assert client.post(accept).status_code == 200  # rejeu
+    assert client.post(accept, {"total_xof": 22_000}, format="json").status_code == 200  # rejeu
     decline = reverse("booking-amendment-decline", args=[booking.public_id, data["public_id"]])
     response = client.post(decline)
     assert (response.status_code, response.json()["code"]) == (409, "amendment_not_pending")
