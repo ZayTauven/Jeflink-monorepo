@@ -157,6 +157,15 @@ export function formatDay(iso: string | Date, locale = "fr"): string {
   }).format(date);
 }
 
+/** « 14 h 30 » si l'échéance tombe aujourd'hui à Dakar, sinon « 5 oct. · 8 h ». */
+export function formatDeadline(deadlineIso: string, now: string | Date, locale = "fr"): string {
+  const a = dakarParts(deadlineIso);
+  const b = dakarParts(now);
+  if (!a || !b) return "";
+  const sameDay = a.year === b.year && a.month === b.month && a.day === b.day;
+  return sameDay ? formatClock(deadlineIso) : formatDateTime(deadlineIso, locale);
+}
+
 /** Aujourd'hui à Dakar, au format `AAAA-MM-JJ` (champ date du formulaire). */
 export function dakarToday(now: string | Date = new Date()): string {
   const p = dakarParts(now);
