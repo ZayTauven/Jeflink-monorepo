@@ -35,11 +35,23 @@ from jeflink.requests.api.refs import (
     ZoneRefSerializer,
     masked,
 )
+from jeflink.reviews.api.serializers import (
+    ClientReviewSerializer,
+    ProReviewSerializer,
+    RatingSerializer,
+)
+from jeflink.reviews.selectors import (
+    can_review,
+    published_review_for_provider,
+    rating_for_providers,
+    review_deadline,
+)
 from jeflink.trust.models import Dispute
 
 # Étapes horodatées (UTC) et fin de la fenêtre de contestation : nulles tant qu'elles n'ont pas eu
 # lieu. Mêmes champs pour le client et le pro.
 TIMELINE_FIELDS = (
+    "review",
     "dispute",
     "original_amount_xof",
     "amendments",
@@ -124,6 +136,20 @@ def dispute_state(booking: Booking) -> dict | None:
         "created_at": dispute.created_at,
         "resolved_at": dispute.resolved_at,
     }
+
+
+class ReviewOwnerMixin:
+    @extend_schema_field(ClientReviewSerializer(allow_null=True))
+    def get_review(self, booking: Booking) -> dict | None:
+        review = getattr(booking, "review", None)
+        return ClientReviewSerializer(review).data if review is not None else None
+
+
+class ReviewProMixin:
+    @extend_schema_field(ProReviewSerializer(allow_null=True))
+    def get_review(self, booking: Booking) -> dict | None:
+        review = published_review_for_provider(booking)
+        return ProReviewSerializer(review).data if review is not None else None
 
 
 class AmendmentsMixin:
@@ -219,9 +245,19 @@ class ClientProviderSerializer(serializers.Serializer):
 
     business_name = serializers.CharField()
     verified = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
 
     def get_verified(self, provider) -> bool:
         return provider.status == "verified"
+
+    @extend_schema_field(RatingSerializer(allow_null=True))
+    def get_rating(self, provider) -> dict | None:
+        """Note du pro (avis publiés), ``null`` sous 3 avis. Les vues la calculent une fois pour
+        toute la page (``context["ratings"]``) ; sinon une requête."""
+        ratings = self.context.get("ratings")
+        if ratings is not None and provider.pk in ratings:
+            return ratings[provider.pk]
+        return rating_for_providers([provider.pk])[provider.pk]
 
 
 class ClientContactSerializer(serializers.Serializer):
@@ -231,7 +267,7 @@ class ClientContactSerializer(serializers.Serializer):
     phone = serializers.CharField()
 
 
-class ClientBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
+class ClientBookingSerializer(ReviewOwnerMixin, AmendmentsMixin, serializers.ModelSerializer):
     request = serializers.SlugRelatedField(slug_field="public_id", read_only=True)
     trade = TradeRefSerializer(source="request.trade")
     zone = ZoneRefSerializer(source="request.zone")
@@ -242,9 +278,12 @@ class ClientBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
     cancel_reason = serializers.SerializerMethodField()
     can_report_no_show = serializers.SerializerMethodField()
     can_dispute = serializers.SerializerMethodField()
+    can_review = serializers.SerializerMethodField()
+    review_deadline = serializers.SerializerMethodField()
     photos = serializers.SerializerMethodField()
     amendments = serializers.SerializerMethodField()
     dispute = serializers.SerializerMethodField()
+    review = serializers.SerializerMethodField()
     completion_code = serializers.SerializerMethodField()
     can_regenerate_completion_code = serializers.SerializerMethodField()
     can_send_completion_code_sms = serializers.SerializerMethodField()
@@ -269,6 +308,8 @@ class ClientBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
             "payment",
             "can_report_no_show",
             "can_dispute",
+            "can_review",
+            "review_deadline",
             "photos",
             "completion_code",
             "completion_code_locked",
@@ -314,6 +355,16 @@ class ClientBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
     @extend_schema_field(PhotoSerializer(many=True))
     def get_photos(self, booking: Booking) -> list[dict]:
         return PhotoSerializer(booking_photos(booking), many=True).data
+
+    @extend_schema_field(serializers.BooleanField())
+    def get_can_review(self, booking: Booking) -> bool:
+        """Vrai de ``completed`` à ``review_deadline`` (14 jours, ou 7 jours après une décision de
+        litige en faveur du client). L'avis est proposé, jamais exigé."""
+        return can_review(booking)
+
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
+    def get_review_deadline(self, booking: Booking) -> Any:
+        return review_deadline(booking)
 
     @extend_schema_field(serializers.BooleanField())
     def get_can_dispute(self, booking: Booking) -> bool:
@@ -367,7 +418,7 @@ class LocationOutSerializer(serializers.Serializer):
     lon = serializers.FloatField()
 
 
-class ProBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
+class ProBookingSerializer(ReviewProMixin, AmendmentsMixin, serializers.ModelSerializer):
     """La réservation vue du pro. Avant ``scheduled`` : ni nom, ni numéro, ni repère, ni position
     du client, et les numéros de la description sont masqués."""
 
@@ -384,6 +435,7 @@ class ProBookingSerializer(AmendmentsMixin, serializers.ModelSerializer):
     photos = serializers.SerializerMethodField()
     amendments = serializers.SerializerMethodField()
     dispute = serializers.SerializerMethodField()
+    review = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking

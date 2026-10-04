@@ -35,6 +35,7 @@ from jeflink.requests.selectors import (
     requests_for_provider,
 )
 from jeflink.requests.services import cancel_request, create_request
+from jeflink.reviews.selectors import rating_for_providers
 
 from .serializers import (
     ApiErrorSerializer,
@@ -58,9 +59,15 @@ def request_detail_data(request_obj: ServiceRequest) -> dict[str, Any]:
     """Le détail embarque ses devis et sa réservation active : un seul appel sur réseau faible."""
     booking = active_booking_for_request(request_obj)
     disclosed = booking is not None and booking.status in DISCLOSED_STATUSES
+    quotes = list(quotes_for_client_request(request_obj))
+    provider_ids = {quote.provider_id for quote in quotes}
+    if booking is not None:
+        provider_ids.add(booking.provider_id)
     context = {
-        "quotes": quotes_for_client_request(request_obj),
+        "quotes": quotes,
         "booking": booking,
+        # La note de chaque pro (avis publiés), en une requête : « Nouveau sur Jeflink » sous 3.
+        "ratings": rating_for_providers(provider_ids),
         "withdrawn_by_provider": withdrawn_by_provider(request_obj, active=booking),
         # Les numéros d'un message de devis ne sont rendus qu'une fois ce pro confirmé.
         "disclosed_quotes": {booking.quote_id} if disclosed else set(),

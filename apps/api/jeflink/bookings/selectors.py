@@ -49,7 +49,9 @@ def bookings_for_provider(*, provider: Provider, now: datetime | None = None) ->
     """Les réservations d'une fiche, suspendue comprise : elle lit encore, sans écrire."""
     return (
         Booking.objects.filter(_alive(now or timezone.now()), provider=provider)
-        .select_related("client", "request__trade", "request__zone", "quote", "no_show", "dispute")
+        .select_related(
+            "client", "request__trade", "request__zone", "quote", "no_show", "dispute", "review"
+        )
         .prefetch_related("quote__lines", _photos(), "amendments__lines")
     )
 

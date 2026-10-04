@@ -698,6 +698,58 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/bookings/{public_id}/review/:
+    put:
+      operationId: bookings_review_put
+      description: |-
+        Note le pro : une note suffit, les puces et le commentaire sont facultatifs. Modifiable
+        dans le délai (14 jours après « terminé »). Publié à la clôture de la réservation.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewWriteRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: review_window_closed, review_not_allowed
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: review_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
   /api/catalog/trades/:
     get:
       operationId: catalog_trades_list
@@ -2741,6 +2793,14 @@ components:
         can_dispute:
           type: boolean
           readOnly: true
+        can_review:
+          type: boolean
+          readOnly: true
+        review_deadline:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
         photos:
           type: array
           items:
@@ -2766,6 +2826,11 @@ components:
         no_show:
           allOf:
           - $ref: '#/components/schemas/NoShowState'
+          nullable: true
+          readOnly: true
+        review:
+          allOf:
+          - $ref: '#/components/schemas/ClientReview'
           nullable: true
           readOnly: true
         dispute:
@@ -2832,6 +2897,7 @@ components:
       - can_dispute
       - can_regenerate_completion_code
       - can_report_no_show
+      - can_review
       - can_send_completion_code_sms
       - cancel_reason
       - cancelled_by
@@ -2856,6 +2922,8 @@ components:
       - public_id
       - quote
       - request
+      - review
+      - review_deadline
       - slot_end
       - slot_start
       - started_at
@@ -2884,8 +2952,14 @@ components:
         verified:
           type: boolean
           readOnly: true
+        rating:
+          allOf:
+          - $ref: '#/components/schemas/Rating'
+          nullable: true
+          readOnly: true
       required:
       - business_name
+      - rating
       - verified
     ClientQuote:
       type: object
@@ -3100,6 +3174,47 @@ components:
       - trade
       - urgent
       - zone
+    ClientReview:
+      type: object
+      description: 'L''avis vu de son auteur : toujours le sien, publié ou non.'
+      properties:
+        rating:
+          type: integer
+          readOnly: true
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 16
+          readOnly: true
+        comment:
+          type: string
+          readOnly: true
+        published:
+          type: boolean
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        edited_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - comment
+      - created_at
+      - edited_at
+      - published
+      - published_at
+      - rating
+      - tags
     CompleteRequest:
       type: object
       description: |-
@@ -3137,16 +3252,6 @@ components:
           maxLength: 500
       required:
       - note
-    DecisionEnum:
-      enum:
-      - for_client
-      - for_pro
-      - no_fault
-      type: string
-      description: |-
-        * `for_client` - En faveur du client
-        * `for_pro` - En faveur du pro
-        * `no_fault` - Sans faute
     DeletionConfirmRequest:
       type: object
       properties:
@@ -3249,6 +3354,16 @@ components:
         * `android` - Android
         * `ios` - iOS
         * `web` - Web
+    DisputeDecisionEnum:
+      enum:
+      - for_client
+      - for_pro
+      - no_fault
+      type: string
+      description: |-
+        * `for_client` - En faveur du client
+        * `for_pro` - En faveur du pro
+        * `no_fault` - Sans faute
     DisputeOpenRequest:
       type: object
       description: Motif de la liste fermée et texte de 10 à 1 000 caractères (vérifiés
@@ -3264,35 +3379,7 @@ components:
       required:
       - description
       - reason
-    DisputeState:
-      type: object
-      description: |-
-        État du litige, sans le texte du client ni la note de l'Ops. ``decision`` est nulle tant
-        que le litige est ouvert.
-      properties:
-        status:
-          $ref: '#/components/schemas/DisputeStateStatusEnum'
-        reason:
-          $ref: '#/components/schemas/DisputeStateReasonEnum'
-        decision:
-          nullable: true
-          oneOf:
-          - $ref: '#/components/schemas/DecisionEnum'
-          - $ref: '#/components/schemas/NullEnum'
-        created_at:
-          type: string
-          format: date-time
-        resolved_at:
-          type: string
-          format: date-time
-          nullable: true
-      required:
-      - created_at
-      - decision
-      - reason
-      - resolved_at
-      - status
-    DisputeStateReasonEnum:
+    DisputeReasonEnum:
       enum:
       - not_done
       - poor_quality
@@ -3308,7 +3395,35 @@ components:
         * `price` - Prix
         * `behaviour` - Comportement
         * `other` - Autre
-    DisputeStateStatusEnum:
+    DisputeState:
+      type: object
+      description: |-
+        État du litige, sans le texte du client ni la note de l'Ops. ``decision`` est nulle tant
+        que le litige est ouvert.
+      properties:
+        status:
+          $ref: '#/components/schemas/DisputeStatusEnum'
+        reason:
+          $ref: '#/components/schemas/DisputeReasonEnum'
+        decision:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/DisputeDecisionEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        created_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - decision
+      - reason
+      - resolved_at
+      - status
+    DisputeStatusEnum:
       enum:
       - open
       - resolved
@@ -3452,7 +3567,7 @@ components:
         de contestation.
       properties:
         status:
-          $ref: '#/components/schemas/NoShowStateStatusEnum'
+          $ref: '#/components/schemas/NoShowStatusEnum'
         contest_deadline:
           type: string
           format: date-time
@@ -3463,7 +3578,7 @@ components:
       - can_contest
       - contest_deadline
       - status
-    NoShowStateStatusEnum:
+    NoShowStatusEnum:
       enum:
       - pending
       - contested
@@ -4053,14 +4168,6 @@ components:
             maxLength: 0
         preferred_language:
           $ref: '#/components/schemas/PreferredLanguageEnum'
-    PhaseEnum:
-      enum:
-      - before
-      - after
-      type: string
-      description: |-
-        * `before` - Avant
-        * `after` - Après
     PhoneChangeApproveRequest:
       type: object
       properties:
@@ -4200,7 +4307,7 @@ components:
           readOnly: true
         phase:
           allOf:
-          - $ref: '#/components/schemas/PhaseEnum'
+          - $ref: '#/components/schemas/PhotoPhaseEnum'
           readOnly: true
         status:
           allOf:
@@ -4244,6 +4351,14 @@ components:
       - thumb_url
       - url
       - width
+    PhotoPhaseEnum:
+      enum:
+      - before
+      - after
+      type: string
+      description: |-
+        * `before` - Avant
+        * `after` - Après
     PhotoStatusEnum:
       enum:
       - processing
@@ -4261,7 +4376,7 @@ components:
         l'heure de la prise de vue. Le type est vérifié par décodage, jamais par l'extension.
       properties:
         phase:
-          $ref: '#/components/schemas/PhaseEnum'
+          $ref: '#/components/schemas/PhotoPhaseEnum'
         file:
           type: string
           format: binary
@@ -4370,6 +4485,11 @@ components:
           items:
             $ref: '#/components/schemas/Photo'
           readOnly: true
+        review:
+          allOf:
+          - $ref: '#/components/schemas/ProReview'
+          nullable: true
+          readOnly: true
         dispute:
           allOf:
           - $ref: '#/components/schemas/DisputeState'
@@ -4451,6 +4571,7 @@ components:
       - photos
       - public_id
       - request
+      - review
       - service
       - slot_end
       - slot_start
@@ -4634,6 +4755,33 @@ components:
       - trade
       - urgent
       - zone
+    ProReview:
+      type: object
+      description: 'L''avis vu du pro, une fois publié : les numéros du commentaire
+        sont masqués.'
+      properties:
+        rating:
+          type: integer
+          readOnly: true
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 16
+          readOnly: true
+        comment:
+          type: string
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - comment
+      - published_at
+      - rating
+      - tags
     ProfileStatusEnum:
       enum:
       - guest
@@ -4754,6 +4902,20 @@ components:
         * `declined` - Refusé
         * `withdrawn` - Retiré
         * `expired` - Expiré
+    Rating:
+      type: object
+      description: |-
+        Note d'un pro : moyenne à 1 décimale et nombre d'avis publiés. Le champ vaut ``null`` sous
+        3 avis : le front affiche « Nouveau sur Jeflink ».
+      properties:
+        average:
+          type: number
+          format: double
+        count:
+          type: integer
+      required:
+      - average
+      - count
     ReasonRequest:
       type: object
       description: 'Annulation : un motif de la liste fermée, et une note si le motif
@@ -4856,6 +5018,24 @@ components:
           type: string
       required:
       - phone
+    ReviewWriteRequest:
+      type: object
+      description: Une note suffit. Valeurs vérifiées par le service (``422 review_invalid``).
+      properties:
+        rating:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 16
+        comment:
+          type: string
+          default: ''
+          maxLength: 2000
+      required:
+      - rating
     RoleEnum:
       enum:
       - owner

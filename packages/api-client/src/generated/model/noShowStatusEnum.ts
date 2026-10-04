@@ -12,10 +12,10 @@
  * * `confirmed` - Confirmé
  * * `dismissed` - Écarté
  */
-export type NoShowStateStatusEnum = typeof NoShowStateStatusEnum[keyof typeof NoShowStateStatusEnum];
+export type NoShowStatusEnum = typeof NoShowStatusEnum[keyof typeof NoShowStatusEnum];
 
 
-export const NoShowStateStatusEnum = {
+export const NoShowStatusEnum = {
   pending: 'pending',
   contested: 'contested',
   confirmed: 'confirmed',

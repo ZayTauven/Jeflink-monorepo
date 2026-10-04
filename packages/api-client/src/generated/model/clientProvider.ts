@@ -5,6 +5,7 @@
  * Contrat unique des fronts et apps Jeflink (client TS généré depuis ce schéma).
  * OpenAPI spec version: 0.1.0
  */
+import type { Rating } from './rating.ts';
 
 /**
  * Le pro, tel que le client le voit avant la confirmation : nom commercial et badge.
@@ -12,4 +13,5 @@
 export interface ClientProvider {
   business_name: string;
   readonly verified: boolean;
+  readonly rating: Rating | null;
 }

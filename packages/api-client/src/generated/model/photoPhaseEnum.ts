@@ -10,10 +10,10 @@
  * * `before` - Avant
  * * `after` - Après
  */
-export type PhaseEnum = typeof PhaseEnum[keyof typeof PhaseEnum];
+export type PhotoPhaseEnum = typeof PhotoPhaseEnum[keyof typeof PhotoPhaseEnum];
 
 
-export const PhaseEnum = {
+export const PhotoPhaseEnum = {
   before: 'before',
   after: 'after',
 } as const;

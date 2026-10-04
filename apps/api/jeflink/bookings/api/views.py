@@ -56,6 +56,7 @@ from jeflink.providers.selectors import provider_for_owner
 from jeflink.requests.api.serializers import ApiErrorSerializer, ReasonSerializer
 from jeflink.requests.quotes import QuoteLineInput
 from jeflink.requests.selectors import quote_for_client
+from jeflink.reviews.selectors import rating_for_providers
 
 from .serializers import (
     AmendmentProposeSerializer,
@@ -112,6 +113,19 @@ class AcceptQuoteView(APIView):
 class BookingListView(generics.ListAPIView):
     permission_classes = [IsClient]
     serializer_class = ClientBookingSerializer
+    ratings: dict | None = None
+
+    def paginate_queryset(self, queryset):
+        page = super().paginate_queryset(queryset)
+        # La note des pros de la page, en une requête.
+        self.ratings = rating_for_providers({b.provider_id for b in page or []})
+        return page
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.ratings is not None:
+            context["ratings"] = self.ratings
+        return context
 
     def get_queryset(self):
         return bookings_for_client(user=self.request.user)

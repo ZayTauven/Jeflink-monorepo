@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "jeflink.analytics",
     "jeflink.requests",
     "jeflink.bookings",
+    "jeflink.reviews",
 ]
 
 MIDDLEWARE = [
@@ -138,6 +139,15 @@ SPECTACULAR_SETTINGS = {
         "QuoteLineKindEnum": "jeflink.requests.models.QuoteLine.Kind",
         "BookingStatusEnum": "jeflink.bookings.models.Booking.Status",
         "ProviderStatusEnum": "jeflink.providers.models.Provider.Status",
+        "CompletionMethodEnum": "jeflink.bookings.models.Booking.CompletionMethod",
+        "AmendmentStatusEnum": "jeflink.bookings.models.Amendment.Status",
+        "AmendmentReasonEnum": "jeflink.bookings.models.Amendment.Reason",
+        "PhotoPhaseEnum": "jeflink.bookings.models.BookingPhoto.Phase",
+        "PhotoStatusEnum": "jeflink.bookings.models.BookingPhoto.Status",
+        "NoShowStatusEnum": "jeflink.bookings.models.NoShowReport.Status",
+        "DisputeReasonEnum": "jeflink.trust.models.Dispute.Reason",
+        "DisputeStatusEnum": "jeflink.trust.models.Dispute.Status",
+        "DisputeDecisionEnum": "jeflink.trust.models.Dispute.Decision",
     },
 }
 
@@ -438,6 +448,11 @@ BOOKING_PHOTO_RETENTION = timedelta(days=365)  # gardées 12 mois après la clô
 # Avenants (spec 004) : le pro propose un nouveau prix complet, le client décide.
 BOOKING_AMENDMENTS_MAX = 3  # propositions par réservation, toutes issues confondues
 AMENDMENT_CONFIRM_THRESHOLD_PCT = 50  # une hausse au-delà demande une confirmation de plus
+# Avis (spec 004) : un par réservation terminée, par son client ; publiés à la clôture.
+REVIEW_WINDOW = timedelta(days=14)  # après « terminé » (litige compris)
+REVIEW_WINDOW_AFTER_DISPUTE = timedelta(days=7)  # après une décision en faveur du client
+REVIEW_COMMENT_MAX = 500
+REVIEWS_MIN_DISPLAY = 3  # sous 3 avis publiés, aucune note affichée (« Nouveau sur Jeflink »)
 # Repère et position de la demande, vidés après la clôture de la réservation (spec 003, ouvert).
 BOOKING_CONTACT_RETENTION = timedelta(days=90)
 

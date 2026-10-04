@@ -10,10 +10,10 @@
  * * `open` - Ouvert
  * * `resolved` - Tranché
  */
-export type DisputeStateStatusEnum = typeof DisputeStateStatusEnum[keyof typeof DisputeStateStatusEnum];
+export type DisputeStatusEnum = typeof DisputeStatusEnum[keyof typeof DisputeStatusEnum];
 
 
-export const DisputeStateStatusEnum = {
+export const DisputeStatusEnum = {
   open: 'open',
   resolved: 'resolved',
 } as const;

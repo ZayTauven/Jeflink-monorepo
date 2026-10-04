@@ -30,7 +30,8 @@ import type {
   ClientBooking,
   DisputeOpenRequest,
   PaginatedClientBookingList,
-  ReasonRequest
+  ReasonRequest,
+  ReviewWriteRequest
 } from '../../model';
 
 import { jeflinkFetch } from '../../../http.ts';
@@ -1189,6 +1190,131 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getBookingsPhotosReportMutationOptions(options), queryClient);
+    }
+    export type bookingsReviewPutResponse200 = {
+  data: ClientBooking
+  status: 200
+}
+
+export type bookingsReviewPutResponse401 = {
+  data: void
+  status: 401
+}
+
+export type bookingsReviewPutResponse403 = {
+  data: void
+  status: 403
+}
+
+export type bookingsReviewPutResponse404 = {
+  data: void
+  status: 404
+}
+
+export type bookingsReviewPutResponse409 = {
+  data: ApiError
+  status: 409
+}
+
+export type bookingsReviewPutResponse422 = {
+  data: ApiError
+  status: 422
+}
+
+export type bookingsReviewPutResponseSuccess = (bookingsReviewPutResponse200) & {
+  headers: Headers;
+};
+export type bookingsReviewPutResponseError = (bookingsReviewPutResponse401 | bookingsReviewPutResponse403 | bookingsReviewPutResponse404 | bookingsReviewPutResponse409 | bookingsReviewPutResponse422) & {
+  headers: Headers;
+};
+
+export type bookingsReviewPutResponse = (bookingsReviewPutResponseSuccess | bookingsReviewPutResponseError)
+
+export const getBookingsReviewPutUrl = (publicId: string,) => {
+
+
+
+
+  return `/api/bookings/${encodeURIComponent(String(publicId))}/review/`
+}
+
+/**
+ * Note le pro : une note suffit, les puces et le commentaire sont facultatifs. Modifiable
+ * dans le délai (14 jours après « terminé »). Publié à la clôture de la réservation.
+ */
+export const bookingsReviewPut = async (publicId: string,
+    reviewWriteRequest: ReviewWriteRequest, options?: Parameters<typeof jeflinkFetch>[1]): Promise<bookingsReviewPutResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return jeflinkFetch<bookingsReviewPutResponse>(getBookingsReviewPutUrl(publicId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(reviewWriteRequest)
+  }
+);}
+
+
+
+
+
+export const getBookingsReviewPutMutationKey = () => ['bookingsReviewPut'] as const;
+
+export const getBookingsReviewPutMutationOptions = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsReviewPut>>, TError,BookingsReviewPutMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof bookingsReviewPut>>, TError,BookingsReviewPutMutationVariables, TContext> => {
+
+const mutationKey = getBookingsReviewPutMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof bookingsReviewPut>>, BookingsReviewPutMutationVariables> = (props) => {
+          const {publicId,data} = props ?? {};
+
+          return  bookingsReviewPut(publicId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BookingsReviewPutMutationResult = NonNullable<Awaited<ReturnType<typeof bookingsReviewPut>>>
+    export type BookingsReviewPutMutationBody = BodyType<ReviewWriteRequest>
+    export type BookingsReviewPutMutationError = ErrorType<void | ApiError>
+    export type BookingsReviewPutMutationVariables = {publicId: string;data: BodyType<ReviewWriteRequest>}
+
+    export const useBookingsReviewPut = <TError = ErrorType<void | ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof bookingsReviewPut>>, TError,BookingsReviewPutMutationVariables, TContext>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof bookingsReviewPut>>,
+        TError,
+        BookingsReviewPutMutationVariables,
+        TContext
+      > => {
+      return useMutation(getBookingsReviewPutMutationOptions(options), queryClient);
     }
     export type quotesAcceptResponse200 = {
   data: ClientBooking

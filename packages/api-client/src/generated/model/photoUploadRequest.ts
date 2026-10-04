@@ -5,14 +5,14 @@
  * Contrat unique des fronts et apps Jeflink (client TS généré depuis ce schéma).
  * OpenAPI spec version: 0.1.0
  */
-import type { PhaseEnum } from './phaseEnum.ts';
+import type { PhotoPhaseEnum } from './photoPhaseEnum.ts';
 
 /**
  * Envoi multipart : la phase, le fichier (JPEG, PNG ou WebP, 8 Mo au plus) et, facultative,
  * l'heure de la prise de vue. Le type est vérifié par décodage, jamais par l'extension.
  */
 export interface PhotoUploadRequest {
-  phase: PhaseEnum;
+  phase: PhotoPhaseEnum;
   file: Blob | File;
   /** @nullable */
   taken_at?: string | null;

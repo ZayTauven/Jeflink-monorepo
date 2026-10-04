@@ -23,6 +23,7 @@ urlpatterns = [
     path("api/", include("jeflink.providers.api.urls")),
     path("api/", include("jeflink.requests.api.urls")),
     path("api/", include("jeflink.bookings.api.urls")),
+    path("api/", include("jeflink.reviews.api.urls")),
 ]
 
 # Schéma et documentation seulement en local/test ; `make openapi` passe par la commande (S24).

@@ -5,9 +5,9 @@
  * Contrat unique des fronts et apps Jeflink (client TS généré depuis ce schéma).
  * OpenAPI spec version: 0.1.0
  */
-import type { DecisionEnum } from './decisionEnum.ts';
-import type { DisputeStateReasonEnum } from './disputeStateReasonEnum.ts';
-import type { DisputeStateStatusEnum } from './disputeStateStatusEnum.ts';
+import type { DisputeDecisionEnum } from './disputeDecisionEnum.ts';
+import type { DisputeReasonEnum } from './disputeReasonEnum.ts';
+import type { DisputeStatusEnum } from './disputeStatusEnum.ts';
 import type { NullEnum } from './nullEnum.ts';
 
 /**
@@ -15,9 +15,9 @@ import type { NullEnum } from './nullEnum.ts';
  * que le litige est ouvert.
  */
 export interface DisputeState {
-  status: DisputeStateStatusEnum;
-  reason: DisputeStateReasonEnum;
-  decision: DecisionEnum | NullEnum | null;
+  status: DisputeStatusEnum;
+  reason: DisputeReasonEnum;
+  decision: DisputeDecisionEnum | NullEnum | null;
   created_at: string;
   /** @nullable */
   resolved_at: string | null;

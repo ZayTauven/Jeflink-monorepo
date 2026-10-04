@@ -14,6 +14,7 @@ import type { LocationOut } from './locationOut.ts';
 import type { NoShowState } from './noShowState.ts';
 import type { Photo } from './photo.ts';
 import type { ProClientContact } from './proClientContact.ts';
+import type { ProReview } from './proReview.ts';
 import type { ServiceRef } from './serviceRef.ts';
 import type { TradeRef } from './tradeRef.ts';
 import type { ZoneRef } from './zoneRef.ts';
@@ -41,6 +42,7 @@ export interface ProBooking {
   readonly location: LocationOut | null;
   readonly no_show: NoShowState | null;
   readonly photos: readonly Photo[];
+  readonly review: ProReview | null;
   readonly dispute: DisputeState | null;
   readonly original_amount_xof: number;
   readonly amendments: readonly Amendment[];

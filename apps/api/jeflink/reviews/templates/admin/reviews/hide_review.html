@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>{{ reviews_selected|length }} avis à masquer. Un avis masqué sort de la moyenne et de la vue du pro ;
+il n'est jamais supprimé et peut être réaffiché.</p>
+<form method="post">
+  {% csrf_token %}
+  {% for item in reviews_selected %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ item.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="hide">
+  <input type="hidden" name="apply" value="1">
+  {{ form.as_p }}
+  <input type="submit" value="Masquer">
+</form>
+{% endblock %}

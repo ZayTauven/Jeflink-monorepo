@@ -5,13 +5,13 @@
  * Contrat unique des fronts et apps Jeflink (client TS généré depuis ce schéma).
  * OpenAPI spec version: 0.1.0
  */
-import type { NoShowStateStatusEnum } from './noShowStateStatusEnum.ts';
+import type { NoShowStatusEnum } from './noShowStatusEnum.ts';
 
 /**
  * État d'un « le pro n'est pas venu ». Le pro voit en plus l'échéance de contestation.
  */
 export interface NoShowState {
-  status: NoShowStateStatusEnum;
+  status: NoShowStatusEnum;
   /** @nullable */
   contest_deadline: string | null;
   can_contest: boolean;

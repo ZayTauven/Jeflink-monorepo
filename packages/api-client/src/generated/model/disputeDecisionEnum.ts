@@ -11,10 +11,10 @@
  * * `for_pro` - En faveur du pro
  * * `no_fault` - Sans faute
  */
-export type DecisionEnum = typeof DecisionEnum[keyof typeof DecisionEnum];
+export type DisputeDecisionEnum = typeof DisputeDecisionEnum[keyof typeof DisputeDecisionEnum];
 
 
-export const DecisionEnum = {
+export const DisputeDecisionEnum = {
   for_client: 'for_client',
   for_pro: 'for_pro',
   no_fault: 'no_fault',

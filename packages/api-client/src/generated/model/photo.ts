@@ -5,7 +5,7 @@
  * Contrat unique des fronts et apps Jeflink (client TS généré depuis ce schéma).
  * OpenAPI spec version: 0.1.0
  */
-import type { PhaseEnum } from './phaseEnum.ts';
+import type { PhotoPhaseEnum } from './photoPhaseEnum.ts';
 import type { PhotoStatusEnum } from './photoStatusEnum.ts';
 
 /**
@@ -17,7 +17,7 @@ import type { PhotoStatusEnum } from './photoStatusEnum.ts';
  */
 export interface Photo {
   readonly public_id: string;
-  readonly phase: PhaseEnum;
+  readonly phase: PhotoPhaseEnum;
   readonly status: PhotoStatusEnum;
   readonly width: number;
   readonly height: number;

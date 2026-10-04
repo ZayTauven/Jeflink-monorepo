@@ -14,10 +14,10 @@
  * * `behaviour` - Comportement
  * * `other` - Autre
  */
-export type DisputeStateReasonEnum = typeof DisputeStateReasonEnum[keyof typeof DisputeStateReasonEnum];
+export type DisputeReasonEnum = typeof DisputeReasonEnum[keyof typeof DisputeReasonEnum];
 
 
-export const DisputeStateReasonEnum = {
+export const DisputeReasonEnum = {
   not_done: 'not_done',
   poor_quality: 'poor_quality',
   damage: 'damage',
