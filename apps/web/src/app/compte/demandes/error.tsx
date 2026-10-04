@@ -4,14 +4,22 @@
 // trace ni détail technique affiché ; la demande, elle, n'est pas perdue.
 import { useTranslations } from "next-intl";
 
-import { PageShell } from "@/components/page-shell";
+import { PageFrame } from "@/components/page-frame";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 export default function RequestsError({ retry }: { error: Error; retry: () => void }) {
   const t = useTranslations("requests.failure");
+  const tShell = useTranslations("requests.shell");
+  const tBrand = useTranslations("brand");
+  const labels = {
+    home: tBrand("home"),
+    nav: tShell("nav"),
+    mine: tShell("mine"),
+    new: tShell("new"),
+  };
   return (
-    <PageShell>
+    <PageFrame labels={labels}>
       <Alert
         tone="error"
         action={
@@ -23,6 +31,6 @@ export default function RequestsError({ retry }: { error: Error; retry: () => vo
         <p className="font-medium">{t("title")}</p>
         <p>{t("lead")}</p>
       </Alert>
-    </PageShell>
+    </PageFrame>
   );
 }
