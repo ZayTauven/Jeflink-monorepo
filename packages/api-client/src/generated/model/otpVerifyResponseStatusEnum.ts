@@ -11,10 +11,10 @@
  * * `mfa_required` - mfa_required
  * * `mfa_enrollment_required` - mfa_enrollment_required
  */
-export type StatusEnum = typeof StatusEnum[keyof typeof StatusEnum];
+export type OtpVerifyResponseStatusEnum = typeof OtpVerifyResponseStatusEnum[keyof typeof OtpVerifyResponseStatusEnum];
 
 
-export const StatusEnum = {
+export const OtpVerifyResponseStatusEnum = {
   authenticated: 'authenticated',
   mfa_required: 'mfa_required',
   mfa_enrollment_required: 'mfa_enrollment_required',

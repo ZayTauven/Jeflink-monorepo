@@ -1,5 +1,6 @@
 """Réglages communs. Tout ce qui varie par environnement vient des variables d'environnement."""
 
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -32,6 +33,13 @@ INSTALLED_APPS = [
     "jeflink.trust",
     "jeflink.notifications",
     "jeflink.accounts",
+    "jeflink.catalog",
+    "jeflink.zones",
+    "jeflink.providers",
+    "jeflink.analytics",
+    "jeflink.requests",
+    "jeflink.bookings",
+    "jeflink.reviews",
 ]
 
 MIDDLEWARE = [
@@ -121,6 +129,26 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
+    # Noms stables des énumérations de la demande, des devis et des réservations (client TS).
+    "ENUM_NAME_OVERRIDES": {
+        "RequestStatusEnum": "jeflink.requests.models.ServiceRequest.Status",
+        "QuoteStatusEnum": "jeflink.requests.models.Quote.Status",
+        "QuoteKindEnum": "jeflink.requests.models.Quote.Kind",
+        "PreferredWhenEnum": "jeflink.requests.models.ServiceRequest.When",
+        "PreferredPeriodEnum": "jeflink.requests.models.ServiceRequest.Period",
+        "QuoteLineKindEnum": "jeflink.requests.models.QuoteLine.Kind",
+        "BookingStatusEnum": "jeflink.bookings.models.Booking.Status",
+        "ProviderStatusEnum": "jeflink.providers.models.Provider.Status",
+        "CompletionMethodEnum": "jeflink.bookings.models.Booking.CompletionMethod",
+        "AmendmentStatusEnum": "jeflink.bookings.models.Amendment.Status",
+        "AmendmentReasonEnum": "jeflink.bookings.models.Amendment.Reason",
+        "PhotoPhaseEnum": "jeflink.bookings.models.BookingPhoto.Phase",
+        "PhotoStatusEnum": "jeflink.bookings.models.BookingPhoto.Status",
+        "NoShowStatusEnum": "jeflink.bookings.models.NoShowReport.Status",
+        "DisputeReasonEnum": "jeflink.trust.models.Dispute.Reason",
+        "DisputeStatusEnum": "jeflink.trust.models.Dispute.Status",
+        "DisputeDecisionEnum": "jeflink.trust.models.Dispute.Decision",
+    },
 }
 
 REDIS_URL = env("REDIS_URL")
@@ -161,6 +189,8 @@ OTP_HMAC_KEY = env("OTP_HMAC_KEY", default="")
 MFA_ENCRYPTION_KEYS = env.list("MFA_ENCRYPTION_KEYS", default=[])
 BFF_SHARED_SECRETS = env.list("BFF_SHARED_SECRETS", default=[])
 PII_HMAC_KEY = env("PII_HMAC_KEY", default="")
+# Données sensibles au repos (code de fin de mission) : clés Fernet, la première chiffre.
+DATA_ENCRYPTION_KEYS = env.list("DATA_ENCRYPTION_KEYS", default=[])
 
 # --- Limites de débit (spec 001, « Limites de débit ») ---------------------------------
 # Redis dédié à l'auth en production (noeviction, tâche infra 2).
@@ -189,7 +219,11 @@ IP_RATE_LIMITS = {
     "mfa": {"limit": 30, "window": 600},
     "mfa_step_up": {"limit": 10, "window": 600},
     "me_deletion": {"limit": 10, "window": 600},
+    # Catalogue et zones, publics et cacheables (spec 002) : large pour le CGNAT.
+    "catalog_read": {"limit": 600, "window": 60},
 }
+# Listes de référence bornées sans pagination (spec 002) : quelques dizaines de lignes en V1.
+REFERENCE_LIST_MAX = 200
 # Quotas par Ops (décision de Zay, revue sécurité tâche 15, I2) : contre l'aspiration de la
 # base par un Ops malveillant ou un compte compromis. Alerte à 50 %, refus au-delà.
 OPS_QUOTAS = {
@@ -275,6 +309,58 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 24 * 3600,
         "options": {"expires": 6 * 3600},
     },
+    # Demande, devis, réservation (spec 003) : idempotentes. Expiration toutes les 5 minutes.
+    "requests-expire-due": {
+        "task": "jeflink.requests.tasks.expire_due",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    "bookings-cancel-unconfirmed": {
+        "task": "jeflink.bookings.tasks.cancel_unconfirmed",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    # Clôture à la fin de la fenêtre de contestation, et rappel 12 h avant (spec 004).
+    "bookings-close-due": {
+        "task": "jeflink.bookings.tasks.close_due",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    "bookings-remind-disputes": {
+        "task": "jeflink.bookings.tasks.remind_disputes",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    "bookings-confirm-no-shows": {
+        "task": "jeflink.bookings.tasks.confirm_no_shows",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    "bookings-no-show-check": {
+        "task": "jeflink.bookings.tasks.no_show_check",
+        "schedule": 300,
+        "options": {"expires": 240},
+    },
+    "bookings-flag-stuck": {
+        "task": "jeflink.bookings.tasks.flag_stuck",
+        "schedule": 3600,
+        "options": {"expires": 1800},
+    },
+    "bookings-purge-photos": {
+        "task": "jeflink.bookings.tasks.purge_photos",
+        "schedule": 24 * 3600,
+        "options": {"expires": 6 * 3600},
+    },
+    "bookings-purge-contact": {
+        "task": "jeflink.bookings.tasks.purge_contact",
+        "schedule": 24 * 3600,
+        "options": {"expires": 6 * 3600},
+    },
+    "requests-purge-locations": {
+        "task": "jeflink.requests.tasks.purge_locations",
+        "schedule": 24 * 3600,
+        "options": {"expires": 6 * 3600},
+    },
 }
 
 # Rétention des données d'authentification, en jours (spec 001 ; à valider par le consultant
@@ -286,9 +372,107 @@ AUTH_RETENTION = {
     "sessions": 90,  # DeviceSession révoquées ou expirées (et leurs refresh retirés)
 }
 
+# --- Demande, devis, réservation (spec 003) : toutes les durées et limites sont des réglages ---
+REQUEST_MAX_OPEN_PER_CLIENT = 3
+REQUEST_CREATE_DAILY_LIMIT = 10  # créations par utilisateur et par 24 h (fermé si Redis tombe)
+REQUEST_TTL = timedelta(hours=72)  # après le passage en « open » ; « needs_zone » ne compte pas
+REQUEST_TTL_URGENT = timedelta(hours=24)
+REQUEST_PREFERRED_MAX_DAYS = 30  # « un jour » souhaité : dans les 30 jours
+# Repère et position d'une demande close sans réservation, vidés après (purge quotidienne).
+REQUEST_LOCATION_RETENTION_DAYS = 30
+QUOTE_MAX_ACTIVE = 3  # devis actifs par demande (pas de course au moins-disant)
+PRO_MAX_SUBMITTED_QUOTES = 10  # devis « submitted » en même temps, par pro
+QUOTE_TTL = timedelta(hours=48)
+QUOTE_TTL_URGENT = timedelta(hours=12)
+QUOTE_MAX_XOF = 5_000_000
+QUOTE_VISIT_MAX_XOF = 15_000  # « Visite seulement » : plafond du déplacement
+QUOTE_MAX_LINES = 8
+BOOKING_CONFIRM_TTL = timedelta(hours=4)  # délai du pro pour confirmer
+BOOKING_CONFIRM_TTL_URGENT = timedelta(hours=1)
+# Le délai ne court pas de 21 h à 7 h, heure de Dakar : (début, fin) en heures.
+BOOKING_CONFIRM_QUIET_HOURS = (21, 7)
+BOOKING_LATE_CANCEL_WINDOW = timedelta(hours=2)  # annulation « tardive » avant le créneau
+# Déroulé de l'intervention, clôture et litige (spec 004).
+BOOKING_DISPUTE_WINDOW = timedelta(hours=48)  # contestation possible après « terminé »
+BOOKING_DISPUTE_REMINDER = timedelta(hours=12)  # rappel au client avant la fin de la fenêtre
+# « En route » et « Arrivé » : pas avant le début du créneau moins cette marge.
+BOOKING_EARLY_START_MARGIN = timedelta(hours=2)
+# Une réservation restée sur place ou en cours plus longtemps après la fin du créneau est signalée
+# à l'Ops (elle ne peut être annulée que par lui).
+BOOKING_STUCK_AFTER = timedelta(hours=12)
+# Code de fin de mission (spec 004) : donné par le client au pro, qui le saisit en terminant.
+COMPLETION_CODE_DIGITS = 4
+COMPLETION_CODE_MAX_ATTEMPTS = 5  # après 5 codes faux, le code est verrouillé
+COMPLETION_CODE_MAX_REGENERATIONS = 3  # le client peut en obtenir un nouveau 3 fois
+COMPLETION_CODE_SMS_AUTO = 1  # envoyé tout seul quand le pro part
+COMPLETION_CODE_SMS_ON_DEMAND = 2  # puis à la demande du client
+BOOKING_DISPUTE_WINDOW_NO_CODE = timedelta(hours=72)  # fin sans code : plus de temps pour contester
+# No-show : le client le déclare après la fin du créneau plus cette marge ; le pro a 24 h pour
+# contester, après quoi le poids de fiabilité s'applique (sauf décision de l'Ops).
+BOOKING_NO_SHOW_GRACE = timedelta(minutes=60)
+BOOKING_NO_SHOW_CONTEST_WINDOW = timedelta(hours=24)
+# Heure de l'appareil acceptée pour une action rejouée plus tard (file hors ligne, étape 6).
+OCCURRED_AT_MAX_SKEW = timedelta(hours=24)
+# Plages de la journée (heure de Dakar) : (début, fin) en heures, pour les créneaux des devis.
+SLOT_PERIODS = {"morning": (8, 12), "afternoon": (12, 17), "evening": (17, 21)}
+
+# --- Stockage d'objets (ADR 0011) : bucket privé, URL signées courtes --------------------------
+# S3_ENDPOINT : hôte vu par l'API (réseau Docker) ; S3_PUBLIC_ENDPOINT : hôte vu par le
+# navigateur, celui pour lequel les URL sont signées. Identifiants factices en local.
+S3_ENDPOINT = env("S3_ENDPOINT", default="")
+S3_PUBLIC_ENDPOINT = env("S3_PUBLIC_ENDPOINT", default="")
+S3_BUCKET = env("S3_BUCKET", default="")
+S3_ACCESS_KEY = env("S3_ACCESS_KEY", default="")
+S3_SECRET_KEY = env("S3_SECRET_KEY", default="")
+S3_REGION = env("S3_REGION", default="us-east-1")
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "photos": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": S3_BUCKET,
+            "endpoint_url": S3_ENDPOINT or None,
+            "access_key": S3_ACCESS_KEY or None,
+            "secret_key": S3_SECRET_KEY or None,
+            "region_name": S3_REGION,
+            "signature_version": "s3v4",
+            "addressing_style": "path",
+            "default_acl": None,
+            "querystring_auth": True,
+            "file_overwrite": True,
+        },
+    },
+}
+# Taille décodée maximale d'une image envoyée (anti « bombe de décompression »).
+IMAGE_MAX_PIXELS = 40_000_000
+BOOKING_PHOTO_URL_TTL = 600  # secondes : validité d'une URL signée de photo
+# Photos d'une intervention (spec 004) : avant et après, du logement seulement.
+BOOKING_PHOTO_MAX_BYTES = 8 * 1024 * 1024  # envoi : 8 Mo au plus
+BOOKING_PHOTO_MAX_EDGE = 1600  # côté long de l'image stockée, en pixels
+BOOKING_PHOTO_QUALITY = 75  # WebP
+BOOKING_PHOTO_THUMB_EDGE = 400  # miniature (environ 20 Ko)
+BOOKING_PHOTO_THUMB_QUALITY = 70
+BOOKING_PHOTO_MAX_PER_PHASE = 5  # de 1 à 5 photos par phase
+BOOKING_PHOTO_RETENTION = timedelta(days=365)  # gardées 12 mois après la clôture
+# Avenants (spec 004) : le pro propose un nouveau prix complet, le client décide.
+BOOKING_AMENDMENTS_MAX = 3  # propositions par réservation, toutes issues confondues
+AMENDMENT_CONFIRM_THRESHOLD_PCT = 50  # une hausse au-delà demande une confirmation de plus
+# Avis (spec 004) : un par réservation terminée, par son client ; publiés à la clôture.
+REVIEW_WINDOW = timedelta(days=14)  # après « terminé » (litige compris)
+REVIEW_WINDOW_AFTER_DISPUTE = timedelta(days=7)  # après une décision en faveur du client
+REVIEW_COMMENT_MAX = 500
+REVIEWS_MIN_DISPLAY = 3  # sous 3 avis publiés, aucune note affichée (« Nouveau sur Jeflink »)
+# Repère et position de la demande, vidés après la clôture de la réservation (spec 003, ouvert).
+BOOKING_CONTACT_RETENTION = timedelta(days=90)
+
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")
 AI_MODEL_FAST = env("AI_MODEL_FAST", default="")
+
+# Notifications métier (spec 003) : « log » (local, test) ou « none » ; push et SMS à l'étape 6.
+# Vide : « log » en local/test, « none » ailleurs.
+NOTIFICATIONS_ADAPTER = env("NOTIFICATIONS_ADAPTER", default="")
 
 # SMS (ADR 0008) : adaptateur obligatoire hors local/test ; « fake » y est interdit (S23).
 SMS_GATEWAY = env("SMS_GATEWAY", default="")

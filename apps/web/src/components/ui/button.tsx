@@ -6,7 +6,7 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from "react";
 type Variant = "primary" | "secondary" | "quiet";
 
 const base =
-  "inline-flex min-h-12 items-center justify-center gap-2 rounded-pill px-6 text-base font-medium " +
+  "inline-flex min-h-12 items-center justify-center gap-2 rounded-pill px-6 py-3 text-base font-medium " +
   "transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 " +
   "focus-visible:outline-accent-strong disabled:cursor-not-allowed disabled:opacity-60";
 

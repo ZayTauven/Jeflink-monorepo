@@ -9,6 +9,7 @@ x-api-env: &api-env
   JWT_SIGNING_KEYS: dev1:local-dev-jwt-key-one-not-secret-1111111,dev2:local-dev-jwt-key-two-not-secret-2222222
   OTP_HMAC_KEY: local-dev-otp-hmac-key-not-secret-3333333
   MFA_ENCRYPTION_KEYS: bG9jYWwtZGV2LW1mYS1rZXktbm90LXNlY3JldC00NDQ=
+  DATA_ENCRYPTION_KEYS: bG9jYWwtZGV2LWRhdGEta2V5LW5vdC1zZWNyZXQtNzc=
   BFF_SHARED_SECRETS: local-dev-bff-secret-not-secret-5555555555
   PII_HMAC_KEY: local-dev-pii-hmac-key-not-secret-6666666
   REDIS_CACHE_URL: redis://redis:6379/1
@@ -19,8 +20,13 @@ x-api-env: &api-env
   # Dev : le BFF de `pnpm dev --filter web` tourne sur l'hôte et appelle http://localhost:8000.
   # Le secret BFF et le réseau de confiance restent exigés ; en production, seul « api ».
   INTERNAL_API_HOSTS: api,localhost
+  # Stockage d'objets de dev (SeaweedFS, sans authentification) : identifiants factices et publics.
+  # S3_ENDPOINT est l'hôte vu par l'API ; S3_PUBLIC_ENDPOINT, celui du navigateur (URL signées).
   S3_ENDPOINT: http://s3:8333
+  S3_PUBLIC_ENDPOINT: http://localhost:8333
   S3_BUCKET: jeflink-dev
+  S3_ACCESS_KEY: local-dev-s3-access-not-secret
+  S3_SECRET_KEY: local-dev-s3-secret-not-secret
   TIME_ZONE: Africa/Dakar
 
 x-api-env-file: &api-env-file

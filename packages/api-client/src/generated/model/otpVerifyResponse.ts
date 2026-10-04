@@ -9,8 +9,8 @@ import type { AuthUser } from './authUser.ts';
 import type { Invitation } from './invitation.ts';
 import type { NullEnum } from './nullEnum.ts';
 import type { OtherSession } from './otherSession.ts';
+import type { OtpVerifyResponseStatusEnum } from './otpVerifyResponseStatusEnum.ts';
 import type { RestrictionKindEnum } from './restrictionKindEnum.ts';
-import type { StatusEnum } from './statusEnum.ts';
 import type { TokenPair } from './tokenPair.ts';
 
 /**
@@ -18,7 +18,7 @@ import type { TokenPair } from './tokenPair.ts';
  * sur la console) : seulement ``mfa_token``, à présenter aux endpoints ``mfa/totp/*``.
  */
 export interface OtpVerifyResponse {
-  status: StatusEnum;
+  status: OtpVerifyResponseStatusEnum;
   mfa_token?: string;
   user?: AuthUser;
   is_new_user?: boolean;

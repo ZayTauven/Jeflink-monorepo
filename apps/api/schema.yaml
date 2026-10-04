@@ -338,6 +338,477 @@ paths:
       responses:
         '204':
           description: No response body
+  /api/bookings/:
+    get:
+      operationId: bookings_list
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedClientBookingList'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/:
+    get:
+      operationId: bookings_retrieve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/amendments/{amendment_id}/accept/:
+    post:
+      operationId: bookings_amendments_accept
+      description: 'Accepte l''avenant : le montant de la réservation devient son
+        total. Rejoué : 200.'
+      parameters:
+      - in: path
+        name: amendment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmendmentAcceptRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AmendmentAcceptRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AmendmentAcceptRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: amendment_not_pending, transition_not_allowed, amendment_total_mismatch
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: amendment_confirmation_required
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/amendments/{amendment_id}/decline/:
+    post:
+      operationId: bookings_amendments_decline
+      description: 'Refuse l''avenant : le travail continue au prix courant. Rejoué
+        : 200.'
+      parameters:
+      - in: path
+        name: amendment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: amendment_not_pending, transition_not_allowed
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/cancel/:
+    post:
+      operationId: bookings_cancel
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          description: transition_not_allowed
+        '422':
+          description: reason_invalid, note_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/completion-code/regenerate/:
+    post:
+      operationId: bookings_completion_code_regenerate
+      description: 'Nouveau code de fin (3 fois au plus) : essais remis à zéro, code
+        débloqué.'
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: completion_code_regen_limit, transition_not_allowed
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/completion-code/sms/:
+    post:
+      operationId: bookings_completion_code_sms
+      description: Renvoie le code de fin par SMS (2 fois sur demande, en plus de
+        l'envoi automatique).
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: transition_not_allowed
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: sms_limit_reached
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/dispute/:
+    post:
+      operationId: bookings_dispute
+      description: |-
+        « Signaler un problème » après la fin du travail, avant ``dispute_deadline``.
+        Jeflink examine et décide : pas de remboursement pour l'instant. Rejoué : 200.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisputeOpenRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DisputeOpenRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DisputeOpenRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: dispute_window_closed, transition_not_allowed
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: reason_invalid, description_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/no-show/:
+    post:
+      operationId: bookings_no_show
+      description: '« Le pro n''est pas venu » : après la fin du créneau plus une
+        marge. Rejoué : 200.'
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: no_show_too_early, transition_not_allowed
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/photos/{photo_id}/report/:
+    post:
+      operationId: bookings_photos_report
+      description: |-
+        « Signaler cette photo » : masquée pour le client et le pro, gardée pour l'Ops.
+        Rejoué : 200.
+      parameters:
+      - in: path
+        name: photo_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/bookings/{public_id}/review/:
+    put:
+      operationId: bookings_review_put
+      description: |-
+        Note le pro : une note suffit, les puces et le commentaire sont facultatifs. Modifiable
+        dans le délai (14 jours après « terminé »). Publié à la clôture de la réservation.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewWriteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReviewWriteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReviewWriteRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: review_window_closed, review_not_allowed
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: review_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/catalog/trades/:
+    get:
+      operationId: catalog_trades_list
+      description: Métiers actifs, par ``position`` (spec 002).
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TradeSummary'
+          description: ''
+  /api/catalog/trades/{slug}/:
+    get:
+      operationId: catalog_trade_retrieve
+      description: Un métier, ses services actifs et les zones où il est ouvert (pages
+        SEO).
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeDetail'
+          description: ''
+        '404':
+          description: trade_not_found
   /api/health/:
     get:
       operationId: health
@@ -1043,6 +1514,975 @@ paths:
           description: phone_change_closed
         '429':
           description: otp_rate_limited, phone_change_codes_exhausted
+  /api/pro/amendments/{amendment_id}/withdraw/:
+    post:
+      operationId: pro_amendments_withdraw
+      description: 'Retire son avenant tant que le client n''a pas décidé. Rejoué
+        : 200.'
+      parameters:
+      - in: path
+        name: amendment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: amendment_not_pending, transition_not_allowed
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/:
+    get:
+      operationId: pro_bookings_list
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - pro
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProBookingList'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/:
+    get:
+      operationId: pro_bookings_retrieve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/amendments/:
+    post:
+      operationId: pro_bookings_amendments_create
+      description: |-
+        Propose le **nouveau prix complet** (pas la différence) pendant l'intervention. Le
+        client reçoit un SMS avec l'ancien et le nouveau prix et décide seul.
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie (22 à 64 caractères : lettres, chiffres,
+          « - », « _ »). Même clé et même corps : même réponse (200 au rejeu). Même
+          clé et autre corps : 409 idempotency_key_reused.'
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmendmentProposeRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AmendmentProposeRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AmendmentProposeRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Amendment'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Amendment'
+          description: 'Rejeu : même avenant'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: invalid, idempotency_key_required
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: amendment_pending, amendment_limit, idempotency_key_reused,
+            transition_not_allowed
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: amendment_total_invalid, amendment_reason_invalid, note_invalid,
+            text_too_long
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/arrive/:
+    post:
+      operationId: pro_bookings_arrive
+      description: |-
+        Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+
+        Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: transition_not_allowed, too_early (avant le créneau moins la
+            marge)
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: occurred_at_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/cancel/:
+    post:
+      operationId: pro_bookings_cancel
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          description: transition_not_allowed
+        '422':
+          description: reason_invalid, note_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/complete/:
+    post:
+      operationId: pro_bookings_complete
+      description: |-
+        Terminer avec le code du client (``code``), ou sans code (``no_code_reason`` :
+        client_absent, client_no_phone, code_locked, client_refuses). Rejoué : 200.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CompleteRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CompleteRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: completion_code_locked, transition_not_allowed
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: completion_code_invalid, completion_proof_required, no_code_reason_invalid,
+            after_photos_required, occurred_at_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/confirm/:
+    post:
+      operationId: pro_bookings_confirm
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          description: transition_not_allowed (déjà confirmée, échue)
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/contest-no-show/:
+    post:
+      operationId: pro_bookings_contest_no_show
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContestNoShowRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContestNoShowRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContestNoShowRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: no_show_contest_closed, transition_not_allowed
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: note_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/en-route/:
+    post:
+      operationId: pro_bookings_en_route
+      description: |-
+        Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+
+        Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OccurredAtRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: transition_not_allowed, too_early (avant le créneau moins la
+            marge)
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: occurred_at_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/photos/:
+    post:
+      operationId: pro_bookings_photos_upload
+      description: |-
+        Photo « avant » ou « après » (1 à 5 par phase). Réencodée sans EXIF ni GPS ;
+        « Photographiez seulement le travail, pas les personnes. »
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie (22 à 64 caractères : lettres, chiffres,
+          « - », « _ »). Même clé et même corps : même réponse (200 au rejeu). Même
+          clé et autre corps : 409 idempotency_key_reused.'
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PhotoUploadRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Photo'
+          description: 'Rejeu : même photo'
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: invalid, idempotency_key_required
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: photo_limit_reached, idempotency_key_reused, transition_not_allowed
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: photo_too_large
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: photo_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/bookings/{public_id}/start/:
+    post:
+      operationId: pro_bookings_start
+      description: |-
+        Une étape du déroulé (en route, sur place, début) : service, puis la réservation à jour.
+
+        Rejouée une fois l'étape faite : ``200`` avec l'état courant, sans nouvel événement.
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StartRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StartRequest'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProBooking'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: transition_not_allowed (le début n'est jamais déduit d'une
+            étape manquée)
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: before_photos_required, occurred_at_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/me/:
+    get:
+      operationId: pro_me_retrieve
+      tags:
+      - pro
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProProvider'
+          description: ''
+        '403':
+          description: role_required
+        '404':
+          description: not_found (aucune fiche)
+  /api/pro/quotes/:
+    get:
+      operationId: pro_quotes_list
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - pro
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProQuoteList'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/quotes/{public_id}/withdraw/:
+    post:
+      operationId: pro_quotes_withdraw
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProQuote'
+          description: ''
+        '409':
+          description: quote_not_available (seul un devis envoyé se retire)
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/requests/:
+    get:
+      operationId: pro_requests_list
+      description: 'Demandes pour moi : mon métier, mes zones, une place libre. Jamais
+        le client.'
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - pro
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedProRequestList'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/requests/{public_id}/:
+    get:
+      operationId: pro_requests_retrieve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProRequest'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/pro/requests/{public_id}/quotes/:
+    post:
+      operationId: pro_requests_quotes_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie (22 à 64 caractères : lettres, chiffres,
+          « - », « _ »). Même clé et même corps : même réponse (200 au rejeu). Même
+          clé et autre corps : 409 idempotency_key_reused.'
+        required: true
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - pro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuoteCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuoteCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProQuote'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProQuote'
+          description: 'Rejeu : même devis'
+        '409':
+          description: quotes_full, quote_already_sent, pro_quote_limit, request_closed,
+            idempotency_key_reused
+        '422':
+          description: quote_total_invalid, quote_details_required, slot_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/quotes/{public_id}/accept/:
+    post:
+      operationId: quotes_accept
+      description: 'Le client accepte un devis : la réservation naît à ``accepted``.'
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - bookings
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientBooking'
+          description: 'Rejeu : même réservation'
+        '409':
+          description: quote_not_available (pris, expiré, retiré, créneau passé)
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/requests/:
+    get:
+      operationId: requests_list
+      description: Mes demandes (liste) et création d'une demande.
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - requests
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedClientRequestSummaryList'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+    post:
+      operationId: requests_create
+      description: Mes demandes (liste) et création d'une demande.
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie (22 à 64 caractères : lettres, chiffres,
+          « - », « _ »). Même clé et même corps : même réponse (200 au rejeu). Même
+          clé et autre corps : 409 idempotency_key_reused.'
+        required: true
+      tags:
+      - requests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RequestCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RequestCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientRequest'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientRequest'
+          description: 'Rejeu : même demande'
+        '400':
+          description: invalid, idempotency_key_required
+        '409':
+          description: request_limit_reached, idempotency_key_reused
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: zone_ambiguous (+ candidates), trade_not_in_zone, out_of_area,
+            trade_not_found, trade_inactive, zone_not_found, zone_inactive, zone_required,
+            service_not_in_trade, landmark_or_location_required, description_required,
+            slot_invalid
+        '429':
+          description: request_rate_limited (+ retry_after)
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/requests/{public_id}/:
+    get:
+      operationId: requests_retrieve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - requests
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientRequest'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/requests/{public_id}/cancel/:
+    post:
+      operationId: requests_cancel
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - requests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientRequest'
+          description: ''
+        '409':
+          description: 'request_closed (réservée : annuler la réservation)'
+        '422':
+          description: reason_invalid, note_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required, provider_not_verified
+        '404':
+          description: not_found
+  /api/zones/:
+    get:
+      operationId: zones_list
+      description: Zones actives de villes actives, par popularité puis nom (spec
+        002).
+      parameters:
+      - in: query
+        name: city
+        schema:
+          type: string
+        description: Slug de la ville (ex. dakar).
+      tags:
+      - zones
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Zone'
+          description: ''
+  /api/zones/{slug}/trades/:
+    get:
+      operationId: zone_trades_list
+      description: Métiers ouverts dans une zone, sous la même forme que la liste
+        des métiers.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - zones
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TradeSummary'
+          description: ''
+        '404':
+          description: zone_not_found
 components:
   schemas:
     AcceptInvitationRequest:
@@ -1063,6 +2503,179 @@ components:
       required:
       - access
       - access_expires_at
+    Amendment:
+      type: object
+      description: |-
+        Un avenant : le nouveau prix complet, l'ancien, l'écart en % et les lignes.
+
+        ``requires_confirmation`` : une hausse au-delà de ``AMENDMENT_CONFIRM_THRESHOLD_PCT`` demande
+        une confirmation de plus au client ; une baisse, aucune. « Vous ne payez pas plus tant que
+        vous n'avez pas accepté » : seul le client, depuis sa session, fait changer le montant.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/AmendmentStatusEnum'
+          readOnly: true
+        reason:
+          allOf:
+          - $ref: '#/components/schemas/AmendmentReasonEnum'
+          readOnly: true
+        note:
+          type: string
+          readOnly: true
+        previous_amount_xof:
+          type: integer
+          readOnly: true
+        total_xof:
+          type: integer
+          readOnly: true
+        change_pct:
+          type: integer
+          readOnly: true
+        requires_confirmation:
+          type: boolean
+          readOnly: true
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/AmendmentLine'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        decided_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - change_pct
+      - created_at
+      - decided_at
+      - lines
+      - note
+      - previous_amount_xof
+      - public_id
+      - reason
+      - requires_confirmation
+      - status
+      - total_xof
+    AmendmentAcceptRequest:
+      type: object
+      description: |-
+        Le client accepte **ce qu'il a vu** : ``total_xof`` est le nouveau prix affiché
+        (``409 amendment_total_mismatch`` s'il a changé). ``confirm`` doit être vrai quand
+        ``requires_confirmation`` l'est (``422 amendment_confirmation_required``).
+      properties:
+        total_xof:
+          type: integer
+        confirm:
+          type: boolean
+          default: false
+      required:
+      - total_xof
+    AmendmentLine:
+      type: object
+      properties:
+        kind:
+          type: string
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        amount_xof:
+          type: integer
+          readOnly: true
+      required:
+      - amount_xof
+      - kind
+      - label
+    AmendmentLineInputRequest:
+      type: object
+      properties:
+        kind:
+          type: string
+          minLength: 1
+          maxLength: 6
+        amount_xof:
+          type: integer
+        label:
+          type: string
+          default: ''
+          maxLength: 60
+      required:
+      - amount_xof
+      - kind
+    AmendmentProposeRequest:
+      type: object
+      description: |-
+        Le nouveau prix **complet** (somme des lignes), avec un motif. Bornes et somme vérifiées par
+        le service (422 amendment_total_invalid).
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 15
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+        total_xof:
+          type: integer
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/AmendmentLineInputRequest'
+      required:
+      - lines
+      - reason
+      - total_xof
+    AmendmentReasonEnum:
+      enum:
+      - visit_diagnosis
+      - extra_work
+      - parts
+      - other
+      type: string
+      description: |-
+        * `visit_diagnosis` - Diagnostic sur place
+        * `extra_work` - Travail en plus
+        * `parts` - Pièces
+        * `other` - Autre
+    AmendmentStatusEnum:
+      enum:
+      - proposed
+      - accepted
+      - declined
+      - withdrawn
+      - lapsed
+      type: string
+      description: |-
+        * `proposed` - Proposé
+        * `accepted` - Accepté
+        * `declined` - Refusé
+        * `withdrawn` - Retiré
+        * `lapsed` - Caduc
+    ApiError:
+      type: object
+      description: |-
+        Erreur métier : ``code`` stable ; ``candidates`` pour ``zone_ambiguous`` ; ``retry_after``
+        pour un 429.
+      properties:
+        code:
+          type: string
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorCandidate'
+        retry_after:
+          type: integer
+      required:
+      - code
     AppD8cEnum:
       enum:
       - client
@@ -1114,6 +2727,565 @@ components:
       - profile_status
       - public_id
       - roles
+    BookingStatusEnum:
+      enum:
+      - accepted
+      - scheduled
+      - en_route
+      - on_site
+      - in_progress
+      - completed
+      - disputed
+      - closed
+      - cancelled
+      type: string
+      description: |-
+        * `accepted` - Acceptée, en attente du pro
+        * `scheduled` - Planifiée
+        * `en_route` - Pro en route
+        * `on_site` - Pro sur place
+        * `in_progress` - Intervention en cours
+        * `completed` - Terminée
+        * `disputed` - Contestée
+        * `closed` - Clôturée
+        * `cancelled` - Annulée
+    CancelledByEnum:
+      enum:
+      - client
+      - pro
+      - system
+      - ops
+      type: string
+      description: |-
+        * `client` - Client
+        * `pro` - Pro
+        * `system` - Système
+        * `ops` - Équipe Jeflink
+    ChannelEnum:
+      enum:
+      - web
+      - app
+      - whatsapp
+      type: string
+      description: |-
+        * `web` - Web
+        * `app` - App
+        * `whatsapp` - WhatsApp
+    ClientBooking:
+      type: object
+      description: Les avenants de la réservation, du plus ancien au plus récent (client
+        et pro).
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        request:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/BookingStatusEnum'
+          readOnly: true
+        trade:
+          $ref: '#/components/schemas/TradeRef'
+        zone:
+          $ref: '#/components/schemas/ZoneRef'
+        provider:
+          $ref: '#/components/schemas/ClientProvider'
+        quote:
+          type: string
+          format: uuid
+          readOnly: true
+        amount_xof:
+          type: integer
+          readOnly: true
+        slot_start:
+          type: string
+          format: date-time
+          readOnly: true
+        slot_end:
+          type: string
+          format: date-time
+          readOnly: true
+        confirm_deadline:
+          type: string
+          format: date-time
+          readOnly: true
+        contact:
+          allOf:
+          - $ref: '#/components/schemas/ClientContact'
+          nullable: true
+          readOnly: true
+        payment:
+          type: string
+          readOnly: true
+        can_report_no_show:
+          type: boolean
+          readOnly: true
+        can_dispute:
+          type: boolean
+          readOnly: true
+        can_review:
+          type: boolean
+          readOnly: true
+        review_deadline:
+          type: string
+          format: date-time
+          nullable: true
+          readOnly: true
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+          readOnly: true
+        completion_code:
+          type: string
+          nullable: true
+          readOnly: true
+        completion_code_locked:
+          type: boolean
+          readOnly: true
+        can_regenerate_completion_code:
+          type: boolean
+          readOnly: true
+        can_send_completion_code_sms:
+          type: boolean
+          readOnly: true
+        no_show_available_at:
+          type: string
+          format: date-time
+          readOnly: true
+        no_show:
+          allOf:
+          - $ref: '#/components/schemas/NoShowState'
+          nullable: true
+          readOnly: true
+        review:
+          allOf:
+          - $ref: '#/components/schemas/ClientReview'
+          nullable: true
+          readOnly: true
+        dispute:
+          allOf:
+          - $ref: '#/components/schemas/DisputeState'
+          nullable: true
+          readOnly: true
+        original_amount_xof:
+          type: integer
+          readOnly: true
+        amendments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Amendment'
+          readOnly: true
+        completion_method:
+          allOf:
+          - $ref: '#/components/schemas/CompletionMethodEnum'
+          readOnly: true
+        en_route_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        on_site_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        closed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        dispute_deadline:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        cancelled_by:
+          allOf:
+          - $ref: '#/components/schemas/CancelledByEnum'
+          readOnly: true
+        cancel_reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amendments
+      - amount_xof
+      - can_dispute
+      - can_regenerate_completion_code
+      - can_report_no_show
+      - can_review
+      - can_send_completion_code_sms
+      - cancel_reason
+      - cancelled_by
+      - closed_at
+      - completed_at
+      - completion_code
+      - completion_code_locked
+      - completion_method
+      - confirm_deadline
+      - contact
+      - created_at
+      - dispute
+      - dispute_deadline
+      - en_route_at
+      - no_show
+      - no_show_available_at
+      - on_site_at
+      - original_amount_xof
+      - payment
+      - photos
+      - provider
+      - public_id
+      - quote
+      - request
+      - review
+      - review_deadline
+      - slot_end
+      - slot_start
+      - started_at
+      - status
+      - trade
+      - zone
+    ClientContact:
+      type: object
+      description: 'Le pro une fois la réservation planifiée : nom commercial et numéro
+        (E.164).'
+      properties:
+        business_name:
+          type: string
+        phone:
+          type: string
+      required:
+      - business_name
+      - phone
+    ClientProvider:
+      type: object
+      description: 'Le pro, tel que le client le voit avant la confirmation : nom
+        commercial et badge.'
+      properties:
+        business_name:
+          type: string
+        verified:
+          type: boolean
+          readOnly: true
+        rating:
+          allOf:
+          - $ref: '#/components/schemas/Rating'
+          nullable: true
+          readOnly: true
+      required:
+      - business_name
+      - rating
+      - verified
+    ClientQuote:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/QuoteStatusEnum'
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/QuoteKindEnum'
+          readOnly: true
+        total_xof:
+          type: integer
+          readOnly: true
+        visit_deductible:
+          type: boolean
+          readOnly: true
+        message:
+          type: string
+          description: Numéros masqués tant que le pro n'a pas confirmé ce devis.
+          readOnly: true
+        slot_start:
+          type: string
+          format: date-time
+          readOnly: true
+        slot_end:
+          type: string
+          format: date-time
+          readOnly: true
+        valid_until:
+          type: string
+          format: date-time
+          readOnly: true
+        provider:
+          $ref: '#/components/schemas/ClientProvider'
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientQuoteLine'
+      required:
+      - kind
+      - lines
+      - message
+      - provider
+      - public_id
+      - slot_end
+      - slot_start
+      - status
+      - total_xof
+      - valid_until
+      - visit_deductible
+    ClientQuoteLine:
+      type: object
+      description: 'Ligne de devis vue du client : le libellé suit la règle du message
+        (numéros masqués).'
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/QuoteLineKindEnum'
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        amount_xof:
+          type: integer
+          readOnly: true
+      required:
+      - amount_xof
+      - kind
+      - label
+    ClientRequest:
+      type: object
+      description: 'Détail : la demande, ses devis (3 au plus) et sa réservation active,
+        en un seul appel.'
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          type: string
+          readOnly: true
+        trade:
+          $ref: '#/components/schemas/TradeRef'
+        service:
+          allOf:
+          - $ref: '#/components/schemas/ServiceRef'
+          nullable: true
+        zone:
+          allOf:
+          - $ref: '#/components/schemas/ZoneRef'
+          nullable: true
+        urgent:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        landmark:
+          type: string
+          readOnly: true
+        has_location:
+          type: boolean
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        preferred_when:
+          allOf:
+          - $ref: '#/components/schemas/PreferredWhenEnum'
+          readOnly: true
+        preferred_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        preferred_period:
+          allOf:
+          - $ref: '#/components/schemas/PreferredPeriodEnum'
+          readOnly: true
+        channel:
+          allOf:
+          - $ref: '#/components/schemas/ChannelEnum'
+          readOnly: true
+        first_quoted_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        quotes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientQuote'
+          readOnly: true
+        booking:
+          allOf:
+          - $ref: '#/components/schemas/ClientBooking'
+          nullable: true
+          readOnly: true
+        withdrawn_by_provider:
+          type: boolean
+          readOnly: true
+      required:
+      - booking
+      - channel
+      - created_at
+      - description
+      - expires_at
+      - first_quoted_at
+      - has_location
+      - landmark
+      - preferred_date
+      - preferred_period
+      - preferred_when
+      - public_id
+      - quotes
+      - service
+      - status
+      - trade
+      - urgent
+      - withdrawn_by_provider
+      - zone
+    ClientRequestSummary:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          type: string
+          readOnly: true
+        trade:
+          $ref: '#/components/schemas/TradeRef'
+        service:
+          allOf:
+          - $ref: '#/components/schemas/ServiceRef'
+          nullable: true
+        zone:
+          allOf:
+          - $ref: '#/components/schemas/ZoneRef'
+          nullable: true
+        urgent:
+          type: boolean
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - created_at
+      - expires_at
+      - public_id
+      - service
+      - status
+      - trade
+      - urgent
+      - zone
+    ClientReview:
+      type: object
+      description: 'L''avis vu de son auteur : toujours le sien, publié ou non.'
+      properties:
+        rating:
+          type: integer
+          readOnly: true
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 16
+          readOnly: true
+        comment:
+          type: string
+          readOnly: true
+        published:
+          type: boolean
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        edited_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - comment
+      - created_at
+      - edited_at
+      - published
+      - published_at
+      - rating
+      - tags
+    CompleteRequest:
+      type: object
+      description: |-
+        Fin de mission : le code du client, ou un motif sans code. Le code vient dans le corps de
+        la requête, jamais dans l'URL ; valeur vérifiée par le service.
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+          nullable: true
+        code:
+          type: string
+          default: ''
+          maxLength: 12
+        no_code_reason:
+          type: string
+          default: ''
+          maxLength: 24
+        photos_pending:
+          type: boolean
+          default: false
+    CompletionMethodEnum:
+      enum:
+      - code
+      - no_code
+      type: string
+      description: |-
+        * `code` - Code de fin
+        * `no_code` - Sans code
+    ContestNoShowRequest:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 500
+      required:
+      - note
     DeletionConfirmRequest:
       type: object
       properties:
@@ -1216,6 +3388,93 @@ components:
         * `android` - Android
         * `ios` - iOS
         * `web` - Web
+    DisputeDecisionEnum:
+      enum:
+      - for_client
+      - for_pro
+      - no_fault
+      type: string
+      description: |-
+        * `for_client` - En faveur du client
+        * `for_pro` - En faveur du pro
+        * `no_fault` - Sans faute
+    DisputeOpenRequest:
+      type: object
+      description: Motif de la liste fermée et texte de 10 à 1 000 caractères (vérifiés
+        par le service).
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 12
+        description:
+          type: string
+          maxLength: 2000
+      required:
+      - description
+      - reason
+    DisputeReasonEnum:
+      enum:
+      - not_done
+      - poor_quality
+      - damage
+      - price
+      - behaviour
+      - other
+      type: string
+      description: |-
+        * `not_done` - Travail non fait
+        * `poor_quality` - Mauvaise qualité
+        * `damage` - Dégât
+        * `price` - Prix
+        * `behaviour` - Comportement
+        * `other` - Autre
+    DisputeState:
+      type: object
+      description: |-
+        État du litige, sans le texte du client ni la note de l'Ops. ``decision`` est nulle tant
+        que le litige est ouvert.
+      properties:
+        status:
+          $ref: '#/components/schemas/DisputeStatusEnum'
+        reason:
+          $ref: '#/components/schemas/DisputeReasonEnum'
+        decision:
+          nullable: true
+          oneOf:
+          - $ref: '#/components/schemas/DisputeDecisionEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        created_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - created_at
+      - decision
+      - reason
+      - resolved_at
+      - status
+    DisputeStatusEnum:
+      enum:
+      - open
+      - resolved
+      type: string
+      description: |-
+        * `open` - Ouvert
+        * `resolved` - Tranché
+    ErrorCandidate:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+      - name
+      - slug
     Health:
       type: object
       properties:
@@ -1248,6 +3507,49 @@ components:
       - invited_by_name
       - public_id
       - role
+    LocalizedText:
+      type: object
+      description: 'Libellé traduisible : le front choisit la langue et retombe sur
+        ``fr`` (ADR 0009).'
+      properties:
+        fr:
+          type: string
+        wo:
+          type: string
+          nullable: true
+      required:
+      - fr
+      - wo
+    LocationOut:
+      type: object
+      properties:
+        lat:
+          type: number
+          format: double
+        lon:
+          type: number
+          format: double
+      required:
+      - lat
+      - lon
+    LocationRequest:
+      type: object
+      description: 'Position du client : envoyée seulement dans le ``POST``, jamais
+        journalisée.'
+      properties:
+        lat:
+          type: number
+          format: double
+          maximum: 90
+          minimum: -90
+        lon:
+          type: number
+          format: double
+          maximum: 180
+          minimum: -180
+      required:
+      - lat
+      - lon
     Me:
       type: object
       properties:
@@ -1293,9 +3595,47 @@ components:
       - restricted
       - restriction_kind
       - roles
+    NoShowState:
+      type: object
+      description: État d'un « le pro n'est pas venu ». Le pro voit en plus l'échéance
+        de contestation.
+      properties:
+        status:
+          $ref: '#/components/schemas/NoShowStatusEnum'
+        contest_deadline:
+          type: string
+          format: date-time
+          nullable: true
+        can_contest:
+          type: boolean
+      required:
+      - can_contest
+      - contest_deadline
+      - status
+    NoShowStatusEnum:
+      enum:
+      - pending
+      - contested
+      - confirmed
+      - dismissed
+      type: string
+      description: |-
+        * `pending` - En attente de contestation
+        * `contested` - Contesté par le pro
+        * `confirmed` - Confirmé
+        * `dismissed` - Écarté
     NullEnum:
       enum:
       - null
+    OccurredAtRequest:
+      type: object
+      description: 'Heure de l''appareil (file hors ligne, étape 6) : métadonnée,
+        le serveur fait foi.'
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+          nullable: true
     OpsAccountDetail:
       type: object
       properties:
@@ -1659,7 +3999,7 @@ components:
         sur la console) : seulement ``mfa_token``, à présenter aux endpoints ``mfa/totp/*``.
       properties:
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/OtpVerifyResponseStatusEnum'
         mfa_token:
           type: string
         user:
@@ -1685,6 +4025,54 @@ components:
           $ref: '#/components/schemas/TokenPair'
       required:
       - status
+    OtpVerifyResponseStatusEnum:
+      enum:
+      - authenticated
+      - mfa_required
+      - mfa_enrollment_required
+      type: string
+      description: |-
+        * `authenticated` - authenticated
+        * `mfa_required` - mfa_required
+        * `mfa_enrollment_required` - mfa_enrollment_required
+    PaginatedClientBookingList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientBooking'
+    PaginatedClientRequestSummaryList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientRequestSummary'
     PaginatedDeviceSessionList:
       type: object
       required:
@@ -1742,6 +4130,63 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PhoneChangeRequest'
+    PaginatedProBookingList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProBooking'
+    PaginatedProQuoteList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProQuote'
+    PaginatedProRequestList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProRequest'
     PatchedMeUpdateRequest:
       type: object
       properties:
@@ -1881,6 +4326,101 @@ components:
       - requested_by
       - requires_approval
       - status
+    Photo:
+      type: object
+      description: |-
+        Une photo : miniature par défaut (environ 20 Ko), image pleine à la demande (1 600 px).
+
+        Les deux URL sont signées et valables ``expires_at`` (10 min) : une page restée ouverte les
+        renouvelle en rechargeant la réservation. Tant que la miniature se prépare, ``thumb_url``
+        est l'image pleine.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        phase:
+          allOf:
+          - $ref: '#/components/schemas/PhotoPhaseEnum'
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/PhotoStatusEnum'
+          readOnly: true
+        width:
+          type: integer
+          readOnly: true
+        height:
+          type: integer
+          readOnly: true
+        taken_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        thumb_url:
+          type: string
+          format: uri
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - expires_at
+      - height
+      - phase
+      - public_id
+      - status
+      - taken_at
+      - thumb_url
+      - url
+      - width
+    PhotoPhaseEnum:
+      enum:
+      - before
+      - after
+      type: string
+      description: |-
+        * `before` - Avant
+        * `after` - Après
+    PhotoStatusEnum:
+      enum:
+      - processing
+      - ready
+      - failed
+      type: string
+      description: |-
+        * `processing` - Miniature en cours
+        * `ready` - Prête
+        * `failed` - En échec
+    PhotoUploadRequest:
+      type: object
+      description: |-
+        Envoi multipart : la phase, le fichier (JPEG, PNG ou WebP, 8 Mo au plus) et, facultative,
+        l'heure de la prise de vue. Le type est vérifié par décodage, jamais par l'extension.
+      properties:
+        phase:
+          $ref: '#/components/schemas/PhotoPhaseEnum'
+        file:
+          type: string
+          format: binary
+        taken_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - file
+      - phase
     PreferredLanguageEnum:
       enum:
       - fr
@@ -1889,6 +4429,393 @@ components:
       description: |-
         * `fr` - Français
         * `wo` - Wolof
+    PreferredPeriodEnum:
+      enum:
+      - morning
+      - afternoon
+      - evening
+      - any
+      type: string
+      description: |-
+        * `morning` - Matin
+        * `afternoon` - Après-midi
+        * `evening` - Soir
+        * `any` - Peu importe
+    PreferredWhenEnum:
+      enum:
+      - asap
+      - date
+      type: string
+      description: |-
+        * `asap` - Dès que possible
+        * `date` - Un jour précis
+    ProBooking:
+      type: object
+      description: |-
+        La réservation vue du pro. Avant ``scheduled`` : ni nom, ni numéro, ni repère, ni position
+        du client, et les numéros de la description sont masqués.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        request:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/BookingStatusEnum'
+          readOnly: true
+        trade:
+          $ref: '#/components/schemas/TradeRef'
+        service:
+          allOf:
+          - $ref: '#/components/schemas/ServiceRef'
+          nullable: true
+        zone:
+          $ref: '#/components/schemas/ZoneRef'
+        urgent:
+          type: boolean
+        description:
+          type: string
+          readOnly: true
+        amount_xof:
+          type: integer
+          readOnly: true
+        slot_start:
+          type: string
+          format: date-time
+          readOnly: true
+        slot_end:
+          type: string
+          format: date-time
+          readOnly: true
+        confirm_deadline:
+          type: string
+          format: date-time
+          readOnly: true
+        client:
+          allOf:
+          - $ref: '#/components/schemas/ProClientContact'
+          nullable: true
+          readOnly: true
+        landmark:
+          type: string
+          nullable: true
+          readOnly: true
+        location:
+          allOf:
+          - $ref: '#/components/schemas/LocationOut'
+          nullable: true
+          readOnly: true
+        no_show:
+          allOf:
+          - $ref: '#/components/schemas/NoShowState'
+          nullable: true
+          readOnly: true
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/Photo'
+          readOnly: true
+        review:
+          allOf:
+          - $ref: '#/components/schemas/ProReview'
+          nullable: true
+          readOnly: true
+        dispute:
+          allOf:
+          - $ref: '#/components/schemas/DisputeState'
+          nullable: true
+          readOnly: true
+        original_amount_xof:
+          type: integer
+          readOnly: true
+        amendments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Amendment'
+          readOnly: true
+        completion_method:
+          allOf:
+          - $ref: '#/components/schemas/CompletionMethodEnum'
+          readOnly: true
+        en_route_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        on_site_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        closed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        dispute_deadline:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        cancelled_by:
+          allOf:
+          - $ref: '#/components/schemas/CancelledByEnum'
+          readOnly: true
+        cancel_reason:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - amendments
+      - amount_xof
+      - cancel_reason
+      - cancelled_by
+      - client
+      - closed_at
+      - completed_at
+      - completion_method
+      - confirm_deadline
+      - created_at
+      - description
+      - dispute
+      - dispute_deadline
+      - en_route_at
+      - landmark
+      - location
+      - no_show
+      - on_site_at
+      - original_amount_xof
+      - photos
+      - public_id
+      - request
+      - review
+      - service
+      - slot_end
+      - slot_start
+      - started_at
+      - status
+      - trade
+      - urgent
+      - zone
+    ProClientContact:
+      type: object
+      description: 'Le client, une fois la réservation planifiée : nom et numéro (E.164).'
+      properties:
+        display_name:
+          type: string
+        phone:
+          type: string
+      required:
+      - display_name
+      - phone
+    ProProvider:
+      type: object
+      description: 'Ma fiche : statut de vérification, métiers et zones.'
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        business_name:
+          type: string
+          readOnly: true
+          title: Nom commercial
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ProviderStatusEnum'
+          readOnly: true
+        trades:
+          type: array
+          items:
+            $ref: '#/components/schemas/TradeRef'
+        zones:
+          type: array
+          items:
+            $ref: '#/components/schemas/ZoneRef'
+      required:
+      - business_name
+      - public_id
+      - status
+      - trades
+      - zones
+    ProQuote:
+      type: object
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        request:
+          type: string
+          format: uuid
+          readOnly: true
+        trade:
+          $ref: '#/components/schemas/TradeRef'
+        zone:
+          $ref: '#/components/schemas/ZoneRef'
+        status:
+          allOf:
+          - $ref: '#/components/schemas/QuoteStatusEnum'
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/QuoteKindEnum'
+          readOnly: true
+        total_xof:
+          type: integer
+          readOnly: true
+        visit_deductible:
+          type: boolean
+          readOnly: true
+        message:
+          type: string
+          readOnly: true
+        slot_start:
+          type: string
+          format: date-time
+          readOnly: true
+        slot_end:
+          type: string
+          format: date-time
+          readOnly: true
+        valid_until:
+          type: string
+          format: date-time
+          readOnly: true
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteLine'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - kind
+      - lines
+      - message
+      - public_id
+      - request
+      - slot_end
+      - slot_start
+      - status
+      - total_xof
+      - trade
+      - valid_until
+      - visit_deductible
+      - zone
+    ProRequest:
+      type: object
+      description: |-
+        Une demande « pour moi » : métier, zone, description (numéros masqués), places restantes.
+
+        Aucun champ du client : ni nom, ni numéro, ni repère, ni position.
+      properties:
+        public_id:
+          type: string
+          format: uuid
+          readOnly: true
+        trade:
+          $ref: '#/components/schemas/TradeRef'
+        service:
+          allOf:
+          - $ref: '#/components/schemas/ServiceRef'
+          nullable: true
+        zone:
+          $ref: '#/components/schemas/ZoneRef'
+        description:
+          type: string
+          readOnly: true
+        urgent:
+          type: boolean
+          readOnly: true
+        preferred_when:
+          allOf:
+          - $ref: '#/components/schemas/PreferredWhenEnum'
+          readOnly: true
+        preferred_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        preferred_period:
+          allOf:
+          - $ref: '#/components/schemas/PreferredPeriodEnum'
+          readOnly: true
+        expires_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        places_left:
+          type: integer
+          readOnly: true
+        places_total:
+          type: integer
+          readOnly: true
+      required:
+      - created_at
+      - description
+      - expires_at
+      - places_left
+      - places_total
+      - preferred_date
+      - preferred_period
+      - preferred_when
+      - public_id
+      - service
+      - trade
+      - urgent
+      - zone
+    ProReview:
+      type: object
+      description: 'L''avis vu du pro, une fois publié : les numéros du commentaire
+        sont masqués.'
+      properties:
+        rating:
+          type: integer
+          readOnly: true
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 16
+          readOnly: true
+        comment:
+          type: string
+          readOnly: true
+        published_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+      required:
+      - comment
+      - published_at
+      - rating
+      - tags
     ProfileStatusEnum:
       enum:
       - guest
@@ -1897,6 +4824,147 @@ components:
       description: |-
         * `guest` - Invité
         * `complete` - Complet
+    ProviderStatusEnum:
+      enum:
+      - pending
+      - verified
+      - suspended
+      type: string
+      description: |-
+        * `pending` - En attente
+        * `verified` - Vérifié
+        * `suspended` - Suspendu
+    QuoteCreateRequest:
+      type: object
+      properties:
+        kind:
+          type: string
+          minLength: 1
+          maxLength: 5
+        total_xof:
+          type: integer
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteLineInputRequest'
+        slot_day:
+          type: string
+          format: date
+        slot_period:
+          type: string
+          minLength: 1
+          maxLength: 12
+        message:
+          type: string
+          default: ''
+          maxLength: 500
+        visit_deductible:
+          type: boolean
+          default: false
+      required:
+      - kind
+      - lines
+      - slot_day
+      - slot_period
+      - total_xof
+    QuoteKindEnum:
+      enum:
+      - fixed
+      - visit
+      type: string
+      description: |-
+        * `fixed` - Prix ferme
+        * `visit` - Visite seulement
+    QuoteLine:
+      type: object
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/QuoteLineKindEnum'
+          readOnly: true
+        label:
+          type: string
+          readOnly: true
+        amount_xof:
+          type: integer
+          readOnly: true
+      required:
+      - amount_xof
+      - kind
+      - label
+    QuoteLineInputRequest:
+      type: object
+      properties:
+        kind:
+          type: string
+          minLength: 1
+          maxLength: 6
+        amount_xof:
+          type: integer
+        label:
+          type: string
+          default: ''
+          maxLength: 60
+      required:
+      - amount_xof
+      - kind
+    QuoteLineKindEnum:
+      enum:
+      - labor
+      - parts
+      - travel
+      - other
+      type: string
+      description: |-
+        * `labor` - Main-d'œuvre
+        * `parts` - Pièces
+        * `travel` - Déplacement
+        * `other` - Autre
+    QuoteStatusEnum:
+      enum:
+      - submitted
+      - held
+      - accepted
+      - declined
+      - withdrawn
+      - expired
+      type: string
+      description: |-
+        * `submitted` - Envoyé
+        * `held` - En attente du choix du client
+        * `accepted` - Accepté
+        * `declined` - Refusé
+        * `withdrawn` - Retiré
+        * `expired` - Expiré
+    Rating:
+      type: object
+      description: |-
+        Note d'un pro : moyenne à 1 décimale et nombre d'avis publiés. Le champ vaut ``null`` sous
+        3 avis : le front affiche « Nouveau sur Jeflink ».
+      properties:
+        average:
+          type: number
+          format: double
+        count:
+          type: integer
+      required:
+      - average
+      - count
+    ReasonRequest:
+      type: object
+      description: 'Annulation : un motif de la liste fermée, et une note si le motif
+        est ``other``.'
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 24
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - reason
     RefreshRequestRequest:
       type: object
       properties:
@@ -1919,6 +4987,56 @@ components:
       - dial_code
       - label
       - region
+    RequestCreateRequest:
+      type: object
+      properties:
+        trade_slug:
+          type: string
+          minLength: 1
+          maxLength: 50
+        service_slug:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 50
+        zone_slug:
+          type: string
+          nullable: true
+          minLength: 1
+          maxLength: 50
+        zone_text:
+          type: string
+          nullable: true
+          maxLength: 80
+        location:
+          allOf:
+          - $ref: '#/components/schemas/LocationRequest'
+          nullable: true
+        landmark:
+          type: string
+          default: ''
+          maxLength: 300
+        description:
+          type: string
+          default: ''
+          maxLength: 1000
+        urgent:
+          type: boolean
+          nullable: true
+        preferred_when:
+          allOf:
+          - $ref: '#/components/schemas/PreferredWhenEnum'
+          default: asap
+        preferred_date:
+          type: string
+          format: date
+          nullable: true
+        preferred_period:
+          allOf:
+          - $ref: '#/components/schemas/PreferredPeriodEnum'
+          default: any
+      required:
+      - trade_slug
     RestrictionKindEnum:
       enum:
       - client
@@ -1934,6 +5052,24 @@ components:
           type: string
       required:
       - phone
+    ReviewWriteRequest:
+      type: object
+      description: Une note suffit. Valeurs vérifiées par le service (``422 review_invalid``).
+      properties:
+        rating:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 16
+        comment:
+          type: string
+          default: ''
+          maxLength: 2000
+      required:
+      - rating
     RoleEnum:
       enum:
       - owner
@@ -1942,16 +5078,54 @@ components:
       description: |-
         * `owner` - owner
         * `technician` - technician
-    StatusEnum:
-      enum:
-      - authenticated
-      - mfa_required
-      - mfa_enrollment_required
-      type: string
-      description: |-
-        * `authenticated` - authenticated
-        * `mfa_required` - mfa_required
-        * `mfa_enrollment_required` - mfa_enrollment_required
+    Service:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+        aliases:
+          type: array
+          items:
+            type: string
+        price_from_xof:
+          type: integer
+          nullable: true
+        urgent:
+          type: boolean
+      required:
+      - aliases
+      - name
+      - price_from_xof
+      - slug
+      - urgent
+    ServiceRef:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+      required:
+      - name
+      - slug
+    StartRequest:
+      type: object
+      description: 'Heure de l''appareil (file hors ligne, étape 6) : métadonnée,
+        le serveur fait foi.'
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+          nullable: true
+        photos_pending:
+          type: boolean
+          default: false
     StepUpRequestRequest:
       type: object
       properties:
@@ -2013,3 +5187,119 @@ components:
       required:
       - otpauth_uri
       - secret
+    TradeDetail:
+      type: object
+      description: 'Métier dans une liste : de quoi chercher et afficher, hors ligne
+        compris.'
+      properties:
+        slug:
+          type: string
+        name:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+        short_description:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+          nullable: true
+        icon_key:
+          type: string
+          nullable: true
+          readOnly: true
+        aliases:
+          type: array
+          items:
+            type: string
+        seo_title:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/Service'
+        zones:
+          type: array
+          items:
+            type: string
+      required:
+      - aliases
+      - icon_key
+      - name
+      - seo_title
+      - services
+      - short_description
+      - slug
+      - zones
+    TradeRef:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+      required:
+      - name
+      - slug
+    TradeSummary:
+      type: object
+      description: 'Métier dans une liste : de quoi chercher et afficher, hors ligne
+        compris.'
+      properties:
+        slug:
+          type: string
+        name:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+        short_description:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+          nullable: true
+        icon_key:
+          type: string
+          nullable: true
+          readOnly: true
+        aliases:
+          type: array
+          items:
+            type: string
+      required:
+      - aliases
+      - icon_key
+      - name
+      - short_description
+      - slug
+    Zone:
+      type: object
+      description: 'Zone dans une liste : ni position, ni géométrie (spec 002).'
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+      required:
+      - aliases
+      - city
+      - name
+      - slug
+    ZoneRef:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+      - name
+      - slug
