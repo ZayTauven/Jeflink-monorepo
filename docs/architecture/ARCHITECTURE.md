@@ -42,7 +42,7 @@ flowchart LR
 | `bookings`      | Réservation née à `accepted`, machine à états déclarée en entier, `BookingEvent`, confirmation du pro ; avenants, code de fin, preuves à l'étape 4 (spec 003, ADR 0010)                    |
 | `payments`      | Interface `PaymentGateway`, intentions, webhooks                                                                                                                                            |
 | `wallet`        | Grand livre en partie double, soldes dérivés, versements                                                                                                                                    |
-| `reviews`       | Avis multicritères, modération                                                                                                                                                              |
+| `reviews`       | Avis (note, puces, commentaire facultatif), publication à la clôture, moyenne, modération                                                                                                                                                              |
 | `messaging`     | Conversations, pièces jointes, masquage des numéros avant réservation                                                                                                                       |
 | `notifications` | `notify(kind, recipients, ref)` après commit (adaptateur `log` en local/test) ; push, SMS (`SmsGateway`, adaptateur `fake` en local/test seulement), WhatsApp, préférences, replis            |
 | `trust`         | KYC, litiges, garantie, signalements, `AuditEvent`                                                                                                                                          |
@@ -81,20 +81,22 @@ Les durées et limites sont des réglages (`settings`), jamais en dur : expirati
 ```mermaid
 stateDiagram-v2
   [*] --> accepted : le client accepte un devis
-  accepted --> scheduled : le pro confirme
+  accepted --> scheduled : le pro confirme (code de fin généré)
   accepted --> cancelled : client, pro, ou délai dépassé
   scheduled --> cancelled : client, pro, ou pro suspendu
-  scheduled --> en_route : étape 4, pro démarre le trajet
-  en_route --> on_site : étape 4
-  on_site --> in_progress : étape 4, photos « avant »
-  in_progress --> in_progress : étape 4, avenant validé
-  in_progress --> completed : étape 4, code de fin
-  completed --> closed : étape 4, fenêtre de contestation
-  completed --> disputed : étape 4
-  disputed --> closed : étape 4, décision Ops
+  scheduled --> en_route : le pro part (SMS du code)
+  en_route --> cancelled : client, pro, système
+  en_route --> on_site : le pro arrive
+  on_site --> cancelled : pro (client_absent, job_mismatch), système
+  on_site --> in_progress : photos « avant » ou photos_pending
+  in_progress --> in_progress : avenant accepté par le client
+  in_progress --> completed : code de fin, ou sans code avec motif
+  completed --> closed : fin de la fenêtre de contestation (système)
+  completed --> disputed : le client ouvre un litige
+  disputed --> closed : décision de l'Ops
 ```
 
-La machine est déclarée en entier ; seuls `accepted → scheduled`, `accepted → cancelled` et `scheduled → cancelled` sont actifs. Un couple déclaré mais non activé lève `transition_not_enabled`, un couple interdit `transition_not_allowed`.
+Spec 004 : **tous les couples sont activés**. Un couple interdit lève `transition_not_allowed` ; le mécanisme `transition_not_enabled` reste pour un futur couple déclaré mais inactif. `scheduled`, `en_route` ou `on_site` peuvent finir en `cancelled` ; le client ne peut pas annuler un pro déjà sur place.
 
 Règles :
 
@@ -104,7 +106,17 @@ Règles :
 - **Divulgation** : le repère, la position et le numéro du client (vers le pro), le numéro du pro (vers le client) ne sont renvoyés qu'à partir de `scheduled` (`machine.DISCLOSED_STATUSES`), jamais après une annulation. Avant, les numéros saisis dans une description ou un message de devis sont masqués à l'affichage (`common.pii.mask_numbers`) ; ce masquage n'est pas étanche et un compteur par pro (`Provider.masked_numbers_count`) aide l'Ops à repérer les abus.
 - **Ordre des verrous** : comptes (par id), fiche pro, demande, réservation. Deux acceptations simultanées donnent une seule réservation.
 - **Argent** : aucun. Les montants de devis sont des entiers XOF informatifs ; aucun `LedgerEntry` (étape 5). Mention fixe sur la réservation : à régler au pro.
-- **Notifications** : `notifications.events.notify(kind, recipients, ref)`, appelé après commit, ne transporte que des `public_id` (`request.new`, `quote.received`, `booking.to_confirm`, `booking.scheduled`, `booking.cancelled`). Push et SMS : étape 6.
+- **Notifications** : `notifications.events.notify(kind, recipients, ref)`, appelé après commit, ne transporte que des `public_id` (`request.new`, `quote.received`, `booking.to_confirm`, `booking.scheduled`, `booking.cancelled`, puis, spec 004 : `completion_code.sms`, `amendment.proposed`, `booking.dispute_reminder` (SMS), `booking.progress`, `amendment.decided`, `booking.completed`, `booking.no_show_check`, `no_show.contested`, `booking.disputed`, `dispute.decided`, `booking.closed`). Le futur adaptateur SMS rend le gabarit (code, prix) côté serveur à partir de la référence. Push et SMS : étape 6.
+
+### Déroulé, fin de mission, litige et avis (spec 004)
+
+- **Code de fin** : 4 chiffres tirés à `scheduled`, chiffrés (MultiFernet, `DATA_ENCRYPTION_KEYS`), comparés en temps constant, effacés à `completed` ou `cancelled`. Visible du client seul ; jamais dans une réponse au pro, un log ni un audit. Cinq codes faux le verrouillent, trois régénérations, un SMS automatique au départ du pro et deux sur demande. Repli `no_code` (`client_absent`, `client_no_phone`, `code_locked`, `client_refuses` avec photo « après » obligatoire) : fenêtre de contestation de 72 h au lieu de 48 h.
+- **Photos** (`BookingPhoto`, ADR 0011) : envoi multipart par le gérant, réencodé en WebP sans EXIF ni GPS dans la requête, miniature par tâche Celery, URL signées de 10 min, signalement par le client (masquée pour les deux, gardée pour l'Ops en cas de litige), purge 12 mois après la clôture. Repère et position de la demande vidés 90 jours après la clôture.
+- **Avenant** (`Amendment`) : le pro propose le nouveau prix complet (3 au plus, un seul en attente) ; seul le client, depuis sa session, le fait changer : `accept_amendment` est le seul endroit où `Booking.amount_xof` change après la création (test d'architecture). Aucun mouvement d'argent.
+- **No-show** (`NoShowReport`) : déclaré par le client après `slot_end` + 60 min, la réservation est annulée et la demande rouverte tout de suite ; le poids de fiabilité 3 n'est journalisé qu'après 24 h sans contestation du pro, ou sur décision de l'Ops (groupe `Médiation`).
+- **Clôture** : `close_due` (beat, 5 min) clôt à `dispute_deadline` ; `bookings.services.register_close_handler(fn)` appelle `fn(booking, reason)` dans la transaction de toute arrivée à `closed`. `reviews` y publie les avis ; `wallet` s'y inscrira (étape 5).
+- **Litige** (`trust.Dispute`) : `bookings.services` appelle `trust.services`, jamais l'inverse. L'Ops tranche dans l'admin (`resolve_dispute`, aucun remboursement en V1) ; `for_client` journalise un poids de 2 et rouvre l'avis 7 jours.
+- **Avis** (`reviews.Review`) : une note suffit, publié à la clôture, moyenne (`rating_for_providers`) à partir de 3 avis publiés, hors masqués, comptes de revue et pros de démo ; modération (`Modération avis`) sans suppression.
 
 ## Argent
 
