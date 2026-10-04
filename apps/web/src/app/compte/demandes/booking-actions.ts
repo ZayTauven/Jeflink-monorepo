@@ -80,10 +80,16 @@ export async function amendmentAction(input: {
   const { bookingId, amendmentId, decision, total } = input;
   if (!isUuid(bookingId) || !isUuid(amendmentId)) return refuse("not_found");
   if (decision !== "accept" && decision !== "decline") return refuse("invalid");
-  if (decision === "accept" && !(typeof total === "number" && Number.isSafeInteger(total) && total > 0)) {
+  if (
+    decision === "accept" &&
+    !(typeof total === "number" && Number.isSafeInteger(total) && total > 0)
+  ) {
     return refuse("invalid");
   }
-  const body = input.confirm === true ? { total_xof: total as number, confirm: true } : { total_xof: total as number };
+  const body =
+    input.confirm === true
+      ? { total_xof: total as number, confirm: true }
+      : { total_xof: total as number };
   return runAction(async (api) => {
     const response =
       decision === "accept"

@@ -102,3 +102,11 @@ describe("proxy", () => {
     });
   }
 });
+
+describe("proxy : stockage des photos", () => {
+  it("img-src autorise l'origine du stockage, et elle seule", () => {
+    const csp = call("/").headers.get("content-security-policy") ?? "";
+    // Test lancé en NODE_ENV=test : sans variable, aucune origine ajoutée.
+    assert.ok(/img-src 'self' blob: data:(;| |$)/.test(csp));
+  });
+});

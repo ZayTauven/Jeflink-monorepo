@@ -1,4 +1,4 @@
-// /compte/demandes/[id] (spec 003, web 2). Question métier : « Que se passe-t-il pour ma demande,
+// /compte/demandes/[id] (spec 003, web 2 ; spec 004, web 1 à 3 : suivi de la mission). Question métier : « Que se passe-t-il pour ma demande,
 // et que dois-je faire maintenant ? ». Une seule action principale selon l'état : choisir un devis,
 // attendre le pro, ou joindre le pro.
 //
@@ -25,7 +25,8 @@ import { STATE_TONE, canCancelRequest, requestState } from "@/lib/requests/statu
 import { readSiteConfig } from "@/lib/site-config";
 
 import { CancelPanel } from "../_components/cancel-panel";
-import { BookedPanel, RequestSummary, WaitingPanel } from "../_components/detail-panels";
+import { RequestSummary, WaitingPanel } from "../_components/detail-panels";
+import { MissionPanels } from "../_components/mission-panels";
 import { QuotePicker } from "../_components/quote-picker";
 import { RefreshButton } from "../_components/refresh-button";
 
@@ -34,11 +35,19 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle"), robots: { index: false, follow: false } };
 }
 
-export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function RequestDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ signale?: string | string[] }>;
+}) {
   const { id } = await params;
+  const { signale } = await searchParams;
   if (!isUuid(id)) notFound();
   const api = await serverApiWithSession();
   const t = await getTranslations("requests");
+  const tBookings = await getTranslations("bookings");
   const locale = await getLocale();
 
   let request: ClientRequest;
@@ -141,6 +150,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           </section>
         ) : null}
 
+        {signale === "absence" && request.status === "open" ? (
+          <Alert tone="success">{tBookings("noShow.reopened")}</Alert>
+        ) : null}
+
         {request.status === "booked" && booking ? (
           booking.status === "accepted" ? (
             <>
@@ -148,10 +161,12 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               <RefreshButton className="self-start" />
             </>
           ) : (
-            <BookedPanel
+            <MissionPanels
               booking={booking}
               quote={request.quotes.find((quote) => quote.public_id === booking.quote)}
+              requestId={request.public_id}
               now={now}
+              supportWhatsapp={supportWhatsapp}
             />
           )
         ) : null}
@@ -177,7 +192,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         {canCancelRequest(request.status) ? (
           <CancelPanel kind="request" id={request.public_id} />
         ) : null}
-        {booking && (booking.status === "accepted" || booking.status === "scheduled") ? (
+        {booking &&
+        (booking.status === "accepted" ||
+          booking.status === "scheduled" ||
+          booking.status === "en_route") ? (
           <CancelPanel kind="booking" id={booking.public_id} />
         ) : null}
       </div>

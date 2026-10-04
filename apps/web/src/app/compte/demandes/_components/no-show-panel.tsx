@@ -48,7 +48,7 @@ export function NoShowPanel({
       <h2 id="noshow-title" className="font-display text-2xl tracking-tight">
         {t("title")}
       </h2>
-      <p className="text-base leading-relaxed text-ink">{t("lead")}</p>
+      <p className="text-base leading-relaxed text-ink">{phone ? t("lead") : t("leadNoPhone")}</p>
 
       {phone ? (
         <ButtonLink href={`tel:${phone}`} variant="primary" className="self-start">

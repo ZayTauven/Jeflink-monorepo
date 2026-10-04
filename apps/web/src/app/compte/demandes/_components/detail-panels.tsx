@@ -5,13 +5,12 @@ import { getLocale, getTranslations } from "next-intl/server";
 
 import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
+import { RatingLine } from "@/components/rating-line";
 import { ChatIcon, PhoneIcon } from "@/components/ui/icons";
 import { whatsappUrl } from "@/lib/login/support";
 import {
-  dakarParts,
-  formatClock,
-  formatDateTime,
   formatDay,
+  formatDeadline,
   formatPhoneDisplay,
   formatXof,
   isE164,
@@ -33,18 +32,10 @@ async function slotText(startIso: string, endIso: string, now: string) {
   return { text, range: t("slotRange", { from: label.from, to: label.to }) };
 }
 
-/** « 14 h 30 » si c'est aujourd'hui à Dakar, sinon « 5 oct. · 8 h » (gel de nuit de la confirmation). */
-function deadlineText(deadlineIso: string, now: string): string {
-  const a = dakarParts(deadlineIso);
-  const b = dakarParts(now);
-  if (!a || !b) return "";
-  const sameDay = a.year === b.year && a.month === b.month && a.day === b.day;
-  return sameDay ? formatClock(deadlineIso) : formatDateTime(deadlineIso);
-}
-
 /** Attente : le pro a jusqu'à HH:MM (heure de Dakar, pas de compte à rebours). */
 export async function WaitingPanel({ booking, now }: { booking: ClientBooking; now: string }) {
   const t = await getTranslations("requests.waiting");
+  const locale = await getLocale();
   const slot = await slotText(booking.slot_start, booking.slot_end, now);
   return (
     <section
@@ -57,7 +48,7 @@ export async function WaitingPanel({ booking, now }: { booking: ClientBooking; n
       <p className="text-lg leading-relaxed text-ink">
         {t("lead", {
           name: booking.provider.business_name,
-          when: deadlineText(booking.confirm_deadline, now),
+          when: formatDeadline(booking.confirm_deadline, now, locale),
         })}
       </p>
       <p className="text-base text-ink">{t("slot", { slot: slot.text, range: slot.range })}</p>
@@ -102,6 +93,9 @@ export async function BookedPanel({
         <div>
           <dt className="text-sm text-ink-muted">{t("pro")}</dt>
           <dd className="text-lg font-medium text-ink">{name}</dd>
+          <dd>
+            <RatingLine rating={booking.provider.rating} />
+          </dd>
           {phone ? (
             <dd className="text-base text-ink-muted">
               {t("phoneLine", { number: formatPhoneDisplay(phone) })}
@@ -111,6 +105,11 @@ export async function BookedPanel({
         <div>
           <dt className="text-sm text-ink-muted">{t("amount")}</dt>
           <dd className="text-lg font-medium text-ink">{formatXof(booking.amount_xof)}</dd>
+          {booking.original_amount_xof !== booking.amount_xof ? (
+            <dd className="text-base text-ink-muted">
+              {t("originalAmount", { amount: formatXof(booking.original_amount_xof) })}
+            </dd>
+          ) : null}
           {quote?.kind === "visit" ? (
             <dd className="text-base text-ink-muted">{t("visitReminder")}</dd>
           ) : null}

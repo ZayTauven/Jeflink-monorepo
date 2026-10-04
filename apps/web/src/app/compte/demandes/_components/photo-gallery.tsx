@@ -8,7 +8,7 @@
 import type { Photo } from "@jeflink/api-client";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,16 @@ export function PhotoGallery({
   const report = useBookingAction();
   const [openId, setOpenId] = useState<string | null>(null);
   const [reporting, setReporting] = useState(false);
+  const viewer = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState<Set<string>>(new Set());
+
+  // Le visualiseur s'ouvre sous les groupes : on y amène la vue et le focus (sinon le geste semble sans effet).
+  useEffect(() => {
+    if (openId) {
+      viewer.current?.scrollIntoView({ block: "nearest" });
+      viewer.current?.focus();
+    }
+  }, [openId]);
 
   const groups = PHOTO_PHASES.map((phase) => ({ phase, items: photosOf(photos, phase) })).filter(
     (group) => group.items.length > 0,
@@ -80,6 +89,8 @@ export function PhotoGallery({
 
       {opened ? (
         <div
+          ref={viewer}
+          tabIndex={-1}
           role="group"
           aria-label={t("viewerLabel")}
           className="flex flex-col gap-4 rounded-card border border-line-strong p-4"
@@ -170,29 +181,30 @@ function PhaseGroup({
                 type="button"
                 onClick={() => onOpen(photo)}
                 aria-expanded={openId === photo.public_id}
-                className="relative aspect-[4/3] min-h-12 overflow-hidden rounded-card border border-line bg-sand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+                className="flex flex-col gap-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
               >
-                {stale(photo) ? (
-                  <span className="flex h-full items-center justify-center p-3 text-center text-sm text-ink-muted">
-                    {t("expiredThumb")}
-                  </span>
-                ) : (
-                  <Image
-                    src={photo.thumb_url}
-                    alt={t(`alt.${photo.phase}`)}
-                    fill
-                    sizes="(min-width: 640px) 200px, 45vw"
-                    unoptimized
-                    onError={() => onFail(photo)}
-                    className="object-cover"
-                  />
-                )}
+                <span className="relative block aspect-[4/3] w-full overflow-hidden rounded-card border border-line bg-sand">
+                  {stale(photo) ? (
+                    <span className="flex h-full items-center justify-center p-3 text-center text-sm text-ink-muted">
+                      {t("expiredThumb")}
+                    </span>
+                  ) : (
+                    <Image
+                      src={photo.thumb_url}
+                      alt={`${t(`alt.${photo.phase}`)} ${t("caption", { number: index + 1 })}`}
+                      fill
+                      sizes="(min-width: 640px) 200px, 45vw"
+                      unoptimized
+                      onError={() => onFail(photo)}
+                      className="object-cover"
+                    />
+                  )}
+                </span>
+                <span className="text-sm text-ink-muted">
+                  {t("captionOpen", { number: index + 1 })}
+                </span>
               </button>
             )}
-            <span className="text-sm text-ink-muted">
-              {t("caption", { number: index + 1 })}
-              {photo.status === "processing" ? "" : ` · ${t("enlarge")}`}
-            </span>
           </li>
         ))}
       </ul>

@@ -16,7 +16,10 @@ import type { ActionResult } from "./result.ts";
  */
 export async function runAction<T>(
   run: (api: BffServer) => Promise<T>,
-  describe: (error: unknown, fallback: "network" | "generic") => RequestError = describeRequestError,
+  describe: (
+    error: unknown,
+    fallback: "network" | "generic",
+  ) => RequestError = describeRequestError,
 ): Promise<ActionResult<T>> {
   const api = await serverApi();
   if (api.needsRefresh) return { needsRefresh: true };

@@ -11,6 +11,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { RatingLine } from "@/components/rating-line";
 import { CheckIcon, ChevronDownIcon, ClockIcon } from "@/components/ui/icons";
 import type { RequestError } from "@/lib/requests/errors";
 import { formatDay, formatXof } from "@/lib/requests/format";
@@ -73,6 +74,7 @@ function QuoteCard({
               {t("verified")}
             </span>
           ) : null}
+          <RatingLine rating={quote.provider.rating} />
         </div>
 
         {quote.message.trim() ? (

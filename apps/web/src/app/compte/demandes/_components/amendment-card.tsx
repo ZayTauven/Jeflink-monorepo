@@ -6,7 +6,7 @@
 // `window.confirm` ; une baisse n'en demande aucune. Refuser garde le prix courant.
 import type { Amendment } from "@jeflink/api-client";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,16 @@ export function AmendmentCard({
   const way = direction(amendment);
   const percent = changePercent(amendment);
   const confirmFirst = needsConfirmation(amendment);
+
+  // L'API demande la confirmation que la page n'avait pas jugée utile : on l'affiche, sans erreur.
+  const needsStep = action.error?.code === "amendment_confirmation_required";
+  useEffect(() => {
+    if (needsStep) {
+      setConfirming(true);
+      action.clearError();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsStep]);
 
   function decide(decision: "accept" | "decline", confirm = false) {
     setWhich(decision);
@@ -89,8 +99,13 @@ export function AmendmentCard({
         {t("payment")}
       </p>
 
-      {action.error ? <ActionError error={action.error} supportHref={supportHref} /> : null}
+      {action.error && !needsStep ? (
+        <ActionError error={action.error} supportHref={supportHref} />
+      ) : null}
 
+      {confirmFirst && !confirming ? (
+        <Alert tone="info">{t("bigIncrease", { percent })}</Alert>
+      ) : null}
       {confirming ? (
         <div className="flex flex-col gap-3 rounded-card border border-line-strong p-4">
           <p className="flex gap-2 text-base font-medium text-ink">
@@ -138,9 +153,6 @@ export function AmendmentCard({
           </Button>
         </div>
       )}
-      {confirmFirst && !confirming ? (
-        <Alert tone="info">{t("bigIncrease", { percent })}</Alert>
-      ) : null}
     </section>
   );
 }

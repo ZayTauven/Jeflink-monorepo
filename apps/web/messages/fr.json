@@ -344,7 +344,8 @@
       "whatsappMessage": "Bonjour, je vous écris au sujet de ma réservation Jeflink : {slot}, {range}.",
       "payment": "À régler au pro, en espèces ou par mobile money. Jeflink ne garde aucun argent pour l'instant.",
       "noContact": "Les coordonnées du pro apparaissent ici dès la confirmation.",
-      "phoneLine": "Téléphone : {number}"
+      "phoneLine": "Téléphone : {number}",
+      "originalAmount": "Prix initial : {amount}"
     },
     "cancel": {
       "openRequest": "Annuler cette demande",
@@ -428,6 +429,257 @@
       "display_name_length": "Votre nom est trop court ou trop long.",
       "display_name_invalid": "Ce nom n'est pas accepté. Écrivez votre prénom ou votre nom.",
       "display_name_reserved": "Ce nom n'est pas disponible. Choisissez-en un autre."
+    }
+  },
+  "bookings": {
+    "common": {
+      "writeSupport": "Écrire au support sur WhatsApp"
+    },
+    "rating": {
+      "new": "Nouveau sur Jeflink",
+      "outOf": "sur 5",
+      "count": "{count, plural, one {# avis} other {# avis}}"
+    },
+    "progress": {
+      "title": "Suivi de la mission",
+      "hint": {
+        "scheduled": "Le pro a confirmé. Vous verrez ici quand il part. Gardez votre code de fin à portée de main.",
+        "en_route": "Le pro est en route. Préparez l'accès, et gardez votre code de fin.",
+        "on_site": "Le pro est arrivé. Il prend les photos avant de commencer.",
+        "in_progress": "Le travail est en cours. Ne donnez votre code qu'à la fin, quand le travail vous convient.",
+        "completed": "Le pro a terminé. Dites-nous si tout va bien.",
+        "disputed": "Vous avez signalé un problème. Jeflink examine.",
+        "closed": "La mission est clôturée."
+      },
+      "steps": {
+        "scheduled": "Réservé",
+        "en_route": "Le pro est en route",
+        "on_site": "Le pro est arrivé",
+        "in_progress": "Travail en cours",
+        "completed": "Travail terminé",
+        "closed": "Mission clôturée"
+      },
+      "state": {
+        "current": "En ce moment",
+        "upcoming": "À venir",
+        "done": "Fait",
+        "doneAt": "Fait · {when}"
+      },
+      "autoNotice": "Cette page se met à jour toute seule chaque minute, tant qu'elle est ouverte."
+    },
+    "code": {
+      "title": "Votre code de fin",
+      "codeLabel": "Code de fin : {code}",
+      "warning": "Ne donnez le code qu'à la fin, quand le travail vous convient",
+      "whenToGive": "Le pro vous le demande pour terminer la mission. Vous le recevez aussi par SMS quand il part.",
+      "lockedLead": "Le code est bloqué après trop d'essais. Générez-en un nouveau pour que le pro puisse terminer.",
+      "lockedSupport": "Écrire au support",
+      "sms": "Recevoir le code par SMS",
+      "smsSending": "Envoi du SMS…",
+      "smsSent": "SMS envoyé au numéro de votre compte.",
+      "share": "Partager à un proche",
+      "shareNote": "Vous êtes loin ? Envoyez le code à un proche sur place, par WhatsApp. Il le donnera au pro à votre place.",
+      "shareMessage": "Code de fin de ma mission Jeflink : {code}. Ne le donnez au pro qu'à la fin, quand le travail vous convient.",
+      "regenerate": "Générer un nouveau code",
+      "regenerateLocked": "Générer un nouveau code",
+      "regenerateTitle": "Générer un nouveau code ?",
+      "regenerateLead": "L'ancien code ne marchera plus. Vous pouvez le faire 3 fois au plus.",
+      "regenerateYes": "Oui, générer un nouveau code",
+      "regenerateNo": "Garder ce code",
+      "regenerating": "Un instant…"
+    },
+    "noShow": {
+      "title": "Le pro n'est pas venu ?",
+      "lead": "Appelez-le d'abord : il est peut-être en route, ou en retard. Si vous ne le joignez pas, vous pouvez le signaler.",
+      "call": "Appeler {name}",
+      "report": "Il n'est pas venu",
+      "confirmTitle": "Signaler que le pro n'est pas venu ?",
+      "confirmLead": "Votre demande sera de nouveau visible des pros. Ce pro ne pourra plus y répondre. Les autres devis ne reviennent pas.",
+      "confirmYes": "Oui, il n'est pas venu",
+      "confirmNo": "Retour",
+      "sending": "Envoi en cours…",
+      "availableAt": "Si le pro n'est pas venu, vous pourrez le signaler à partir de {when}.",
+      "reopened": "Votre demande est de nouveau visible des pros. Les nouveaux devis arrivent ici.",
+      "leadNoPhone": "Le pro est peut-être en route, ou en retard. Si vous ne le voyez pas arriver, vous pouvez le signaler."
+    },
+    "problem": {
+      "title": "Un problème ?",
+      "lead": "Écrivez-nous sur WhatsApp, avec la référence de la réservation déjà dans le message. Nous répondons.",
+      "cta": "Signaler un problème",
+      "message": "Bonjour, j'ai un problème avec ma réservation Jeflink (référence {reference}).",
+      "noSupport": "Le support n'est pas joignable pour le moment. Réessayez dans un instant."
+    },
+    "cancelled": {
+      "title": "Cette réservation est annulée",
+      "lead": "La mission n'aura pas lieu. Si vous avez une question, écrivez-nous : nous vous aidons à retrouver un pro.",
+      "opsTitle": "Jeflink a arrêté cette mission",
+      "opsLead": "Le support vous contactera. Vous pouvez aussi lui écrire : nous vous aidons à retrouver un pro."
+    },
+    "photos": {
+      "title": "Photos de la mission",
+      "phase": {
+        "before": "Avant les travaux",
+        "after": "Après les travaux"
+      },
+      "caption": "Photo {number}",
+      "enlarge": "Agrandir",
+      "processing": "Photo en préparation",
+      "expiredThumb": "Photo à recharger",
+      "expired": "Le lien de cette photo a expiré. Actualisez la page pour la revoir.",
+      "viewerLabel": "Photo en grand",
+      "alt": {
+        "before": "Photo du travail avant l'intervention",
+        "after": "Photo du travail après l'intervention"
+      },
+      "report": "Signaler cette photo",
+      "reportTitle": "Signaler cette photo ?",
+      "reportLead": "Elle sera masquée pour vous et pour le pro. Jeflink peut la revoir en cas de litige.",
+      "reportYes": "Oui, la signaler",
+      "reportNo": "Retour",
+      "reporting": "Envoi en cours…",
+      "close": "Fermer la photo",
+      "retention": "Photos gardées 12 mois, puis supprimées.",
+      "captionOpen": "Photo {number} · Agrandir"
+    },
+    "amendment": {
+      "title": "Le pro propose un nouveau prix",
+      "reason": {
+        "visit_diagnosis": "Après la visite, le prix du travail est fixé",
+        "extra_work": "Il y a du travail en plus",
+        "parts": "Il faut changer des pièces",
+        "other": "Autre raison"
+      },
+      "newPrice": "Nouveau prix",
+      "was": "Prix actuel : {amount}",
+      "up": "hausse de {percent} %",
+      "down": "baisse de {percent} %",
+      "payment": "Vous ne payez pas plus tant que vous n'avez pas accepté",
+      "accept": "Accepter {amount}",
+      "accepting": "Un instant…",
+      "decline": "Refuser, garder {amount}",
+      "declining": "Un instant…",
+      "bigIncrease": "Le prix augmente de {percent} %. Nous vous demandons de confirmer avant d'accepter.",
+      "confirmTitle": "Le prix passe de {was} à {amount}, soit {percent} % de plus. Vous acceptez ?",
+      "confirmYes": "Oui, j'accepte ce prix",
+      "confirmNo": "Retour"
+    },
+    "finish": {
+      "completedTitle": "Le travail est terminé",
+      "reviewTitle": "Votre avis",
+      "lead": "Tout s'est bien passé ?",
+      "allGood": "Tout va bien",
+      "reportProblem": "Signaler un problème",
+      "giveReview": "Donner mon avis",
+      "until": "Vous pouvez signaler un problème jusqu'à {when} (heure de Dakar).",
+      "windowClosed": "Le temps pour signaler un problème est passé. Pour toute question, écrivez au support.",
+      "windowClosedNoSupport": "Le temps pour signaler un problème est passé."
+    },
+    "review": {
+      "ratingLegend": "Votre note",
+      "ratingHint": "Une note suffit.",
+      "ratingError": "Choisissez une note de 1 à 5.",
+      "starsSr": "{count, plural, one {étoile} other {étoiles}}",
+      "ratings": {
+        "1": "1 : très mauvais",
+        "2": "2 : mauvais",
+        "3": "3 : correct",
+        "4": "4 : bien",
+        "5": "5 : très bien"
+      },
+      "tagsLegend": "Qu'est-ce qui compte ?",
+      "tagsHint": "Facultatif. Choisissez ce qui s'applique.",
+      "tags": {
+        "on_time": "Arrivé à l'heure",
+        "quality": "Travail soigné",
+        "clean": "Chantier propre",
+        "price_kept": "Prix respecté",
+        "late": "En retard",
+        "redo_needed": "À refaire",
+        "messy": "Chantier laissé sale",
+        "price_changed": "Prix modifié"
+      },
+      "commentLabel": "Un mot pour le pro",
+      "commentHint": "Facultatif. N'écrivez pas de numéro de téléphone.",
+      "commentError": "Votre commentaire est trop long ({max} caractères au plus).",
+      "send": "Envoyer mon avis",
+      "sending": "Envoi en cours…",
+      "cancel": "Retour",
+      "saved": "Merci, votre avis est enregistré.",
+      "yours": "Votre avis : {rating} sur 5",
+      "published": "Le pro peut le lire.",
+      "pending": "Le pro le verra à la clôture de la mission.",
+      "editUntil": "Vous pouvez le modifier jusqu'à {when}.",
+      "edit": "Modifier mon avis"
+    },
+    "dispute": {
+      "until": "Vous pouvez signaler un problème jusqu'à {when} (heure de Dakar).",
+      "reasonLegend": "Que s'est-il passé ?",
+      "reasonError": "Choisissez ce qui correspond le mieux.",
+      "reasons": {
+        "not_done": "Le travail n'a pas été fait",
+        "poor_quality": "Le travail est mal fait",
+        "damage": "Il y a des dégâts",
+        "price": "Le prix demandé n'est pas le bon",
+        "behaviour": "Le comportement du pro",
+        "other": "Autre chose"
+      },
+      "textLabel": "Racontez-nous",
+      "textHint": "Au moins {min} caractères. Écrivez ce qui s'est passé, avec vos mots.",
+      "textError": "Écrivez au moins {min} caractères pour que nous comprenions.",
+      "decision": "Jeflink examine et décide. Pas de remboursement pour l'instant.",
+      "send": "Envoyer mon signalement",
+      "sending": "Envoi en cours…",
+      "cancel": "Retour",
+      "openTitle": "Votre signalement est ouvert",
+      "resolvedTitle": "Votre signalement est traité",
+      "openedOn": "Signalé le {date} : {reason}.",
+      "examining": "Notre équipe examine votre signalement. Elle peut vous appeler ou vous écrire sur WhatsApp avant de décider.",
+      "decisions": {
+        "for_client": "Jeflink vous a donné raison. Le pro en est informé.",
+        "for_pro": "Jeflink a examiné votre signalement et n'a pas retenu de faute du pro.",
+        "no_fault": "Jeflink a examiné votre signalement : personne n'est en faute."
+      }
+    },
+    "errors": {
+      "network": "Pas de connexion internet. Réessayez dès que le réseau revient.",
+      "generic": "Un problème est survenu de notre côté. Réessayez dans un instant.",
+      "invalid": "Certaines informations sont refusées. Vérifiez, puis réessayez.",
+      "idempotency_key_required": "L'action n'a pas pu être envoyée. Actualisez la page, puis réessayez.",
+      "idempotency_key_reused": "Cette action a déjà été envoyée avec un autre contenu. Actualisez la page.",
+      "not_authenticated": "Votre session a pris fin. Reconnectez-vous.",
+      "not_found": "Cette réservation est introuvable.",
+      "transition_not_allowed": "Cette action n'est plus possible : la réservation a changé. Actualisez la page.",
+      "too_early": "C'est trop tôt pour cette étape. Actualisez la page dans un moment.",
+      "no_show_too_early": "Vous pourrez signaler l'absence du pro un peu plus tard. Appelez-le en attendant.",
+      "no_show_contest_closed": "Le temps pour répondre à ce signalement est passé.",
+      "completion_code_locked": "Le code est bloqué après trop d'essais. Générez-en un nouveau.",
+      "completion_code_regen_limit": "Vous avez déjà généré 3 nouveaux codes. Écrivez au support : nous vous aidons.",
+      "photo_limit_reached": "Le nombre maximum de photos est atteint.",
+      "amendment_pending": "Un nouveau prix attend déjà votre réponse.",
+      "amendment_limit": "Le nombre maximum de changements de prix est atteint.",
+      "amendment_not_pending": "Ce nouveau prix n'est plus à décider. Actualisez la page.",
+      "amendment_total_mismatch": "Le prix proposé a changé. Actualisez la page pour voir le nouveau prix.",
+      "amendment_confirmation_required": "Confirmez le nouveau prix avant de l'accepter.",
+      "dispute_window_closed": "Le temps pour signaler un problème est passé. Écrivez au support.",
+      "review_window_closed": "Le temps pour donner votre avis est passé.",
+      "review_not_allowed": "Vous ne pouvez pas donner d'avis sur cette réservation.",
+      "provider_not_verified": "Ce pro n'est pas disponible pour le moment. Écrivez au support.",
+      "before_photos_required": "Les photos avant les travaux manquent.",
+      "after_photos_required": "Les photos après les travaux manquent.",
+      "completion_code_invalid": "Ce code n'est pas le bon.",
+      "completion_proof_required": "Une preuve de fin de travail est nécessaire.",
+      "no_code_reason_invalid": "Ce motif n'est pas accepté.",
+      "occurred_at_invalid": "L'heure indiquée n'est pas valide.",
+      "photo_invalid": "Cette photo n'est pas valide. Choisissez une autre photo.",
+      "amendment_total_invalid": "Ce prix n'est pas valide.",
+      "amendment_reason_invalid": "Ce motif de changement de prix n'est pas valide.",
+      "note_invalid": "Cette note n'est pas acceptée : retirez tout numéro de téléphone.",
+      "reason_invalid": "Choisissez un motif dans la liste.",
+      "description_invalid": "Écrivez au moins 10 caractères, sans numéro de téléphone.",
+      "review_invalid": "Votre avis n'est pas valide. Vérifiez la note et les choix.",
+      "text_too_long": "Un texte est trop long. Raccourcissez-le.",
+      "photo_too_large": "Cette photo est trop lourde. Choisissez-en une plus légère.",
+      "sms_limit_reached": "Vous avez reçu le code par SMS le nombre de fois permis. Partagez-le à un proche, ou écrivez au support."
     }
   }
 }

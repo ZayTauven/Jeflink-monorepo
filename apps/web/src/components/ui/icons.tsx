@@ -116,7 +116,10 @@ export function CircleIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 /** Étoile de note : pleine (`filled`) ou en contour. Toujours à côté d'un chiffre ou d'un mot. */
-export function StarIcon({ filled = false, ...props }: SVGProps<SVGSVGElement> & { filled?: boolean }) {
+export function StarIcon({
+  filled = false,
+  ...props
+}: SVGProps<SVGSVGElement> & { filled?: boolean }) {
   return (
     <Icon {...props} fill={filled ? "currentColor" : "none"}>
       <path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.8Z" />

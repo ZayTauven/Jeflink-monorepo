@@ -34,6 +34,7 @@ export function CompletionCodeCard({
   supportHref: string | null;
 }) {
   const t = useTranslations("bookings.code");
+  const tProblem = useTranslations("bookings.problem");
   const sms = useBookingAction();
   const regen = useBookingAction();
   const [smsSent, setSmsSent] = useState(false);
@@ -65,9 +66,7 @@ export function CompletionCodeCard({
       </h2>
 
       {showCode ? (
-        <p
-          className="rounded-card bg-sand py-5 text-center font-display text-6xl font-semibold tabular-nums tracking-[0.25em] text-ink"
-        >
+        <p className="rounded-card bg-sand py-5 text-center font-display text-5xl font-semibold sm:text-6xl tabular-nums tracking-[0.25em] text-ink">
           <span className="sr-only">{t("codeLabel", { code: spaced })}</span>
           <span aria-hidden="true">{code}</span>
         </p>
@@ -133,6 +132,9 @@ export function CompletionCodeCard({
       )}
 
       {showCode ? <p className="text-sm text-ink-muted">{t("shareNote")}</p> : null}
+      {locked && !canRegenerate && !supportHref ? (
+        <p className="text-base text-ink-muted">{tProblem("noSupport")}</p>
+      ) : null}
       {locked && !canRegenerate && supportHref ? (
         <ButtonLink href={supportHref} target="_blank" rel="noopener noreferrer" variant="primary">
           <ChatIcon className="size-5" />

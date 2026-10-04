@@ -45,8 +45,12 @@ export async function MissionProgress({ booking, now }: { booking: ClientBooking
             )}
             <span
               className={`flex-1 text-base ${
-                step.state === "current" ? "font-medium text-ink" : "text-ink"
-              } ${step.state === "upcoming" ? "text-ink-muted" : ""}`}
+                step.state === "current"
+                  ? "font-medium text-ink"
+                  : step.state === "upcoming"
+                    ? "text-ink-muted"
+                    : "text-ink"
+              }`}
             >
               {t(`steps.${step.key}`)}
             </span>

@@ -11,12 +11,14 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { PATH_HEADER } from "./lib/routes.ts";
+import { storageOrigin } from "./lib/storage-origin.ts";
 
 // Cookies qui signalent une session (accès, ou témoin d'un refresh possible).
 const SESSION_COOKIES = ["__Host-jf_at", "__Host-jf_sess"];
 
 function contentSecurityPolicy(nonce: string): string {
   const dev = process.env.NODE_ENV === "development";
+  const storage = storageOrigin(process.env);
   return [
     "default-src 'self'",
     // `unsafe-eval` en dev seulement : React s'en sert pour ses traces d'erreur.
@@ -24,7 +26,8 @@ function contentSecurityPolicy(nonce: string): string {
     // Dev : Next injecte ses styles en ligne (indicateur, rechargement) ; un nonce rendrait
     // `unsafe-inline` inopérant, d'où une directive à part. Production : nonce strict.
     dev ? "style-src 'self' 'unsafe-inline'" : `style-src 'self' 'nonce-${nonce}'`,
-    "img-src 'self' blob: data:",
+    // Photos de mission : miniatures et images signées servies par le stockage d'objets.
+    `img-src 'self' blob: data:${storage ? ` ${storage}` : ""}`,
     "font-src 'self'",
     "connect-src 'self'",
     "object-src 'none'",

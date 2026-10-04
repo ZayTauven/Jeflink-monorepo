@@ -48,7 +48,7 @@ export function FinishPanel({
   const windowOpen = canDispute && disputeWindowOpen(disputeDeadline, now);
   const completed = status === "completed";
 
-  if (!completed && !canReview && !review) return null;
+  if (!review && !canReview && (!completed || hasDispute)) return null;
 
   return (
     <section
@@ -145,7 +145,9 @@ export function FinishPanel({
           {windowOpen ? (
             <p className="text-sm text-ink-muted">{t("until", { when: deadlineText })}</p>
           ) : (
-            <p className="text-sm text-ink-muted">{t("windowClosed")}</p>
+            <p className="text-sm text-ink-muted">
+              {supportHref ? t("windowClosed") : t("windowClosedNoSupport")}
+            </p>
           )}
         </>
       ) : null}
