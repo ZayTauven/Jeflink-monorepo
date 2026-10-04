@@ -1,6 +1,6 @@
 # Spec 004 — Déroulé de la mission, code de fin, photos, avis
 
-Statut : validée · 2026-10-03 (Zay) · ADR lié : 0011 (stockage d'objets et photos, accepté) · Revue `terrain-reviewer` intégrée (Q1 à Q7 acceptées avec ajustements)
+Statut : livrée (api, web) · validée le 2026-10-03 (Zay) · ADR lié : 0011 (stockage d'objets et photos, accepté) · Revue `terrain-reviewer` intégrée (Q1 à Q7 acceptées avec ajustements)
 
 ## Problème
 
