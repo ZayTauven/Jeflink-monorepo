@@ -1,6 +1,6 @@
 # Spec 006 — Site public : accueil, métiers, pages métier × quartier
 
-Statut : validée par Zay le 2026-10-05, recommandations retenues sur Q1 à Q15 (Q2, Q7, Q8, Q9, Q14 et Q15 restent à compléter avant `SITE_INDEXABLE=true`, pas avant le dev) · ADR lié : 0013 (rendu du site public et URL des langues, accepté) · Revue `terrain-reviewer` faite le 2026-10-05 (voir « Revue terrain et arbitrages »)
+Statut : api et web livrés le 2026-10-05 (api 1-6, web 1-12), revues `security-reviewer` et `design-guardian` faites ; web 13 en partie (copie à valider par Zay, mesures Lighthouse à faire), web 14 en attente de Q2 ; docs 1 fait · validée par Zay le 2026-10-05, recommandations retenues sur Q1 à Q15 (Q2, Q7, Q8, Q9, Q14 et Q15 restent à compléter avant `SITE_INDEXABLE=true`, pas avant le dev) · ADR lié : 0013 (rendu du site public et URL des langues, accepté) · Revue `terrain-reviewer` faite le 2026-10-05 (voir « Revue terrain et arbitrages »)
 
 ## Problème
 
@@ -573,6 +573,18 @@ Chacune livrable et testable seule, dans l'ordre.
      - suites de la revue terrain (spec 001, `analytics`, rattachement WhatsApp).
 - console : rien (saisie des textes dans l'admin Django).
 - client / pro : rien.
+
+### Écarts d'implémentation connus (2026-10-05)
+
+- **`publicApi()` sans secret du BFF.** En-têtes `Accept` et `Accept-Language: fr` seulement, ni cookie, ni jeton, ni en-tête du visiteur. L'API voit donc l'IP du serveur Next, et la limite `catalog_read` est partagée par tout le site : portée dédiée au chantier prod (C2).
+- **`ActionBar` en `sticky`** plutôt qu'en `fixed` : la barre reste dans le flux, sans marge à réserver, et ne masque pas le focus.
+- **Cache `fetch`** (`revalidate: 300`, étiquettes, copie de secours) plutôt que `"use cache"`, qui suppose Cache Components, incompatible avec la CSP à nonce (ADR 0013).
+- **Règles de `/api/stats/` durcies** :
+  - les missions et la note ne sortent qu'au-dessus de la règle des pros distincts, filtrées ou non ;
+  - la note n'est jamais donnée par zone ;
+  - le `count` de la note est arrondi ;
+  - `?zone=` seul est refusé (il faut aussi `?trade=`).
+- Suites des revues `security-reviewer` (C2, N1, N3, N4, N5, N7) et `terrain-reviewer` : consignées dans `chantier-prod.md`.
 
 ## Questions à trancher (Zay)
 

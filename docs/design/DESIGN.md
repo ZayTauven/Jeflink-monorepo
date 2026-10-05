@@ -13,6 +13,14 @@ Page de référence (décision Zay, 2026-09-30) : **`references/crafto/demo-mark
 
 **On remplace** : toutes les illustrations et photos par des scènes réelles au Sénégal (artisans, intérieurs, quartiers de Dakar). La copie « agence marketing » par un ton direct et chaleureux. La vidéo hero lourde par une image forte (vidéo en lecture à la demande).
 
+**Règles du site public** (spec 006) :
+
+- Jamais de texte posé sur une photo : le texte va sur un aplat, à côté de l'image ou dessous.
+- Bandeau défilant en CSS seulement, avec un bouton « Mettre en pause » (WCAG 2.2.2), arrêt au survol et au focus, statique avec `prefers-reduced-motion`, copie doublée en `aria-hidden`.
+- Barre d'actions mobile en `position: sticky` en bas de l'écran (CTA double « Faire une demande » + « Écrire sur WhatsApp »), avec la zone de sécurité et sans jamais masquer l'élément qui a le focus (WCAG 2.4.11).
+- Rayon unique `--jf-radius` (10 px), même là où Crafto met 20 px.
+- La variante de bouton `quiet` (libellé `accent-strong`) est interdite sur un fond `sand` : 4,47:1, sous le seuil AA. Sur `sand`, utiliser `primary` ou `secondary`.
+
 ## Banque d'images
 
 Zay tient une banque d'images locale : **`C:\Users\moham\Pictures\Banque`** (hors dépôt, environ 1 800 images décrites). Avant toute recherche, lire son propre mode d'emploi, `C:\Users\moham\Pictures\Banque\CLAUDE.md`. On cherche dans l'index (`_catalogue/INDEX.tsv`, grep/awk) et on regarde les planches-contact (`_catalogue/planches/`) ; on n'ouvre pas les images une à une.

@@ -91,6 +91,17 @@ Sous-traitants pressentis : fournisseur SMS (choix en cours, Q7), hébergeur (à
 
 Compte de test sur une carte SIM détenue par Jeflink, ouvert seulement pendant la revue d'une version par Apple ou Google (45 jours au plus). Aucune personne réelle ; ses données ne sont jamais montrées aux vrais pros.
 
+### 11. Support par WhatsApp et par téléphone
+
+| Élément       | Contenu                                                                                                                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Finalité      | Répondre aux clients, aux pros et aux artisans qui veulent rejoindre Jeflink (liens « Écrire sur WhatsApp » et « Appeler » du site, de la connexion et des demandes, spec 006).                                                            |
+| Personnes     | Toute personne qui écrit ou appelle, inscrite ou non.                                                                                                                                                                                      |
+| Données       | Numéro de téléphone, nom de profil WhatsApp, contenu des messages et notes vocales envoyés par la personne. Le site ne collecte rien : le message prérempli ne contient que le métier et le quartier de la page, jamais une donnée saisie. |
+| Base légale   | Intérêt légitime (répondre à une demande d'aide) ou mesures précontractuelles — à valider.                                                                                                                                                 |
+| Durée         | À fixer (proposition : 12 mois après le dernier échange) ; WhatsApp n'offre pas de purge automatique côté entreprise : procédure à écrire dans `docs/ops/`.                                                                                |
+| Destinataires | Équipe support habilitée. Meta (WhatsApp Business) et l'opérateur téléphonique : **transfert hors du Sénégal, formalité CDP à prévoir**. Numéro de service dédié avant la mise en ligne (spec 006, Q8).                                    |
+
 ## Droits des personnes
 
 | Droit                  | Comment                                                                                       |
@@ -114,3 +125,4 @@ Une suppression efface les données de la base en service, pas des sauvegardes d
 - Validation des bases légales et des durées par le consultant ; déclaration CDP.
 - Information des invités (traitement 7) et mention des durées dans la politique de confidentialité.
 - Archivage du journal d'audit au-delà de 5 ans.
+- Support WhatsApp et téléphone (traitement 11) : durée de conservation, procédure de purge, formalité de transfert pour Meta.
