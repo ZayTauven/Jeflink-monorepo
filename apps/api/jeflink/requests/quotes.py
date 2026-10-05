@@ -7,6 +7,7 @@ partout : comptes, puis fiche pro, puis demande, puis réservation.
 import hashlib
 import hmac
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 
@@ -29,6 +30,18 @@ Status = Quote.Status
 RequestStatus = ServiceRequest.Status
 
 FIXED_DETAILS_MIN_MESSAGE = 20  # « Prix ferme » : une ligne de main-d'œuvre ou un vrai message
+
+# Gardes appelées avant l'insertion d'un devis, fiche pro verrouillée : elles lèvent une
+# ``DomainError`` pour refuser (étape 5 : dette de commission). ``requests`` n'importe jamais
+# les domaines qui s'inscrivent ici (ADR 0012).
+QuoteGuard = Callable[[Provider], None]
+_QUOTE_GUARDS: list[QuoteGuard] = []
+
+
+def register_quote_guard(guard: QuoteGuard) -> None:
+    """Appelé dans le ``ready()`` d'un domaine."""
+    if guard not in _QUOTE_GUARDS:
+        _QUOTE_GUARDS.append(guard)
 
 
 @dataclass(frozen=True)
@@ -126,7 +139,8 @@ def submit_quote(
     """Un pro vérifié envoie un devis sur une demande qu'il a le droit de voir.
 
     Idempotent par ``(pro, idempotency_key)``. Refus : ``own_request``, ``request_closed``,
-    ``quote_already_sent``, ``pro_quote_limit``, ``quotes_full`` (409), ``quote_total_invalid``,
+    ``quote_already_sent``, ``pro_quote_limit``, ``quotes_full``, ``commission_debt_over_limit``
+    (409, garde de ``wallet``), ``quote_total_invalid``,
     ``quote_details_required``, ``slot_invalid`` (422).
     """
     if not IDEMPOTENCY_KEY.match(idempotency_key or ""):
@@ -171,6 +185,8 @@ def _insert(*, provider, request, content, message, slot, key, digest, now) -> Q
     provider = Provider.objects.select_for_update().get(pk=provider.pk)
     if provider.status != Provider.Status.VERIFIED:
         raise DomainError("provider_not_verified", status=403)
+    for guard in tuple(_QUOTE_GUARDS):
+        guard(provider)
     request = lock_request(request)
     if request.client_id == provider.owner_id:
         raise DomainError("own_request", status=403)

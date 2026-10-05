@@ -8,9 +8,10 @@ class WalletConfig(AppConfig):
 
     def ready(self) -> None:
         from jeflink.bookings.services import register_close_handler
+        from jeflink.requests.quotes import register_quote_guard
         from jeflink.trust.services import register_audit_schema
 
-        from .services import charge_commission_on_close
+        from .services import charge_commission_on_close, refuse_quotes_over_debt
 
         register_audit_schema(
             "wallet.rate.added",
@@ -32,3 +33,4 @@ class WalletConfig(AppConfig):
             "wallet.adjustment.posted", {"type": str, "amount_xof": int, "reason_code": str}
         )
         register_close_handler(charge_commission_on_close)
+        register_quote_guard(refuse_quotes_over_debt)

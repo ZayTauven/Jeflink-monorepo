@@ -366,6 +366,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 24 * 3600,
         "options": {"expires": 6 * 3600},
     },
+    "wallet-remind-debts": {
+        "task": "jeflink.wallet.tasks.remind_debts",
+        "schedule": 24 * 3600,
+        "options": {"expires": 6 * 3600},
+    },
     "payments-watch-settlements": {
         "task": "jeflink.payments.tasks.watch_settlements",
         "schedule": 3600,
@@ -478,6 +483,7 @@ BOOKING_CONTACT_RETENTION = timedelta(days=90)
 # Portefeuille (spec 005, Q6) : dette effective (dû moins déclarations en attente de décision).
 WALLET_DEBT_ALERT_XOF = 10_000  # alerte au pro
 WALLET_DEBT_BLOCK_XOF = 25_000  # nouveaux devis refusés ; jamais une mission en cours
+WALLET_REMINDER_EVERY = timedelta(days=7)  # relance d'un pro au-dessus du seuil d'alerte
 WALLET_SETTLEMENT_MAX_AGE = timedelta(days=30)  # paiement déclaré au plus tard 30 j après
 WALLET_SETTLEMENT_CLOCK_SKEW = timedelta(minutes=5)  # heure du téléphone un peu en avance
 WALLET_SETTLEMENT_MAX_PENDING = 3  # déclarations en attente de décision, par pro

@@ -42,6 +42,7 @@ BOOKING_CLOSED = "booking.closed"
 WALLET_DEBT_ALERT = "wallet.debt_alert"
 WALLET_QUOTES_BLOCKED = "wallet.quotes_blocked"
 WALLET_QUOTES_UNBLOCKED = "wallet.quotes_unblocked"
+WALLET_DEBT_REMINDER = "wallet.debt_reminder"
 # Décisions de l'Ops sur un règlement (référence : ``public_id`` de l'intention de paiement).
 WALLET_SETTLEMENT_CONFIRMED = "wallet.settlement_confirmed"
 WALLET_SETTLEMENT_NEEDS_CORRECTION = "wallet.settlement_needs_correction"
@@ -66,7 +67,7 @@ KINDS = frozenset(
         NO_SHOW_CONTESTED, BOOKING_DISPUTED,
         DISPUTE_DECIDED, BOOKING_CLOSED, WALLET_DEBT_ALERT, WALLET_QUOTES_BLOCKED,
         WALLET_QUOTES_UNBLOCKED, WALLET_SETTLEMENT_CONFIRMED, WALLET_SETTLEMENT_NEEDS_CORRECTION,
-        WALLET_SETTLEMENT_REJECTED, WALLET_ADJUSTMENT_POSTED,
+        WALLET_SETTLEMENT_REJECTED, WALLET_ADJUSTMENT_POSTED, WALLET_DEBT_REMINDER,
     }
 )  # fmt: skip
 

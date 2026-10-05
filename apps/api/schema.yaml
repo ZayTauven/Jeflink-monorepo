@@ -2238,7 +2238,7 @@ paths:
           description: 'Rejeu : même devis'
         '409':
           description: quotes_full, quote_already_sent, pro_quote_limit, request_closed,
-            idempotency_key_reused
+            idempotency_key_reused, commission_debt_over_limit
         '422':
           description: quote_total_invalid, quote_details_required, slot_invalid
         '401':

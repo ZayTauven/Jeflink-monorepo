@@ -250,7 +250,7 @@ class ProQuoteCreateView(APIView):
             409: OpenApiResponse(
                 description=(
                     "quotes_full, quote_already_sent, pro_quote_limit, request_closed, "
-                    "idempotency_key_reused"
+                    "idempotency_key_reused, commission_debt_over_limit"
                 )
             ),
             422: OpenApiResponse(

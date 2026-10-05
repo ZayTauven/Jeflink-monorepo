@@ -14,8 +14,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
+from django.conf import settings
 from django.db import IntegrityError, connection, transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from jeflink.common.alerts import alert_once
@@ -716,3 +717,44 @@ def _post_adjustment(
         )
 
     return _adjust(provider=provider, operator=operator, kind=kind, key=ledger_key, write=write)
+
+
+# --- Garde des devis et relances ---------------------------------------------------------------
+
+
+def refuse_quotes_over_debt(provider) -> None:
+    """Garde des devis (``requests.quotes.register_quote_guard``), fiche pro verrouillée : au-delà
+    du seuil de blocage, un nouveau devis est refusé. Rien d'autre n'est jamais bloqué (missions
+    en cours, réservations acceptées, règlement, lecture du portefeuille)."""
+    if provider_wallet(provider).state == WalletState.BLOCKED:
+        raise DomainError("commission_debt_over_limit", status=409)
+
+
+def remind_debts(*, now=None) -> int:
+    """Relance chaque pro dont la dette effective atteint le seuil d'alerte, au plus une fois par
+    ``WALLET_REMINDER_EVERY`` (``LedgerAccount.last_reminder_at``). Renvoie le nombre de
+    relances."""
+    now = now or timezone.now()
+    due_since = now - settings.WALLET_REMINDER_EVERY
+    candidates = LedgerAccount.objects.filter(kind=AccountKind.PRO_COMMISSION_DUE).filter(
+        Q(last_reminder_at__isnull=True) | Q(last_reminder_at__lte=due_since)
+    )
+    sent = 0
+    for pk in list(candidates.values_list("pk", flat=True)):
+        with transaction.atomic():
+            account = (
+                LedgerAccount.objects.select_for_update(of=("self",))
+                .select_related("provider__owner")
+                .get(pk=pk)
+            )
+            if account.last_reminder_at is not None and account.last_reminder_at > due_since:
+                continue  # relancé entre-temps
+            if provider_wallet(account.provider).state == WalletState.OK:
+                continue
+            account.last_reminder_at = now
+            account.save(update_fields=["last_reminder_at"])
+            events.notify(
+                events.WALLET_DEBT_REMINDER, [account.provider.owner], account.provider.public_id
+            )
+            sent += 1
+    return sent
