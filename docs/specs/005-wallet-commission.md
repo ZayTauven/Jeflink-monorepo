@@ -1,6 +1,6 @@
 # Spec 005 — Portefeuille Pro et commission sur le cash
 
-Statut : api livrée le 2026-10-05 (tâches 1 à 11), revue `security-reviewer` à faire · validée par Zay le 2026-10-05 · ADR lié : 0012 (grand livre et règlements, proposé), précise l'ADR 0002 · Revue `terrain-reviewer` faite le 2026-10-05 (voir « Revue terrain et arbitrages »)
+Statut : api livrée le 2026-10-05 (tâches 1 à 11), revue `security-reviewer` faite et corrigée le 2026-10-05 · validée par Zay le 2026-10-05 · ADR lié : 0012 (grand livre et règlements, proposé), précise l'ADR 0002 · Revue `terrain-reviewer` faite le 2026-10-05 (voir « Revue terrain et arbitrages »)
 
 ## Problème
 
