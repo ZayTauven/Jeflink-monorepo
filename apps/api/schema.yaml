@@ -2706,7 +2706,8 @@ paths:
         name: zone
         schema:
           type: string
-        description: Slug d'une zone active.
+        description: Slug d'une zone active. Exige `trade` (sinon 400 `zone_requires_trade`)
+          ; avec un quartier, `rating` est toujours null.
       tags:
       - analytics
       security:
@@ -2718,6 +2719,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicStats'
           description: ''
+        '400':
+          description: zone_requires_trade
         '404':
           description: trade_not_found, zone_not_found
   /api/zones/:

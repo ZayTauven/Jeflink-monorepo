@@ -34,7 +34,7 @@ RESERVED_TRADE_SLUGS, RESERVED_ZONE_SLUGS = _load_reserved_slugs()
 def aliases_field() -> ArrayField:
     """Mots des clients, sans langue (un terme wolof validé s'y ajoute par saisie)."""
     return ArrayField(
-        models.CharField(max_length=ALIAS_MAX_LENGTH),
+        models.CharField(max_length=ALIAS_MAX_LENGTH, validators=[validate_public_text]),
         default=list,
         blank=True,
         help_text="Séparés par des virgules : « frigoriste, clim ».",
@@ -50,14 +50,26 @@ class Trade(BaseModel):
         validators=[validate_reference_slug],
         help_text="Identifiant de l'URL (/plombier/ouakam). Figé après création.",
     )
-    name_fr = models.CharField("nom (fr)", max_length=60)
-    name_wo = models.CharField("nom (wo)", max_length=60, blank=True)
-    short_description_fr = models.CharField("description courte (fr)", max_length=160, blank=True)
-    short_description_wo = models.CharField("description courte (wo)", max_length=160, blank=True)
-    seo_title_fr = models.CharField(
-        "titre SEO (fr)", max_length=70, blank=True, help_text="H1 et titre de page ; sinon le nom."
+    name_fr = models.CharField("nom (fr)", max_length=60, validators=[validate_public_text])
+    name_wo = models.CharField(
+        "nom (wo)", max_length=60, blank=True, validators=[validate_public_text]
     )
-    seo_title_wo = models.CharField("titre SEO (wo)", max_length=70, blank=True)
+    short_description_fr = models.CharField(
+        "description courte (fr)", max_length=160, blank=True, validators=[validate_public_text]
+    )
+    short_description_wo = models.CharField(
+        "description courte (wo)", max_length=160, blank=True, validators=[validate_public_text]
+    )
+    seo_title_fr = models.CharField(
+        "titre SEO (fr)",
+        max_length=70,
+        blank=True,
+        validators=[validate_public_text],
+        help_text="H1 et titre de page ; sinon le nom.",
+    )
+    seo_title_wo = models.CharField(
+        "titre SEO (wo)", max_length=70, blank=True, validators=[validate_public_text]
+    )
     seo_intro_fr = models.CharField(
         "texte de la page métier (fr)",
         max_length=SEO_INTRO_MAX_LENGTH,
@@ -97,8 +109,10 @@ class Service(BaseModel):
 
     trade = models.ForeignKey(Trade, on_delete=models.PROTECT, related_name="services")
     slug = models.CharField(max_length=50, validators=[validate_reference_slug])
-    name_fr = models.CharField("nom (fr)", max_length=80)
-    name_wo = models.CharField("nom (wo)", max_length=80, blank=True)
+    name_fr = models.CharField("nom (fr)", max_length=80, validators=[validate_public_text])
+    name_wo = models.CharField(
+        "nom (wo)", max_length=80, blank=True, validators=[validate_public_text]
+    )
     aliases = aliases_field()
     # Entier XOF ; jamais une fourchette, jamais transmis à l'IA pour être restitué (spec 002).
     price_from_xof = models.PositiveBigIntegerField("à partir de (XOF)", null=True, blank=True)

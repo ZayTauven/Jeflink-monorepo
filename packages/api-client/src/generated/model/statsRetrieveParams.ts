@@ -12,7 +12,7 @@ export type StatsRetrieveParams = {
  */
 trade?: string;
 /**
- * Slug d'une zone active.
+ * Slug d'une zone active. Exige `trade` (sinon 400 `zone_requires_trade`) ; avec un quartier, `rating` est toujours null.
  */
 zone?: string;
 };

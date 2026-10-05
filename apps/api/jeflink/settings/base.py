@@ -237,6 +237,8 @@ COVERAGE_LIST_MAX = 5_000
 PUBLIC_STATS_MIN_MISSIONS = 50  # missions clôturées ; arrondies à la dizaine inférieure
 PUBLIC_STATS_MIN_REVIEWS = 20  # avis comptés pour une note moyenne
 PUBLIC_STATS_MIN_RATED_PROS = 3  # pros distincts notés : une note ne désigne jamais un seul pro
+PUBLIC_STATS_MIN_MISSION_PROS = 3  # pros distincts derrière le nombre de missions
+PUBLIC_STATS_MAX_PRO_SHARE = 0.5  # note : null si un pro pèse plus de la moitié des avis
 PUBLIC_STATS_MIN_PROS = 5  # pros vérifiés, sans filtre
 PUBLIC_STATS_MIN_PROS_FILTERED = 3  # pros vérifiés, avec un filtre métier ou zone
 # Quotas par Ops (décision de Zay, revue sécurité tâche 15, I2) : contre l'aspiration de la

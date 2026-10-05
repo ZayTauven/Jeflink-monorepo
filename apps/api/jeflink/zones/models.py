@@ -36,7 +36,7 @@ class Zone(BaseModel):
     """Quartier de Dakar ou commune de banlieue. Nom propre, sans traduction (ADR 0009)."""
 
     city = models.ForeignKey(City, on_delete=models.PROTECT, related_name="zones")
-    name = models.CharField("nom", max_length=80)
+    name = models.CharField("nom", max_length=80, validators=[validate_public_text])
     # Unique partout : l'URL /[metier]/[quartier] ne porte pas la ville.
     slug = models.CharField(
         max_length=50,

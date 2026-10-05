@@ -57,6 +57,11 @@ export type statsRetrieveResponse200 = {
   status: 200
 }
 
+export type statsRetrieveResponse400 = {
+  data: void
+  status: 400
+}
+
 export type statsRetrieveResponse404 = {
   data: void
   status: 404
@@ -65,7 +70,7 @@ export type statsRetrieveResponse404 = {
 export type statsRetrieveResponseSuccess = (statsRetrieveResponse200) & {
   headers: Headers;
 };
-export type statsRetrieveResponseError = (statsRetrieveResponse404) & {
+export type statsRetrieveResponseError = (statsRetrieveResponse400 | statsRetrieveResponse404) & {
   headers: Headers;
 };
 
