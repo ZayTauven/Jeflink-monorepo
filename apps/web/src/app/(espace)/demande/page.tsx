@@ -20,6 +20,7 @@ import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { rethrowApiError, serverApiWithSession } from "@/lib/bff";
 import { toTradeOptions, toZoneOptions } from "@/lib/requests/catalog";
+import { readPrefill } from "@/lib/requests/prefill";
 import { readSiteConfig } from "@/lib/site-config";
 
 import { RequestForm } from "./_components/request-form";
@@ -29,7 +30,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("metaTitle"), robots: { index: false, follow: false } };
 }
 
-export default async function RequestPage() {
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function RequestPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams;
   const api = await serverApiWithSession();
   const t = await getTranslations("requests.form");
   const locale = await getLocale();
@@ -62,6 +66,8 @@ export default async function RequestPage() {
     failed = true;
   }
 
+  const tradeOptions = toTradeOptions(trades, locale);
+  const zoneOptions = toZoneOptions(zones);
   const { supportWhatsapp } = readSiteConfig(process.env);
 
   return (
@@ -85,8 +91,9 @@ export default async function RequestPage() {
         </Alert>
       ) : (
         <RequestForm
-          trades={toTradeOptions(trades, locale)}
-          zones={toZoneOptions(zones)}
+          trades={tradeOptions}
+          zones={zoneOptions}
+          prefill={readPrefill(params, tradeOptions, zoneOptions)}
           profileComplete={profileComplete}
           supportWhatsapp={supportWhatsapp}
         />

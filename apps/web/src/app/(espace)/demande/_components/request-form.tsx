@@ -14,6 +14,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Choice, Field, Fieldset, describedBy, inputClass } from "@/components/ui/form";
 import { reconcileDraft } from "@/lib/requests/catalog";
+import { type Prefill, applyPrefill } from "@/lib/requests/prefill";
 import {
   type Draft,
   type Period,
@@ -50,11 +51,14 @@ export function RequestForm({
   zones,
   profileComplete,
   supportWhatsapp,
+  prefill,
 }: {
   trades: TradeOption[];
   zones: ZoneOption[];
   profileComplete: boolean;
   supportWhatsapp: string | null;
+  /** Valeurs de l'URL (`?metier=…`) déjà validées contre le catalogue ; elles gagnent sur le brouillon. */
+  prefill: Prefill;
 }) {
   const t = useTranslations("requests");
   const router = useRouter();
@@ -75,12 +79,11 @@ export function RequestForm({
   // Brouillon : relu une fois montée (jamais au rendu serveur), puis sauvegardé à chaque saisie.
   useEffect(() => {
     const saved = loadDraft(browserStorage());
-    if (saved) {
-      setDraft(reconcileDraft(saved, trades, zones));
-      setRestored(true);
-    }
+    // L'URL gagne sur le brouillon pour le métier, le quartier et l'urgence (spec 006, web 9).
+    setDraft(applyPrefill(saved ? reconcileDraft(saved, trades, zones) : emptyDraft(), prefill));
+    if (saved) setRestored(true);
     setHydrated(true);
-  }, [trades, zones]);
+  }, [trades, zones, prefill]);
 
   useEffect(() => {
     if (!hydrated || done) return;
