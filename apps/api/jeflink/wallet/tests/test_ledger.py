@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 
+from jeflink.payments.models import SettlementChannel
 from jeflink.providers.tests.factories import ProviderFactory
 from jeflink.wallet.models import (
     AccountKind,
@@ -42,8 +43,19 @@ SHAPE = {
 }
 
 
+def channel():
+    found, _ = SettlementChannel.objects.get_or_create(
+        slug="wave-test", defaults={"gateway": "fake", "label_fr": "Wave (test)"}
+    )
+    return found
+
+
 def account(provider, kind):
-    return provider_account(provider, kind) if kind.startswith("pro_") else platform_account(kind)
+    if kind.startswith("pro_"):
+        return provider_account(provider, kind)
+    if kind == AccountKind.PLATFORM_COLLECTIONS:
+        return platform_account(kind, channel())
+    return platform_account(kind)
 
 
 def post(provider, kind, amount, key, **kwargs):
@@ -204,6 +216,19 @@ def test_les_comptes_de_pro_et_de_plateforme_ne_se_confondent_pas(provider):
         platform_account(AccountKind.PRO_COMMISSION_DUE)
 
 
+def test_les_fonds_recus_ont_un_compte_par_canal():
+    with pytest.raises(LedgerError):
+        platform_account(AccountKind.PLATFORM_COLLECTIONS)
+    with pytest.raises(LedgerError):
+        platform_account(AccountKind.PLATFORM_REVENUE, channel())
+    other, _ = SettlementChannel.objects.get_or_create(
+        slug="om-test", defaults={"gateway": "fake", "label_fr": "OM (test)"}
+    )
+    assert platform_account(AccountKind.PLATFORM_COLLECTIONS, channel()) != platform_account(
+        AccountKind.PLATFORM_COLLECTIONS, other
+    )
+
+
 # --- Idempotence -------------------------------------------------------------------------------
 
 
@@ -286,7 +311,7 @@ def test_la_contre_passation_d_un_reglement_recree_la_dette(provider, ops):
         actor=ops,
     )
     assert provider_balance(provider).due_xof == 3_000
-    assert balance(platform_account(AccountKind.PLATFORM_COLLECTIONS)) == 0
+    assert balance(platform_account(AccountKind.PLATFORM_COLLECTIONS, channel())) == 0
 
 
 def test_un_trop_percu_devient_un_avoir(provider):

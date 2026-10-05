@@ -64,6 +64,14 @@ class LedgerAccount(models.Model):
         on_delete=models.PROTECT,
         related_name="ledger_accounts",
     )
+    # Canal de règlement d'un compte ``platform_collections`` (un compte par canal).
+    channel = models.ForeignKey(
+        "payments.SettlementChannel",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
+    )
     # Dernière relance de dette envoyée au pro (spec 005, remind_debts). Seul champ modifiable.
     last_reminder_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -73,8 +81,8 @@ class LedgerAccount(models.Model):
         verbose_name_plural = "comptes du grand livre"
         constraints = [
             models.UniqueConstraint(
-                fields=("kind", "provider"),
-                name="ledgeraccount_unique_kind_provider",
+                fields=("kind", "provider", "channel"),
+                name="ledgeraccount_unique_kind_provider_channel",
                 nulls_distinct=False,
             ),
             models.CheckConstraint(
@@ -82,6 +90,10 @@ class LedgerAccount(models.Model):
                     Q(kind__in=sorted(PROVIDER_ACCOUNT_KINDS)), Q(provider__isnull=False)
                 ),
                 name="ledgeraccount_provider_iff_pro_kind",
+            ),
+            models.CheckConstraint(
+                condition=_iff(Q(kind=AccountKind.PLATFORM_COLLECTIONS), Q(channel__isnull=False)),
+                name="ledgeraccount_channel_iff_collections",
             ),
         ]
 
@@ -113,6 +125,13 @@ class LedgerTransaction(BaseModel):
     )
     booking = models.ForeignKey(
         "bookings.Booking", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    payment_intent = models.ForeignKey(
+        "payments.PaymentIntent",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="+",
     )
     reverses = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.PROTECT, related_name="reversals"

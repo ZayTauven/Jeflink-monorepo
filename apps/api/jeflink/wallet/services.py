@@ -83,11 +83,14 @@ def provider_account(provider, kind: str = AccountKind.PRO_COMMISSION_DUE) -> Le
     return account
 
 
-def platform_account(kind: str) -> LedgerAccount:
-    """Compte de la plateforme (créé par migration ; recréé à la demande après un flush)."""
+def platform_account(kind: str, channel=None) -> LedgerAccount:
+    """Compte de la plateforme (créé par migration ; recréé à la demande après un flush). Les
+    fonds reçus (``platform_collections``) ont un compte par canal de règlement."""
     if kind in PROVIDER_ACCOUNT_KINDS:
         raise LedgerError(f"compte de pro demandé pour la plateforme : {kind}")
-    account, _ = LedgerAccount.objects.get_or_create(kind=kind, provider=None)
+    if (kind == AccountKind.PLATFORM_COLLECTIONS) != (channel is not None):
+        raise LedgerError("seuls les fonds reçus ont un compte par canal")
+    account, _ = LedgerAccount.objects.get_or_create(kind=kind, provider=None, channel=channel)
     return account
 
 
@@ -146,14 +149,8 @@ def _check_lines(
             raise LedgerError(f"{kind} : {line.side} sur {line.account.kind}, {expected} attendu")
 
 
-def _signature(*, kind, provider_id, booking_id, reverses_id, lines) -> tuple:
-    return (
-        kind,
-        provider_id,
-        booking_id,
-        reverses_id,
-        tuple(sorted(lines)),
-    )
+def _signature(*, kind, provider_id, booking_id, intent_id, reverses_id, lines) -> tuple:
+    return (kind, provider_id, booking_id, intent_id, reverses_id, tuple(sorted(lines)))
 
 
 def _existing(key: str, signature: tuple) -> LedgerTransaction | None:
@@ -164,6 +161,7 @@ def _existing(key: str, signature: tuple) -> LedgerTransaction | None:
         kind=existing.kind,
         provider_id=existing.provider_id,
         booking_id=existing.booking_id,
+        intent_id=existing.payment_intent_id,
         reverses_id=existing.reverses_id,
         lines=[(e.account_id, e.side, e.amount_xof) for e in existing.entries.all()],
     )
@@ -182,6 +180,7 @@ def post_transaction(
     actor=None,
     provider=None,
     booking=None,
+    payment_intent=None,
     reverses: LedgerTransaction | None = None,
     reason_code: str = "",
     note: str = "",
@@ -199,6 +198,7 @@ def post_transaction(
         kind=kind,
         provider_id=provider.pk if provider else None,
         booking_id=booking.pk if booking else None,
+        intent_id=payment_intent.pk if payment_intent else None,
         reverses_id=reverses.pk if reverses else None,
         lines=[(line.account.pk, line.side, line.amount_xof) for line in lines],
     )
@@ -212,6 +212,7 @@ def post_transaction(
                 idempotency_key=idempotency_key,
                 provider=provider,
                 booking=booking,
+                payment_intent=payment_intent,
                 reverses=reverses,
                 reason_code=reason_code,
                 note=note,
@@ -298,6 +299,7 @@ def reverse(
         actor_kind=actor_kind,
         provider=original.provider,
         booking=original.booking,
+        payment_intent=original.payment_intent,
         reverses=original,
         reason_code=reason_code,
         note=note,
