@@ -732,7 +732,12 @@
       "agreement": "Vous choisissez le devis. Le prix ne change jamais sans votre accord."
     },
     "seo": {
-      "locativeFallback": "à {name}"
+      "locativeFallback": "à {name}",
+      "titleTemplate": "{title} · Jeflink",
+      "siteName": "Jeflink",
+      "locale": "fr_SN",
+      "orgDescription": "Des pros vérifiés à Dakar. Vous choisissez parmi les devis reçus.",
+      "ogHome": "Le bon pro, au bon prix, travail garanti."
     },
     "search": {
       "label": "Votre quartier",
@@ -801,7 +806,7 @@
       "home": "Retour à l'accueil"
     },
     "about": {
-      "metaTitle": "À propos · Jeflink",
+      "metaTitle": "À propos",
       "metaDescription": "Jeflink met en relation les gens de Dakar et des pros vérifiés. Vous voyez le prix avant de choisir.",
       "kicker": "À propos",
       "title": "Un pro vérifié, un prix choisi, un travail suivi.",
@@ -837,7 +842,7 @@
       "ctaTitle": "Besoin d'un pro aujourd'hui ?"
     },
     "contact": {
-      "metaTitle": "Contact · Jeflink",
+      "metaTitle": "Contact",
       "metaDescription": "Écrivez à Jeflink sur WhatsApp ou appelez le support. Une question, un doute, un message suspect.",
       "kicker": "Contact",
       "title": "Parlez à Jeflink",
@@ -850,7 +855,7 @@
       "requestText": "Pour une intervention, faites une demande."
     },
     "pro": {
-      "metaTitle": "Devenir pro · Jeflink",
+      "metaTitle": "Devenir pro",
       "metaDescription": "Artisan à Dakar ? Rejoignez Jeflink : pas de frais d'entrée, une commission par mission terminée.",
       "kicker": "Pour les artisans",
       "title": "Vous êtes artisan ? Rejoignez Jeflink.",
@@ -885,6 +890,159 @@
       "joinMessage": "Bonjour, je suis artisan et je veux rejoindre Jeflink.",
       "noNumber": "Le numéro WhatsApp sera affiché ici.",
       "note": "Pas d'inscription en ligne pour le moment."
+    },
+    "how": {
+      "title": "Comment ça marche",
+      "steps": {
+        "one": {
+          "title": "Dites ce qui ne va pas",
+          "text": "Décrivez le problème et votre quartier."
+        },
+        "two": {
+          "title": "Choisissez parmi {count} devis au plus",
+          "titleNoRules": "Choisissez parmi les devis reçus",
+          "text": "Chaque pro propose son prix et un créneau."
+        },
+        "three": {
+          "title": "Travail fini ? Donnez votre code au pro",
+          "text": "Vous le donnez seulement quand le travail vous convient."
+        }
+      }
+    },
+    "when": {
+      "title": "Quand le pro vient-il ?",
+      "slot": "Les pros proposent un créneau dans leur devis. Vous choisissez.",
+      "confirm": "Le pro confirme sous {hours} h. Sous {urgent} h si c'est urgent.",
+      "night": "La nuit ne compte pas dans ce délai."
+    },
+    "guarantees": {
+      "title": "Ce que Jeflink garantit aujourd'hui",
+      "link": "En savoir plus",
+      "verified": "Un pro vérifié.",
+      "price": "Un prix que vous choisissez, jamais changé sans votre accord.",
+      "code": "Un code de fin que vous donnez au pro.",
+      "dispute": "{hours} h pour signaler un problème. Jeflink examine.",
+      "disputeNoRules": "Un délai pour signaler un problème. Jeflink examine."
+    },
+    "never": {
+      "title": "Ce que Jeflink ne vous demande jamais",
+      "money": "De l'argent.",
+      "code": "Votre code de connexion, même au téléphone.",
+      "more": "De payer plus que le prix accepté."
+    },
+    "faq": {
+      "title": "Questions fréquentes",
+      "items": {
+        "cost": {
+          "q": "Combien ça coûte ?",
+          "a": "Chaque service a un prix de départ. Le prix final est dans le devis. Vous choisissez le devis. Le prix ne change jamais sans votre accord."
+        },
+        "pay": {
+          "q": "Comment je paie ?",
+          "a": "Vous réglez le pro directement, en espèces ou par mobile money. Jeflink ne vous facture rien."
+        },
+        "when": {
+          "q": "Quand le pro vient-il ?",
+          "a": "Les pros proposent un créneau dans leur devis. Vous choisissez. Le pro confirme sous {hours} h.",
+          "aNoRules": "Les pros proposent un créneau dans leur devis. Vous choisissez. Le pro confirme ensuite."
+        },
+        "urgent": {
+          "q": "C'est urgent ?",
+          "a": "Cochez « C'est urgent » dans la demande. Les pros la voient en premier et confirment sous {urgent} h. Sinon, écrivez-nous sur WhatsApp.",
+          "aNoRules": "Cochez « C'est urgent » dans la demande. Les pros la voient en premier. Sinon, écrivez-nous sur WhatsApp."
+        },
+        "zone": {
+          "q": "Mon quartier n'est pas dans la liste ?",
+          "a": "Choisissez « Autre quartier » dans la demande, ou écrivez-nous sur WhatsApp."
+        },
+        "noshow": {
+          "q": "Le pro ne vient pas ?",
+          "a": "Appelez-le, puis touchez « Le pro n'est pas venu ». Votre demande revient vers les pros."
+        },
+        "problem": {
+          "q": "Un problème après le travail ?",
+          "a": "Vous avez {hours} h pour le signaler. Jeflink examine.",
+          "aNoRules": "Vous avez un délai pour le signaler. Jeflink examine."
+        },
+        "genuine": {
+          "q": "Comment savoir que c'est bien Jeflink ?",
+          "a": "Jeflink ne vous demande jamais votre code de connexion, même au téléphone. Jeflink ne vous demande jamais d'argent. Donnez le code de fin seulement si le travail vous convient. Nos seuls numéros sont en bas de cette page."
+        },
+        "relative": {
+          "q": "Vous commandez pour un proche ?",
+          "a": "Faites la demande avec son repère. Puis partagez-lui le code de fin par WhatsApp."
+        },
+        "abroad": {
+          "q": "Vous êtes à l'étranger ?",
+          "a": "Un proche à Dakar fait la demande avec son numéro. Ou écrivez-nous sur WhatsApp."
+        },
+        "wolof": {
+          "q": "Je parle wolof.",
+          "a": "Écrivez-nous sur WhatsApp. Nous répondons en wolof."
+        },
+        "verified": {
+          "q": "Que veut dire « Pro vérifié » ?",
+          "a": "Nous avons vu son identité. Nous avons vérifié son numéro et une référence."
+        }
+      }
+    },
+    "home": {
+      "lead": "Des pros vérifiés à Dakar. Jusqu'à {count} devis, vous choisissez.",
+      "leadNoRules": "Des pros vérifiés à Dakar. Vous choisissez parmi les devis reçus.",
+      "chipsLabel": "Choisissez un métier",
+      "tradesTitle": "Nos métiers",
+      "tradesLead": "Choisissez un métier, puis votre quartier.",
+      "tradesLink": "Voir tous les métiers",
+      "zonesTitle": "Les quartiers couverts",
+      "zonesLead": "Cherchez le vôtre, ou écrivez-le.",
+      "zonesMissing": "Votre quartier n'y est pas ? Écrivez-nous.",
+      "zonesWhatsapp": "Écrire mon quartier sur WhatsApp",
+      "figuresTitle": "Des chiffres vrais",
+      "proTitle": "Vous êtes artisan ?",
+      "proText": "Rejoignez Jeflink et recevez des demandes près de chez vous.",
+      "proLink": "Devenir pro",
+      "finalTitle": "Un pro chez vous, au prix que vous choisissez."
+    },
+    "trades": {
+      "metaTitle": "Nos métiers",
+      "metaDescription": "Tous les métiers de Jeflink à Dakar. Choisissez le vôtre, puis votre quartier.",
+      "kicker": "Métiers",
+      "title": "Tous nos métiers",
+      "lead": "Choisissez un métier, puis votre quartier.",
+      "cardLink": "Voir le métier",
+      "empty": "La liste des métiers ne s'affiche pas. Écrivez-nous sur WhatsApp."
+    },
+    "trade": {
+      "metaDescription": "{title} à Dakar avec des pros vérifiés. Vous choisissez parmi les devis reçus.",
+      "ogDescription": "{title} à Dakar, avec des pros vérifiés.",
+      "servicesTitle": "Services et prix de départ",
+      "requestService": "Demander ce service",
+      "noPrice": "Le prix est donné dans le devis.",
+      "zonesTitle": "Les quartiers où ce métier est ouvert",
+      "zonesEmpty": "Ce métier n'est ouvert dans aucun quartier pour le moment.",
+      "searchTitle": "Votre quartier n'est pas dans la liste ?"
+    },
+    "tradeZone": {
+      "metaDescription": "{title} avec des pros vérifiés. Vous choisissez parmi les devis reçus.",
+      "ogDescription": "{title}, avec des pros vérifiés.",
+      "introFallback": "Des pros vérifiés couvrent ce quartier. Vous choisissez parmi les devis reçus.",
+      "neighborsTitle": "Dans les quartiers voisins",
+      "othersTitle": "Autres métiers {where}",
+      "figuresTitle": "En chiffres",
+      "supportTitle": "Une question ? Le support répond.",
+      "breadcrumbLabel": "Fil d'Ariane"
+    },
+    "recherche": {
+      "metaTitle": "Recherche de quartier",
+      "suggestionsTitle": "Vous cherchez peut-être",
+      "noneTitle": "Pas de page pour ce quartier ?",
+      "noneText": "Dites-nous où vous êtes sur WhatsApp.",
+      "otherZone": "Autre quartier",
+      "closedTitle": "Pas encore de {trade} {where}",
+      "closedText": "Voici les métiers ouverts dans ce quartier.",
+      "whatsapp": "Dites-nous où vous êtes",
+      "whatsappMessage": "Bonjour, je cherche un pro. Mon quartier n'a pas de page.",
+      "backToTrade": "Revenir au métier"
     }
   }
 }
