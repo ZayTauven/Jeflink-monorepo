@@ -21,6 +21,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CoveragePair,
   TradeDetail,
   TradeSummary
 } from '../../model';
@@ -51,6 +52,117 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export type catalogCoverageListResponse200 = {
+  data: CoveragePair[]
+  status: 200
+}
+
+export type catalogCoverageListResponseSuccess = (catalogCoverageListResponse200) & {
+  headers: Headers;
+};
+;
+
+export type catalogCoverageListResponse = (catalogCoverageListResponseSuccess)
+
+export const getCatalogCoverageListUrl = () => {
+
+
+
+
+  return `/api/catalog/coverage/`
+}
+
+/**
+ * Paires métier et zone ouvertes : les pages du site et son sitemap (spec 006).
+ *
+ * Bornée par ``COVERAGE_LIST_MAX``, sans pagination.
+ */
+export const catalogCoverageList = async ( options?: Parameters<typeof jeflinkFetch>[1]): Promise<catalogCoverageListResponse> => {
+
+  return jeflinkFetch<catalogCoverageListResponse>(getCatalogCoverageListUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCatalogCoverageListQueryKey = () => {
+    return [
+    `/api/catalog/coverage/`
+    ] as const;
+    }
+
+
+export const getCatalogCoverageListQueryOptions = <TData = Awaited<ReturnType<typeof catalogCoverageList>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogCoverageList>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCatalogCoverageListQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof catalogCoverageList>>> = ({ signal }) => catalogCoverageList({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof catalogCoverageList>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type CatalogCoverageListQueryResult = NonNullable<Awaited<ReturnType<typeof catalogCoverageList>>>
+export type CatalogCoverageListQueryError = ErrorType<unknown>
+
+
+export function useCatalogCoverageList<TData = Awaited<ReturnType<typeof catalogCoverageList>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogCoverageList>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogCoverageList>>,
+          TError,
+          Awaited<ReturnType<typeof catalogCoverageList>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogCoverageList<TData = Awaited<ReturnType<typeof catalogCoverageList>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogCoverageList>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof catalogCoverageList>>,
+          TError,
+          Awaited<ReturnType<typeof catalogCoverageList>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useCatalogCoverageList<TData = Awaited<ReturnType<typeof catalogCoverageList>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogCoverageList>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useCatalogCoverageList<TData = Awaited<ReturnType<typeof catalogCoverageList>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof catalogCoverageList>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getCatalogCoverageListQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
 
 export type catalogTradesListResponse200 = {
   data: TradeSummary[]

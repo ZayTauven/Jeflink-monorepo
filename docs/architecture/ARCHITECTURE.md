@@ -35,8 +35,8 @@ flowchart LR
 | Domaine         | Responsabilité                                                                                                                                                                              |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `accounts`      | Comptes par téléphone, OTP SMS, sessions d'appareil (JWT + refresh rotatif), rôles et invitations, second facteur Ops, changement de numéro, suppression et anonymisation, purge (spec 001) |
-| `zones`         | Quartiers (centre + rayon, contour optionnel), villes, disponibilité des métiers par zone                                                                                                   |
-| `catalog`       | Métiers, services, fourchettes de prix de référence. Métiers = lignes en base (slug stable, libellés `fr`/`wo`, actif oui/non), jamais un `enum` ou des `choices` dans le code              |
+| `zones`         | Quartiers (centre + rayon, contour optionnel), villes, disponibilité des métiers par zone ; locatif et texte d'intro saisis par l'Ops ; détail public avec voisins (PostGIS) et couverture pour le sitemap (spec 006) |
+| `catalog`       | Métiers, services, fourchettes de prix de référence. Métiers = lignes en base (slug stable, libellés `fr`/`wo`, actif oui/non, texte d'intro), jamais un `enum` ou des `choices` dans le code. Slugs réservés : `reserved_slugs.json`, partagé avec le web (spec 006) |
 | `providers`     | Fiche pro (statut `pending`, `verified`, `suspended`, métiers, zones), création et vérification par l'Ops (spec 003) ; équipes, disponibilités, badges, Passeport Pro plus tard             |
 | `requests`      | Demande (cycle `needs_zone` à `expired`), devis (3 au plus, prix ferme ou visite), diffusion aux pros éligibles ; photos et voix plus tard (spec 003, ADR 0010)                             |
 | `bookings`      | Réservation née à `accepted`, machine à états déclarée en entier, `BookingEvent`, confirmation du pro ; avenants, code de fin, preuves à l'étape 4 (spec 003, ADR 0010)                     |
@@ -47,7 +47,7 @@ flowchart LR
 | `notifications` | `notify(kind, recipients, ref)` après commit (adaptateur `log` en local/test) ; push, SMS (`SmsGateway`, adaptateur `fake` en local/test seulement), WhatsApp, préférences, replis          |
 | `trust`         | KYC, litiges, garantie, signalements, `AuditEvent`                                                                                                                                          |
 | `promotions`    | Codes promo, parrainage                                                                                                                                                                     |
-| `analytics`     | `UnservedDemand` (demandes non servies, sans identifiant d'utilisateur) ; autres événements produit plus tard                                                                               |
+| `analytics`     | `UnservedDemand` (demandes non servies, sans identifiant d'utilisateur) ; agrégats publics à seuils pour le site (`public_stats` : missions, note, pros vérifiés, règles), jamais un nom ni un identifiant (spec 006) |
 | `ai`            | Fournisseurs, prompts versionnés, schémas, évals, journal de coûts                                                                                                                          |
 
 ## Demande, devis et réservation : deux cycles de vie
@@ -185,6 +185,15 @@ ai/
 
 - Channels + Redis : chat, statut de réservation, position « en route ».
 - Notification critique : push → SMS si non lu après N minutes → WhatsApp (V2).
+
+## Données publiques du site (spec 006)
+
+Quatre lectures sans authentification, sur le socle `PublicReferenceView` (limite `catalog_read`, `Cache-Control` public, `ETag`) : `GET /api/zones/{slug}/` (textes, `indexable`, voisins), `GET /api/catalog/coverage/` (paires ouvertes, bornées par `COVERAGE_LIST_MAX`), `GET /api/catalog/trades/{slug}/` (avec `seo_intro`) et `GET /api/stats/`.
+
+- **`analytics` expose des agrégats publics à seuils** (`PUBLIC_STATS_*`). Chaque chiffre est `null` sous son seuil et arrondi ; la note exige 3 pros distincts notés. Les pros de démonstration et les comptes de revue sont exclus. La réponse ne contient ni nom ni identifiant, et `rules` est lu dans les réglages des specs 003 et 004 (le site ne recopie rien).
+- **Les distances ne sortent pas** : les quartiers voisins sont triés par PostGIS, la réponse ne donne que `slug` et `name`.
+- **Slugs réservés** : un seul fichier, `catalog/reserved_slugs.json` (`trade_slugs` pour le premier segment des URL, `zone_slugs` pour le second). Django le lit (`catalog.E001` et `zones.E001` au démarrage, refus à la saisie) et un test du web le lit aussi (ADR 0013).
+- **Textes saisis par l'Ops** (`seo_intro_*`, `locative_*`) : publiés tels quels, donc sans numéro de téléphone ni lien (`common.validators.validate_public_text`).
 
 ## Auth
 

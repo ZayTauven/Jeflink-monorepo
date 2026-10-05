@@ -23,6 +23,8 @@ import type {
 import type {
   TradeSummary,
   Zone,
+  ZoneDetail,
+  ZoneRetrieveParams,
   ZonesListParams
 } from '../../model';
 
@@ -158,6 +160,140 @@ export function useZonesList<TData = Awaited<ReturnType<typeof zonesList>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getZonesListQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type zoneRetrieveResponse200 = {
+  data: ZoneDetail
+  status: 200
+}
+
+export type zoneRetrieveResponse404 = {
+  data: void
+  status: 404
+}
+
+export type zoneRetrieveResponseSuccess = (zoneRetrieveResponse200) & {
+  headers: Headers;
+};
+export type zoneRetrieveResponseError = (zoneRetrieveResponse404) & {
+  headers: Headers;
+};
+
+export type zoneRetrieveResponse = (zoneRetrieveResponseSuccess | zoneRetrieveResponseError)
+
+export const getZoneRetrieveUrl = (slug: string,
+    params?: ZoneRetrieveParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/zones/${encodeURIComponent(String(slug))}/?${stringifiedParams}` : `/api/zones/${encodeURIComponent(String(slug))}/`
+}
+
+/**
+ * Une zone pour sa page métier et quartier : textes, indexation, quartiers voisins (spec 006).
+ *
+ * ``?trade=`` limite les voisins aux zones où ce métier est ouvert. La distance sert au tri
+ * seulement : ni position, ni rayon, ni contour dans la réponse.
+ */
+export const zoneRetrieve = async (slug: string,
+    params?: ZoneRetrieveParams, options?: Parameters<typeof jeflinkFetch>[1]): Promise<zoneRetrieveResponse> => {
+
+  return jeflinkFetch<zoneRetrieveResponse>(getZoneRetrieveUrl(slug,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getZoneRetrieveQueryKey = (slug: string,
+    params?: ZoneRetrieveParams,) => {
+    return [
+    `/api/zones/${slug}/`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getZoneRetrieveQueryOptions = <TData = Awaited<ReturnType<typeof zoneRetrieve>>, TError = ErrorType<void>>(slug: string,
+    params?: ZoneRetrieveParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof zoneRetrieve>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getZoneRetrieveQueryKey(slug,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof zoneRetrieve>>> = ({ signal }) => zoneRetrieve(slug,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: slug !== null && slug !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof zoneRetrieve>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ZoneRetrieveQueryResult = NonNullable<Awaited<ReturnType<typeof zoneRetrieve>>>
+export type ZoneRetrieveQueryError = ErrorType<void>
+
+
+export function useZoneRetrieve<TData = Awaited<ReturnType<typeof zoneRetrieve>>, TError = ErrorType<void>>(
+ slug: string,
+    params: undefined |  ZoneRetrieveParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof zoneRetrieve>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof zoneRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof zoneRetrieve>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useZoneRetrieve<TData = Awaited<ReturnType<typeof zoneRetrieve>>, TError = ErrorType<void>>(
+ slug: string,
+    params?: ZoneRetrieveParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof zoneRetrieve>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof zoneRetrieve>>,
+          TError,
+          Awaited<ReturnType<typeof zoneRetrieve>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useZoneRetrieve<TData = Awaited<ReturnType<typeof zoneRetrieve>>, TError = ErrorType<void>>(
+ slug: string,
+    params?: ZoneRetrieveParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof zoneRetrieve>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useZoneRetrieve<TData = Awaited<ReturnType<typeof zoneRetrieve>>, TError = ErrorType<void>>(
+ slug: string,
+    params?: ZoneRetrieveParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof zoneRetrieve>>, TError, TData>>, request?: SecondParameter<typeof jeflinkFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getZoneRetrieveQueryOptions(slug,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

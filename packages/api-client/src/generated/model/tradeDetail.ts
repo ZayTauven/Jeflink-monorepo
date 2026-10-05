@@ -19,6 +19,7 @@ export interface TradeDetail {
   readonly icon_key: string | null;
   aliases: string[];
   readonly seo_title: LocalizedText;
+  readonly seo_intro: LocalizedText | null;
   services: Service[];
   zones: string[];
 }

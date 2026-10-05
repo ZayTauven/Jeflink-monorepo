@@ -768,6 +768,26 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/catalog/coverage/:
+    get:
+      operationId: catalog_coverage_list
+      description: |-
+        Paires métier et zone ouvertes : les pages du site et son sitemap (spec 006).
+
+        Bornée par ``COVERAGE_LIST_MAX``, sans pagination.
+      tags:
+      - catalog
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CoveragePair'
+          description: ''
   /api/catalog/trades/:
     get:
       operationId: catalog_trades_list
@@ -2671,6 +2691,35 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/stats/:
+    get:
+      operationId: stats_retrieve
+      description: Preuves chiffrées et règles réelles pour le site public (spec 006),
+        toutes à seuils.
+      parameters:
+      - in: query
+        name: trade
+        schema:
+          type: string
+        description: Slug d'un métier actif.
+      - in: query
+        name: zone
+        schema:
+          type: string
+        description: Slug d'une zone active.
+      tags:
+      - analytics
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicStats'
+          description: ''
+        '404':
+          description: trade_not_found, zone_not_found
   /api/zones/:
     get:
       operationId: zones_list
@@ -2695,6 +2744,38 @@ paths:
                 items:
                   $ref: '#/components/schemas/Zone'
           description: ''
+  /api/zones/{slug}/:
+    get:
+      operationId: zone_retrieve
+      description: |-
+        Une zone pour sa page métier et quartier : textes, indexation, quartiers voisins (spec 006).
+
+        ``?trade=`` limite les voisins aux zones où ce métier est ouvert. La distance sert au tri
+        seulement : ni position, ni rayon, ni contour dans la réponse.
+      parameters:
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: trade
+        schema:
+          type: string
+        description: 'Slug d''un métier : voisins où il est ouvert.'
+      tags:
+      - zones
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ZoneDetail'
+          description: ''
+        '404':
+          description: zone_not_found, trade_not_found
   /api/zones/{slug}/trades/:
     get:
       operationId: zone_trades_list
@@ -3578,6 +3659,27 @@ components:
           maxLength: 500
       required:
       - note
+    CoveragePair:
+      type: object
+      description: 'Une paire métier et zone ouverte : une page du site (et une ligne
+        du sitemap).'
+      properties:
+        trade:
+          type: string
+          description: Slug du métier.
+        zone:
+          type: string
+          description: Slug de la zone.
+        indexable:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - indexable
+      - trade
+      - updated_at
+      - zone
     DeletionConfirmRequest:
       type: object
       properties:
@@ -3903,6 +4005,17 @@ components:
       - restricted
       - restriction_kind
       - roles
+    NearbyZone:
+      type: object
+      description: 'Zone voisine : un lien, rien de plus (ni distance, ni position).'
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+      - name
+      - slug
     NextRate:
       type: object
       properties:
@@ -5195,6 +5308,78 @@ components:
         * `pending` - En attente
         * `verified` - Vérifié
         * `suspended` - Suspendu
+    PublicRating:
+      type: object
+      properties:
+        average:
+          type: number
+          format: double
+          description: Moyenne sur 5, une décimale.
+        count:
+          type: integer
+      required:
+      - average
+      - count
+    PublicRules:
+      type: object
+      description: 'Règles réelles lues dans les réglages (specs 003 et 004) : le
+        site ne les recopie pas.'
+      properties:
+        max_quotes_per_request:
+          type: integer
+        dispute_window_hours:
+          type: number
+          format: double
+        pro_confirm_hours:
+          type: number
+          format: double
+        pro_confirm_hours_urgent:
+          type: number
+          format: double
+        quiet_hours:
+          $ref: '#/components/schemas/QuietHours'
+      required:
+      - dispute_window_hours
+      - max_quotes_per_request
+      - pro_confirm_hours
+      - pro_confirm_hours_urgent
+      - quiet_hours
+    PublicStats:
+      type: object
+      description: 'Chiffres publics à seuils : ``null`` sous le seuil, arrondis ;
+        aucun nom ni identifiant.'
+      properties:
+        missions_completed:
+          type: integer
+          nullable: true
+          description: Arrondi à la dizaine inférieure ; null sous le seuil.
+        rating:
+          allOf:
+          - $ref: '#/components/schemas/PublicRating'
+          nullable: true
+        verified_pros:
+          type: integer
+          nullable: true
+          description: Exact de 3 à 9, dizaine inférieure au-delà ; null sous le seuil.
+        rules:
+          $ref: '#/components/schemas/PublicRules'
+      required:
+      - missions_completed
+      - rating
+      - rules
+      - verified_pros
+    QuietHours:
+      type: object
+      properties:
+        start:
+          type: integer
+          description: Heure de Dakar (0-23) où le délai s'arrête.
+        end:
+          type: integer
+          description: Heure de Dakar (0-23) où il reprend.
+      required:
+      - end
+      - start
     QuoteCreateRequest:
       type: object
       properties:
@@ -5752,6 +5937,11 @@ components:
           allOf:
           - $ref: '#/components/schemas/LocalizedText'
           readOnly: true
+        seo_intro:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+          nullable: true
         services:
           type: array
           items:
@@ -5764,6 +5954,7 @@ components:
       - aliases
       - icon_key
       - name
+      - seo_intro
       - seo_title
       - services
       - short_description
@@ -5972,6 +6163,48 @@ components:
       - aliases
       - city
       - name
+      - slug
+    ZoneDetail:
+      type: object
+      description: 'Détail pour la page métier et quartier (spec 006) : textes saisis
+        par l''Ops, voisins.'
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+        aliases:
+          type: array
+          items:
+            type: string
+        locative:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+          nullable: true
+        intro:
+          allOf:
+          - $ref: '#/components/schemas/LocalizedText'
+          readOnly: true
+          nullable: true
+        indexable:
+          type: boolean
+          description: 'Vrai quand le quartier a son texte d''intro : sinon la page
+            est noindex.'
+        nearby:
+          type: array
+          items:
+            $ref: '#/components/schemas/NearbyZone'
+      required:
+      - aliases
+      - city
+      - indexable
+      - intro
+      - locative
+      - name
+      - nearby
       - slug
     ZoneRef:
       type: object
