@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "jeflink.requests",
     "jeflink.bookings",
     "jeflink.reviews",
+    "jeflink.wallet",
 ]
 
 MIDDLEWARE = [
