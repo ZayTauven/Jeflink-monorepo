@@ -2247,6 +2247,244 @@ paths:
           description: profile_incomplete, role_required, provider_not_verified
         '404':
           description: not_found
+  /api/pro/wallet/:
+    get:
+      operationId: pro_wallet_retrieve
+      tags:
+      - wallet
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletSummary'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required
+        '404':
+          description: not_found
+  /api/pro/wallet/entries/:
+    get:
+      operationId: pro_wallet_entries_list
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - wallet
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWalletEntryList'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required
+        '404':
+          description: not_found
+  /api/pro/wallet/entries/{public_id}/:
+    get:
+      operationId: pro_wallet_entries_retrieve
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - wallet
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletEntryDetail'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required
+        '404':
+          description: not_found
+  /api/pro/wallet/settlements/:
+    get:
+      operationId: pro_wallet_settlements_list
+      parameters:
+      - name: cursor
+        required: false
+        in: query
+        description: La valeur du curseur de pagination.
+        schema:
+          type: string
+      tags:
+      - wallet
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSettlementList'
+          description: ''
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required
+        '404':
+          description: not_found
+    post:
+      operationId: pro_wallet_settlements_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: 'Une clé par saisie (22 à 64 caractères : lettres, chiffres,
+          « - », « _ »). Même clé et même corps : même réponse (200 au rejeu). Même
+          clé et autre corps : 409 idempotency_key_reused.'
+        required: true
+      tags:
+      - wallet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettlementCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SettlementCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SettlementCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settlement'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settlement'
+          description: 'Rejeu : même déclaration'
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: nothing_due, settlement_reference_used, settlement_pending_limit,
+            idempotency_key_reused
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: settlement_exceeds_due (payable_xof), settlement_amount_invalid,
+            settlement_reference_invalid, paid_at_invalid, payer_last4_invalid, channel_inactive
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: settlement_rate_limited
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required
+        '404':
+          description: not_found
+  /api/pro/wallet/settlements/{public_id}/cancel/:
+    post:
+      operationId: pro_wallet_settlements_cancel
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - wallet
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settlement'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: settlement_not_pending
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required
+        '404':
+          description: not_found
+  /api/pro/wallet/settlements/{public_id}/correct/:
+    post:
+      operationId: pro_wallet_settlements_correct
+      parameters:
+      - in: path
+        name: public_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - wallet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettlementCorrectRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SettlementCorrectRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SettlementCorrectRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settlement'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: settlement_not_correctable, settlement_reference_used
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: settlement_exceeds_due, settlement_amount_invalid, settlement_reference_invalid,
+            paid_at_invalid, payer_last4_invalid
+        '401':
+          description: not_authenticated
+        '403':
+          description: profile_incomplete, role_required
+        '404':
+          description: not_found
   /api/quotes/{public_id}/accept/:
     post:
       operationId: quotes_accept
@@ -2727,6 +2965,9 @@ components:
       - profile_status
       - public_id
       - roles
+    BlankEnum:
+      enum:
+      - ''
     BookingStatusEnum:
       enum:
       - accepted
@@ -2761,6 +3002,36 @@ components:
         * `pro` - Pro
         * `system` - Système
         * `ops` - Équipe Jeflink
+    Channel:
+      type: object
+      properties:
+        slug:
+          type: string
+          pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+          maxLength: 40
+        label_fr:
+          type: string
+          title: Libellé (fr)
+          maxLength: 60
+        label_wo:
+          type: string
+          title: Libellé (wo)
+          maxLength: 60
+        account_display:
+          type: string
+          title: Compte Jeflink affiché
+          maxLength: 60
+        instructions_fr:
+          type: string
+          title: Instructions (fr)
+          maxLength: 600
+        instructions_wo:
+          type: string
+          title: Instructions (wo)
+          maxLength: 600
+      required:
+      - label_fr
+      - slug
     ChannelEnum:
       enum:
       - web
@@ -3249,6 +3520,27 @@ components:
       - published_at
       - rating
       - tags
+    CommissionDetail:
+      type: object
+      properties:
+        base_xof:
+          type: integer
+        rate_bps:
+          type: integer
+          nullable: true
+        cap_xof:
+          type: integer
+          nullable: true
+        amount_xof:
+          type: integer
+        completion_method:
+          type: string
+      required:
+      - amount_xof
+      - base_xof
+      - cap_xof
+      - completion_method
+      - rate_bps
     CompleteRequest:
       type: object
       description: |-
@@ -3465,6 +3757,22 @@ components:
       description: |-
         * `open` - Ouvert
         * `resolved` - Tranché
+    EntryBooking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        trade_slug:
+          type: string
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - closed_at
+      - id
+      - trade_slug
     ErrorCandidate:
       type: object
       properties:
@@ -3595,6 +3903,21 @@ components:
       - restricted
       - restriction_kind
       - roles
+    NextRate:
+      type: object
+      properties:
+        rate_bps:
+          type: integer
+        cap_xof:
+          type: integer
+          nullable: true
+        valid_from:
+          type: string
+          format: date-time
+      required:
+      - cap_xof
+      - rate_bps
+      - valid_from
     NoShowState:
       type: object
       description: État d'un « le pro n'est pas venu ». Le pro voit en plus l'échéance
@@ -4187,6 +4510,44 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProRequest'
+    PaginatedSettlementList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Settlement'
+    PaginatedWalletEntryList:
+      type: object
+      required:
+      - results
+      properties:
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cD00ODY%3D"
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WalletEntry'
     PatchedMeUpdateRequest:
       type: object
       properties:
@@ -5052,6 +5413,24 @@ components:
           type: string
       required:
       - phone
+    Reversal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount_xof:
+          type: integer
+        reason_code:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - amount_xof
+      - created_at
+      - id
+      - reason_code
     ReviewWriteRequest:
       type: object
       description: Une note suffit. Valeurs vérifiées par le service (``422 review_invalid``).
@@ -5114,6 +5493,164 @@ components:
       required:
       - name
       - slug
+    Settlement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+        origin:
+          $ref: '#/components/schemas/SettlementOriginEnum'
+        status:
+          $ref: '#/components/schemas/SettlementStatusEnum'
+        declared_xof:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+        received_xof:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        reference_hint:
+          type: string
+          readOnly: true
+          description: 4 derniers caractères de la référence (la référence entière
+            reste à l'Ops)
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        correction_reason:
+          oneOf:
+          - $ref: '#/components/schemas/SettlementCorrectionReasonEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        reject_reason:
+          oneOf:
+          - $ref: '#/components/schemas/SettlementRejectReasonEnum'
+          - $ref: '#/components/schemas/BlankEnum'
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        corrected_at:
+          type: string
+          format: date-time
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+        can_cancel:
+          type: boolean
+          readOnly: true
+        can_correct:
+          type: boolean
+          readOnly: true
+      required:
+      - can_cancel
+      - can_correct
+      - channel
+      - created_at
+      - declared_xof
+      - id
+      - origin
+      - reference_hint
+      - status
+    SettlementCorrectRequest:
+      type: object
+      properties:
+        amount_xof:
+          type: integer
+        reference:
+          type: string
+          minLength: 1
+          maxLength: 60
+        paid_at:
+          type: string
+          format: date-time
+        payer_last4:
+          type: string
+          default: ''
+          maxLength: 4
+      required:
+      - amount_xof
+      - paid_at
+      - reference
+    SettlementCorrectionReasonEnum:
+      enum:
+      - reference_not_found
+      - amount_mismatch
+      - paid_at_mismatch
+      type: string
+      description: |-
+        * `reference_not_found` - Référence introuvable
+        * `amount_mismatch` - Montant différent
+        * `paid_at_mismatch` - Heure différente
+    SettlementCreateRequest:
+      type: object
+      properties:
+        amount_xof:
+          type: integer
+        reference:
+          type: string
+          minLength: 1
+          maxLength: 60
+        paid_at:
+          type: string
+          format: date-time
+        payer_last4:
+          type: string
+          default: ''
+          maxLength: 4
+        channel:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - amount_xof
+      - channel
+      - paid_at
+      - reference
+    SettlementOriginEnum:
+      enum:
+      - pro_declared
+      - ops_recorded
+      type: string
+      description: |-
+        * `pro_declared` - Déclaré par le pro
+        * `ops_recorded` - Saisi par l'Ops
+    SettlementRejectReasonEnum:
+      enum:
+      - not_found
+      - amount_mismatch
+      - duplicate
+      - other
+      type: string
+      description: |-
+        * `not_found` - Introuvable dans le relevé
+        * `amount_mismatch` - Montant différent
+        * `duplicate` - Déjà déclaré
+        * `other` - Autre
+    SettlementStatusEnum:
+      enum:
+      - declared
+      - needs_correction
+      - confirmed
+      - rejected
+      - cancelled
+      type: string
+      description: |-
+        * `declared` - À rapprocher
+        * `needs_correction` - À corriger par le pro
+        * `confirmed` - Confirmé
+        * `rejected` - Rejeté
+        * `cancelled` - Retiré par le pro
     StartRequest:
       type: object
       description: 'Heure de l''appareil (file hors ligne, étape 6) : métadonnée,
@@ -5232,6 +5769,25 @@ components:
       - short_description
       - slug
       - zones
+    TradeRate:
+      type: object
+      properties:
+        trade_slug:
+          type: string
+        rate_bps:
+          type: integer
+        cap_xof:
+          type: integer
+          nullable: true
+        next:
+          allOf:
+          - $ref: '#/components/schemas/NextRate'
+          nullable: true
+      required:
+      - cap_xof
+      - next
+      - rate_bps
+      - trade_slug
     TradeRef:
       type: object
       properties:
@@ -5274,6 +5830,130 @@ components:
       - name
       - short_description
       - slug
+    WalletEntry:
+      type: object
+      description: |-
+        Une ligne du compte du pro : ``increase`` fait monter ce qu'il doit, ``decrease`` le
+        fait baisser.
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        amount_xof:
+          type: integer
+        effect:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+        booking:
+          allOf:
+          - $ref: '#/components/schemas/EntryBooking'
+          nullable: true
+        reason_code:
+          type: string
+      required:
+      - amount_xof
+      - booking
+      - created_at
+      - effect
+      - id
+      - kind
+      - reason_code
+    WalletEntryDetail:
+      type: object
+      description: |-
+        Une ligne du compte du pro : ``increase`` fait monter ce qu'il doit, ``decrease`` le
+        fait baisser.
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        amount_xof:
+          type: integer
+        effect:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+        booking:
+          allOf:
+          - $ref: '#/components/schemas/EntryBooking'
+          nullable: true
+        reason_code:
+          type: string
+        commission:
+          allOf:
+          - $ref: '#/components/schemas/CommissionDetail'
+          nullable: true
+        reversals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reversal'
+      required:
+      - amount_xof
+      - booking
+      - commission
+      - created_at
+      - effect
+      - id
+      - kind
+      - reason_code
+      - reversals
+    WalletStateEnum:
+      enum:
+      - ok
+      - alert
+      - blocked
+      type: string
+      description: |-
+        * `ok` - ok
+        * `alert` - alert
+        * `blocked` - blocked
+    WalletSummary:
+      type: object
+      properties:
+        due_xof:
+          type: integer
+          description: Part de Jeflink encore due par le pro
+        credit_xof:
+          type: integer
+          description: Avoir du pro (trop-perçu, geste)
+        pending_xof:
+          type: integer
+          description: Déclarations qui comptent comme payées
+        effective_due_xof:
+          type: integer
+        state:
+          $ref: '#/components/schemas/WalletStateEnum'
+        alert_threshold_xof:
+          type: integer
+        block_threshold_xof:
+          type: integer
+        rates:
+          type: array
+          items:
+            $ref: '#/components/schemas/TradeRate'
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Channel'
+      required:
+      - alert_threshold_xof
+      - block_threshold_xof
+      - channels
+      - credit_xof
+      - due_xof
+      - effective_due_xof
+      - pending_xof
+      - rates
+      - state
     Zone:
       type: object
       description: 'Zone dans une liste : ni position, ni géométrie (spec 002).'

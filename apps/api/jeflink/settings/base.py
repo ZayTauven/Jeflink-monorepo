@@ -133,6 +133,11 @@ SPECTACULAR_SETTINGS = {
     "COMPONENT_SPLIT_REQUEST": True,
     # Noms stables des énumérations de la demande, des devis et des réservations (client TS).
     "ENUM_NAME_OVERRIDES": {
+        "WalletStateEnum": ["ok", "alert", "blocked"],
+        "SettlementStatusEnum": "jeflink.payments.models.PaymentIntent.Status",
+        "SettlementOriginEnum": "jeflink.payments.models.PaymentIntent.Origin",
+        "SettlementRejectReasonEnum": "jeflink.payments.models.PaymentIntent.RejectReason",
+        "SettlementCorrectionReasonEnum": "jeflink.payments.models.PaymentIntent.CorrectionReason",
         "RequestStatusEnum": "jeflink.requests.models.ServiceRequest.Status",
         "QuoteStatusEnum": "jeflink.requests.models.Quote.Status",
         "QuoteKindEnum": "jeflink.requests.models.Quote.Kind",

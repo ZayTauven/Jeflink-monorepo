@@ -6,4 +6,5 @@ export * from './me/me.ts';
 export * from './ops-accounts/ops-accounts.ts';
 export * from './pro/pro.ts';
 export * from './requests/requests.ts';
+export * from './wallet/wallet.ts';
 export * from './zones/zones.ts';

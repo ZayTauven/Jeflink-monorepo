@@ -8,9 +8,12 @@ from django.conf import settings
 from django.db.models import BigIntegerField, Case, F, Q, Sum, When
 from django.db.models.functions import Coalesce
 
+from jeflink.common.errors import DomainError
+
 from .models import (
     CREDIT_NORMAL_KINDS,
     AccountKind,
+    Commission,
     CommissionRate,
     LedgerAccount,
     LedgerEntry,
@@ -116,3 +119,33 @@ def next_rate_for(*, trade, at) -> CommissionRate | None:
         # Le métier a son propre taux : seul un nouveau taux du métier le remplace.
         return upcoming.filter(trade=trade).first()
     return upcoming.filter(trade__isnull=True).first()
+
+
+# --- Lectures du pro (API, spec 005 tâche 8) ---------------------------------------------------
+
+
+def entries_for_provider(provider):
+    """Lignes du compte de dette du pro, plus récentes d'abord : une par mouvement."""
+    return (
+        LedgerEntry.objects.filter(
+            account__provider=provider, account__kind=AccountKind.PRO_COMMISSION_DUE
+        )
+        .select_related("transaction__booking__request__trade")
+        .order_by("-created_at", "-id")
+    )
+
+
+def entry_for_provider(*, provider, public_id) -> LedgerEntry:
+    """Ligne d'un mouvement du pro ; celui d'un autre pro répond ``not_found``."""
+    entry = entries_for_provider(provider).filter(transaction__public_id=public_id).first()
+    if entry is None:
+        raise DomainError("not_found", status=404)
+    return entry
+
+
+def commission_for_transaction(transaction) -> Commission | None:
+    return Commission.objects.filter(ledger_transaction=transaction).first()
+
+
+def reversals_of(transaction):
+    return transaction.reversals.order_by("created_at")
