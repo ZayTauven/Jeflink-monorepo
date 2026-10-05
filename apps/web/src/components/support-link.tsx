@@ -14,7 +14,7 @@ export function SupportLink({
   number: string | null;
   message: string;
   label: string;
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" | "quiet";
   className?: string;
 }) {
   const href = whatsappUrl(number, message);

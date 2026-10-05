@@ -681,5 +681,105 @@
       "photo_too_large": "Cette photo est trop lourde. Choisissez-en une plus légère.",
       "sms_limit_reached": "Vous avez reçu le code par SMS le nombre de fois permis. Partagez-le à un proche, ou écrivez au support."
     }
+  },
+  "site": {
+    "skip": "Aller au contenu",
+    "nav": {
+      "label": "Navigation principale",
+      "trades": "Métiers",
+      "how": "Comment ça marche",
+      "about": "À propos",
+      "contact": "Contact",
+      "pro": "Devenir pro",
+      "space": "Mon espace",
+      "request": "Faire une demande"
+    },
+    "menu": {
+      "open": "Menu",
+      "close": "Fermer le menu",
+      "title": "Menu du site"
+    },
+    "footer": {
+      "label": "Pied de page",
+      "pagesTitle": "Le site",
+      "tradesTitle": "Métiers",
+      "supportTitle": "Support Jeflink",
+      "whatsapp": "Écrire sur WhatsApp",
+      "call": "Appeler",
+      "hours": "Réponse tous les jours, de 8 h à 20 h.",
+      "onlyNumbers": "Ce sont nos seuls numéros.",
+      "city": "Dakar, Sénégal",
+      "legal": "Jeflink est exploité par {name}.",
+      "supportMessage": "Bonjour, j'ai une question sur Jeflink."
+    },
+    "cta": {
+      "request": "Faire une demande",
+      "whatsapp": "Écrire sur WhatsApp",
+      "whatsappShort": "WhatsApp",
+      "smsNotice": "Un code SMS vous sera envoyé pour vous connecter.",
+      "wolof": "Je préfère en wolof",
+      "urgent": "C'est urgent ?",
+      "barLabel": "Actions rapides"
+    },
+    "whatsapp": {
+      "intro": "{kind, select, both {Bonjour, je cherche un pro : {trade} {where}.} trade {Bonjour, je cherche un pro : {trade}.} zone {Bonjour, j'ai besoin d'un pro {where}.} other {Bonjour, j'ai besoin d'un pro.}}",
+      "introWolof": "Bonjour, je préfère échanger en wolof.",
+      "primerProblem": "Problème :",
+      "primerPlace": "Mon repère :"
+    },
+    "price": {
+      "from": "À partir de {amount}",
+      "agreement": "Vous choisissez le devis. Le prix ne change jamais sans votre accord."
+    },
+    "seo": {
+      "locativeFallback": "à {name}"
+    },
+    "search": {
+      "label": "Votre quartier",
+      "example": "Parcelles, Yoff, Sacré-Cœur…",
+      "submit": "Chercher mon quartier"
+    },
+    "marquee": {
+      "label": "Métiers proposés",
+      "pause": "Mettre en pause",
+      "play": "Relancer le défilement"
+    },
+    "figures": {
+      "quotes": {
+        "value": "{count}",
+        "label": "devis au plus pour chaque demande"
+      },
+      "dispute": {
+        "value": "{hours} h",
+        "label": "pour signaler un problème"
+      },
+      "fees": {
+        "value": "0 F",
+        "label": "de frais Jeflink pour vous"
+      },
+      "missions": {
+        "value": "plus de {count}",
+        "label": "missions terminées"
+      },
+      "pros": {
+        "exact": "{count}",
+        "approx": "plus de {count}",
+        "label": "pros vérifiés"
+      },
+      "rating": {
+        "value": "{average}/5",
+        "label": "note moyenne, sur {count} avis"
+      }
+    },
+    "visuals": {
+      "hero": "Deux agents en salopette orange nettoient une cuisine claire.",
+      "electricity": "Une électricienne en bleu de travail prépare un câblage.",
+      "plumbing": "Des compteurs d'eau et leurs raccords de plomberie.",
+      "cooling": "Un climatiseur mural installé sous un plafond blanc.",
+      "cleaning": "Une agente d'entretien nettoie une table avec un chiffon.",
+      "handyman": "Un ouvrier casqué travaille sur un mur de chantier.",
+      "pro": "Un menuisier en tablier de cuir travaille à son établi.",
+      "dakar": "Un car rapide devant un bâtiment blanc, dans une rue de Dakar."
+    }
   }
 }

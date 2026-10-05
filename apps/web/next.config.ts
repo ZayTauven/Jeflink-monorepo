@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
     // cache garde un instantané de l'environnement du build (revue web 1, m-6).
     turbopackFileSystemCacheForBuild: false,
   },
+  // AVIF d'abord, WebP en repli : un téléphone ne reçoit jamais la source ni la variante de bureau
+  // (spec 006, Performance). Les sources livrées sont déjà en WebP aux tailles maximales.
+  images: { formats: ["image/avif", "image/webp"] },
   // Paquets du monorepo publiés en TypeScript source.
   transpilePackages: ["@jeflink/api-client", "@jeflink/ui-tokens"],
   headers: async () => [

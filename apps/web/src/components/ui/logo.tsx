@@ -2,7 +2,14 @@
 // references/assets-originaux/Jeflink-illustrations (2).png, plus le nom en Funnel Display.
 // Vectoriel en ligne : net à toute taille, aucun fichier à télécharger.
 
-export function LogoMark({ className = "" }: { className?: string }) {
+/** `onDark` : la flèche noire passe en `paper` pour tenir sur un fond `ink` (pied de page). */
+export function LogoMark({
+  className = "",
+  tone = "onLight",
+}: {
+  className?: string;
+  tone?: "onLight" | "onDark";
+}) {
   return (
     <svg
       viewBox="60 150 400 215"
@@ -14,7 +21,7 @@ export function LogoMark({ className = "" }: { className?: string }) {
       aria-hidden="true"
       focusable="false"
     >
-      <g className="stroke-ink">
+      <g className={tone === "onDark" ? "stroke-paper" : "stroke-ink"}>
         <path d="M112 205H222V318" />
         <path d="M100 326 214 212" />
       </g>

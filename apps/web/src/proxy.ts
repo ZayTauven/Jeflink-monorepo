@@ -1,7 +1,8 @@
 // Proxy Next des PAGES (jamais /api : le BFF a ses propres règles, sa page de rebond sa propre CSP).
 //
-// - Une seule forme d'URL par page, sans barre finale (`skipTrailingSlashRedirect` est voulu pour
-//   /api, où Django exige la barre).
+// - Une seule forme d'URL par page : sans barre finale (`skipTrailingSlashRedirect` est voulu pour
+//   /api, où Django exige la barre) et en minuscules (« /Plombier/Ouakam » vient d'un clavier de
+//   téléphone ; spec 006). La requête n'est jamais touchée.
 // - CSP à nonce, neuve à chaque requête ; Next l'applique à ses scripts.
 // - Chemin courant transmis aux Server Components par `x-jf-path`, toujours posé ici avec `set` :
 //   une valeur venue du navigateur est écrasée. Il est revalidé par `refreshRedirectPath`.
@@ -38,11 +39,20 @@ function contentSecurityPolicy(nonce: string): string {
   ].join("; ");
 }
 
+/** Forme unique du chemin d'une page : sans barre finale, en minuscules (hors `%XX`). */
+export function canonicalPath(pathname: string): string {
+  const lower = pathname.replace(/%[0-9A-Fa-f]{2}|[^%]+/g, (part) =>
+    part.startsWith("%") ? part : part.toLowerCase(),
+  );
+  return lower.length > 1 && lower.endsWith("/") ? lower.replace(/\/+$/, "") || "/" : lower;
+}
+
 export function proxy(request: NextRequest): NextResponse {
   // URL standard : NextURL garde la barre finale d'origine à la sérialisation (boucle de 308).
   const url = new URL(request.url);
-  if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
-    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+  const canonical = canonicalPath(url.pathname);
+  if (canonical !== url.pathname) {
+    url.pathname = canonical;
     return NextResponse.redirect(url, 308);
   }
 

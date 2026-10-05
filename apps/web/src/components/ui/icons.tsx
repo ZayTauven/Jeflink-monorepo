@@ -2,7 +2,7 @@
 // (`currentColor`). Décoratifs par défaut : le sens est toujours porté par le texte voisin.
 import type { SVGProps } from "react";
 
-function Icon({ children, ...props }: SVGProps<SVGSVGElement>) {
+export function Icon({ children, ...props }: SVGProps<SVGSVGElement>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -123,6 +123,46 @@ export function StarIcon({
   return (
     <Icon {...props} fill={filled ? "currentColor" : "none"}>
       <path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.8Z" />
+    </Icon>
+  );
+}
+
+export function MenuIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </Icon>
+  );
+}
+
+export function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="m6 6 12 12M18 6 6 18" />
+    </Icon>
+  );
+}
+
+export function PauseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M9 5.5v13M15 5.5v13" />
+    </Icon>
+  );
+}
+
+export function PlayIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M8 5.5v13l10-6.5Z" />
+    </Icon>
+  );
+}
+
+export function CallIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M5 4.5h3.5l1.5 4-2 1.5a11 11 0 0 0 6 6l1.5-2 4 1.5V19a1.5 1.5 0 0 1-1.5 1.5C10.6 20.5 3.5 13.4 3.5 6A1.5 1.5 0 0 1 5 4.5Z" />
     </Icon>
   );
 }

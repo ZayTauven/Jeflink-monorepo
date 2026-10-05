@@ -13,8 +13,8 @@ import { onWebSessionEnded, refreshWebSession } from "@jeflink/api-client/web";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useState } from "react";
 
-import { LOGIN_PATH } from "../lib/routes.ts";
-import { isLoginPath } from "../lib/session-redirects.ts";
+import { LOGIN_PATH } from "@/lib/routes.ts";
+import { isLoginPath } from "@/lib/session-redirects.ts";
 
 // Une seule fois, au chargement du module, dans le navigateur seulement : au rendu serveur, le
 // singleton du module ne reçoit rien (S4). Jamais de `baseUrl` absolue.

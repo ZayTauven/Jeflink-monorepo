@@ -1,3 +1,53 @@
 @import "tailwindcss";
 @import "@jeflink/ui-tokens/tokens.css";
 @import "@jeflink/ui-tokens/theme.css";
+
+/* Site public (spec 006). Barre d'actions mobile : la barre `sticky` ne doit jamais masquer
+   l'élément qui a le focus (WCAG 2.4.11). */
+@media (width < 48rem) {
+  html:has(.jf-action-bar) {
+    scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Bandeau des métiers. Sans JS ou avec `prefers-reduced-motion` : liste statique qui passe à la
+   ligne. Avec JS et sans préférence de mouvement réduit : défilement CSS, copie `aria-hidden`
+   affichée pour la boucle, arrêt au survol, au focus, et par le bouton (data-paused). */
+.jf-marquee-copy[aria-hidden="true"] {
+  display: none;
+}
+
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .jf-marquee {
+    overflow: hidden;
+  }
+  .jf-marquee-track {
+    display: flex;
+    width: max-content;
+    animation: jf-marquee 45s linear infinite;
+  }
+  .jf-marquee-copy {
+    flex-wrap: nowrap;
+    padding-right: 2rem;
+  }
+  .jf-marquee-copy[aria-hidden="true"] {
+    display: flex;
+  }
+  .jf-marquee:hover .jf-marquee-track,
+  .jf-marquee:focus-within .jf-marquee-track,
+  .jf-marquee[data-paused="true"] .jf-marquee-track {
+    animation-play-state: paused;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jf-marquee-toggle {
+    display: none;
+  }
+}
+
+@keyframes jf-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}

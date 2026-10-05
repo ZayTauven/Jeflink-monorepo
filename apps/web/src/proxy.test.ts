@@ -7,7 +7,7 @@ import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import { NextRequest } from "next/server";
 
 import { PATH_HEADER } from "./lib/routes.ts";
-import { config, proxy } from "./proxy.ts";
+import { canonicalPath, config, proxy } from "./proxy.ts";
 
 const ORIGIN = "https://jeflink.sn";
 
@@ -92,6 +92,36 @@ describe("proxy", () => {
     const location = new URL(response.headers.get("location") ?? "", ORIGIN);
     assert.equal(location.origin, ORIGIN);
     assert.equal(`${location.pathname}${location.search}`, "/a?q=1");
+  });
+
+  it("majuscules : 308 vers les minuscules, requête intacte (valeurs comprises)", () => {
+    const response = call("/Plombier/Ouakam?Quartier=PA&next=%2FCompte");
+    assert.equal(response.status, 308);
+    const location = new URL(response.headers.get("location") ?? "", ORIGIN);
+    assert.equal(location.origin, ORIGIN);
+    assert.equal(location.pathname, "/plombier/ouakam");
+    assert.equal(location.search, "?Quartier=PA&next=%2FCompte");
+  });
+
+  it("majuscules et barre finale : un seul 308 vers la forme unique", () => {
+    const response = call("/Plombier/Ouakam/");
+    assert.equal(response.status, 308);
+    assert.equal(new URL(response.headers.get("location") ?? "").pathname, "/plombier/ouakam");
+  });
+
+  it("une page déjà en minuscules n'est pas redirigée", () => {
+    assert.equal(call("/plombier/ouakam").status, 200);
+    assert.equal(call("/").status, 200);
+  });
+
+  it("canonicalPath garde les séquences %XX telles quelles (pas de boucle)", () => {
+    assert.equal(canonicalPath("/sacr%C3%A9-c%C5%93ur"), "/sacr%C3%A9-c%C5%93ur");
+    assert.equal(canonicalPath("/Sacr%C3%A9"), "/sacr%C3%A9");
+    assert.equal(canonicalPath("/"), "/");
+  });
+
+  it("/api n'est jamais touché : hors du matcher", () => {
+    assert.equal(unstable_doesMiddlewareMatch({ config, url: `${ORIGIN}/api/Me/` }), false);
   });
 
   for (const path of ["//evil.example/x/", "/\\evil.example/", "/%2F%2Fevil.example/"]) {
