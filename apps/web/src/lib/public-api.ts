@@ -36,7 +36,7 @@ let instance: PublicApi | undefined;
 
 function settings(): PublicApiSettings {
   const config = readBffConfig(process.env);
-  return { apiUrl: config.apiUrl, secret: config.bffSecret, app: config.app };
+  return { apiUrl: config.apiUrl };
 }
 
 /** Options à passer à chaque fonction générée : `catalogTradesList(publicApi().options)`. */

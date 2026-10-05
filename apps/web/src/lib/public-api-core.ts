@@ -26,16 +26,12 @@ export const PUBLIC_REVALIDATE_SECONDS = 300;
 /**
  * Liste exacte des en-têtes envoyés par `publicApi()` à Django. Rien d'autre ne part :
  * - `Accept` : JSON ;
- * - `Accept-Language` : `fr`, fixe (la langue vient de l'URL plus tard, jamais d'un cookie) ;
- * - `X-Jeflink-Bff` : secret partagé, l'API reconnaît le serveur Next et applique `catalog_read` ;
- * - `X-Jeflink-App` : `web`.
+ * - `Accept-Language` : `fr`, fixe (la langue vient de l'URL plus tard, jamais d'un cookie).
+ * Pas de secret BFF : les endpoints publics sont `AllowAny`. Sans `X-Jeflink-Bff`, l'API prend
+ * l'adresse du serveur Next comme appelant (`REMOTE_ADDR`) et applique `catalog_read` à ce seul
+ * appelant ; avec le secret, elle exigerait `X-Jeflink-Client-Ip`, que ce module n'envoie jamais.
  */
-export const PUBLIC_REQUEST_HEADERS = [
-  "Accept",
-  "Accept-Language",
-  "X-Jeflink-Bff",
-  "X-Jeflink-App",
-] as const;
+export const PUBLIC_REQUEST_HEADERS = ["Accept", "Accept-Language"] as const;
 
 export class PublicApiRefusal extends Error {
   constructor(reason: string) {
@@ -47,9 +43,6 @@ export class PublicApiRefusal extends Error {
 export type PublicApiSettings = {
   /** Origine interne de l'API (`JEFLINK_API_URL`). */
   apiUrl: string;
-  /** Secret partagé avec Django (`BFF_SHARED_SECRET`) : jamais journalisé ni renvoyé. */
-  secret: string;
-  app?: string;
 };
 
 export type PublicRequest = {
@@ -86,8 +79,6 @@ export function buildPublicRequest(
   const headers = new Headers({
     Accept: "application/json",
     "Accept-Language": "fr",
-    "X-Jeflink-Bff": settings.secret,
-    "X-Jeflink-App": settings.app ?? "web",
   });
   return {
     url: `${settings.apiUrl}${pathname}${search}`,

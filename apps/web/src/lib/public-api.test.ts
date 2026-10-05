@@ -15,7 +15,8 @@ import {
   PublicApiRefusal,
 } from "./public-api-core.ts";
 
-const SETTINGS = { apiUrl: "http://api.internal", secret: "s".repeat(40), app: "web" };
+const SETTINGS = { apiUrl: "http://api.internal" };
+const SECRET = "s".repeat(40);
 
 function headerNames(headers: HeadersInit | undefined): string[] {
   return [...new Headers(headers).keys()].sort();
@@ -35,7 +36,7 @@ describe("buildPublicRequest : en-têtes", () => {
     },
   };
 
-  it("liste fermée : exactement quatre en-têtes, ceux de l'appelant ignorés", () => {
+  it("liste fermée : exactement deux en-têtes, ceux de l'appelant ignorés", () => {
     const { init } = buildPublicRequest("/api/catalog/trades/", visitor, SETTINGS);
     assert.deepEqual(
       headerNames(init.headers),
@@ -49,12 +50,12 @@ describe("buildPublicRequest : en-têtes", () => {
       "x-install-id",
       "x-forwarded-for",
       "x-requested-with",
+      "x-jeflink-bff",
+      "x-jeflink-app",
     ]) {
       assert.equal(headers.has(forbidden), false, forbidden);
     }
     assert.equal(headers.get("accept-language"), "fr", "langue fixe, jamais celle du visiteur");
-    assert.equal(headers.get("x-jeflink-bff"), SETTINGS.secret);
-    assert.equal(headers.get("x-jeflink-app"), "web");
   });
 
   it("aucun cookie : credentials omit ; cache 300 s avec l'étiquette du préfixe", () => {
@@ -72,16 +73,14 @@ describe("buildPublicRequest : en-têtes", () => {
     assert.equal(url, "http://api.internal/api/zones/ouakam/?trade=plombier");
   });
 
-  it("le secret n'apparaît ni dans l'URL ni dans l'erreur d'un refus", () => {
-    const { url } = buildPublicRequest("/api/catalog/trades/", {}, SETTINGS);
-    assert.ok(!url.includes(SETTINGS.secret));
-    try {
-      buildPublicRequest("/api/me/", {}, SETTINGS);
-      assert.fail("refus attendu");
-    } catch (error) {
-      assert.ok(error instanceof PublicApiRefusal);
-      assert.ok(!(error as Error).message.includes(SETTINGS.secret));
-    }
+  it("jamais de secret BFF, même passé par l'appelant", () => {
+    const { init } = buildPublicRequest(
+      "/api/catalog/trades/",
+      { headers: { "X-Jeflink-Bff": SECRET } },
+      SETTINGS,
+    );
+    assert.ok(![...new Headers(init.headers).values()].includes(SECRET));
+    assert.throws(() => buildPublicRequest("/api/me/", {}, SETTINGS), PublicApiRefusal);
   });
 });
 
