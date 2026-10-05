@@ -81,6 +81,7 @@ export async function CtaPair({
           number={supportWhatsapp}
           message={message}
           label={bar ? t("cta.whatsappShort") : t("cta.whatsapp")}
+          newTabLabel={t("newTab")}
           className={bar ? `flex-[2] ${grow}` : ""}
         />
       </div>
@@ -104,6 +105,7 @@ export async function CtaPair({
               number={supportWhatsapp}
               message={wolofMessage}
               label={t("cta.wolof")}
+              newTabLabel={t("newTab")}
               variant="quiet"
             />
           ) : null}

@@ -70,7 +70,7 @@ export function MobileMenu({
           // Un lien suivi referme le menu : le layout reste monté d'une page à l'autre.
           if ((event.target as HTMLElement).closest("a")) dialog.current?.close();
         }}
-        className="m-0 h-dvh max-h-none w-dvw max-w-none overflow-y-auto bg-sand p-0 text-ink"
+        className="m-0 h-dvh max-h-none w-dvw max-w-none overflow-y-auto overscroll-contain bg-sand p-0 text-ink"
       >
         <div className="mx-auto flex min-h-full max-w-6xl flex-col px-4 py-3">
           <div className="flex items-center justify-between gap-4">

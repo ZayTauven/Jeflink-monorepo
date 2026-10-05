@@ -48,6 +48,7 @@ export async function SiteFooter({ trades = [] }: { trades?: readonly FooterTrad
                     <ChatIcon className="mr-2 size-5 shrink-0" />
                     <span>
                       {t("footer.whatsapp")}
+                      <span className="sr-only"> {t("newTab")}</span>
                       <span className="block text-sm text-sand">
                         {formatPhoneDisplay(`+${supportWhatsapp}`)}
                       </span>

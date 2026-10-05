@@ -35,6 +35,7 @@ export async function MissionPanels({
   supportWhatsapp: string | null;
 }) {
   const t = await getTranslations("bookings");
+  const newTab = (await getTranslations("site"))("newTab");
   const locale = await getLocale();
   const supportHref = whatsappUrl(
     supportWhatsapp,
@@ -55,6 +56,7 @@ export async function MissionPanels({
           number={supportWhatsapp}
           message={t("problem.message", { reference: booking.public_id })}
           label={t("common.writeSupport")}
+          newTabLabel={newTab}
         />
       </section>
     );
@@ -157,6 +159,7 @@ export async function MissionPanels({
               number={supportWhatsapp}
               message={t("problem.message", { reference: booking.public_id })}
               label={t("problem.cta")}
+              newTabLabel={newTab}
             />
           ) : (
             <Alert tone="info">{t("problem.noSupport")}</Alert>

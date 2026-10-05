@@ -47,6 +47,7 @@ export default async function RequestDetailPage({
   if (!isUuid(id)) notFound();
   const api = await serverApiWithSession();
   const t = await getTranslations("requests");
+  const tSite = await getTranslations("site");
   const tBookings = await getTranslations("bookings");
   const locale = await getLocale();
 
@@ -108,6 +109,7 @@ export default async function RequestDetailPage({
                 number={supportWhatsapp}
                 message={t("detail.needsZone.supportMessage")}
                 label={t("detail.needsZone.support")}
+                newTabLabel={tSite("newTab")}
                 className="self-start"
               />
             }

@@ -61,6 +61,7 @@ export function RequestForm({
   prefill: Prefill;
 }) {
   const t = useTranslations("requests");
+  const tSite = useTranslations("site");
   const router = useRouter();
   const formId = useId();
   const summaryRef = useRef<HTMLDivElement>(null);
@@ -230,6 +231,7 @@ export function RequestForm({
                     number={supportWhatsapp}
                     message={supportMessage}
                     label={t("support.link")}
+                    newTabLabel={tSite("newTab")}
                   />
                 ) : null}
               </div>

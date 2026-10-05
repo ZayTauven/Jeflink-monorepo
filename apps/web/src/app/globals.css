@@ -51,3 +51,8 @@
     transform: translateX(-50%);
   }
 }
+
+/* Menu mobile ouvert : la page derrière ne défile pas. */
+body:has(dialog[open]) {
+  overflow: hidden;
+}

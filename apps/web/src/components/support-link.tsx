@@ -8,12 +8,15 @@ export function SupportLink({
   number,
   message,
   label,
+  newTabLabel,
   variant = "secondary",
   className = "",
 }: {
   number: string | null;
   message: string;
   label: string;
+  /** « (s'ouvre dans un nouvel onglet) » : texte masqué visuellement, lu par les lecteurs d'écran. */
+  newTabLabel?: string;
   variant?: "primary" | "secondary" | "quiet";
   className?: string;
 }) {
@@ -29,6 +32,7 @@ export function SupportLink({
     >
       <ChatIcon className="size-5" />
       {label}
+      {newTabLabel ? <span className="sr-only"> {newTabLabel}</span> : null}
     </ButtonLink>
   );
 }
