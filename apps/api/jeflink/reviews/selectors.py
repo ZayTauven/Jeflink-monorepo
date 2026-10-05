@@ -8,6 +8,8 @@ from django.db.models import Avg, Count, QuerySet
 from django.utils import timezone
 
 from jeflink.bookings.models import Booking
+from jeflink.catalog.models import Trade
+from jeflink.zones.models import Zone
 
 from .models import Review
 
@@ -21,6 +23,19 @@ def counted_reviews() -> QuerySet[Review]:
         provider__is_demo=False,
         booking__client__is_review_account=False,
     )
+
+
+def public_counted_reviews(
+    *, trade: Trade | None = None, zone: Zone | None = None
+) -> QuerySet[Review]:
+    """``counted_reviews()`` sans les pros dont le gérant est un compte de revue, filtrés par
+    le métier et le quartier de la demande (spec 006). Pour une moyenne seulement."""
+    reviews = counted_reviews().filter(provider__owner__is_review_account=False)
+    if trade is not None:
+        reviews = reviews.filter(booking__request__trade=trade)
+    if zone is not None:
+        reviews = reviews.filter(booking__request__zone=zone)
+    return reviews
 
 
 def rating_for_providers(provider_ids: Iterable[int]) -> dict[int, dict | None]:

@@ -8,11 +8,34 @@ from django.db.models import Prefetch, Q, QuerySet
 from django.utils import timezone
 
 from jeflink.accounts.models import User
+from jeflink.catalog.models import Trade
 from jeflink.common.errors import DomainError
 from jeflink.providers.models import Provider
 from jeflink.requests.models import ServiceRequest
+from jeflink.zones.models import Zone
 
 from .models import Amendment, Booking, BookingPhoto
+
+
+def public_closed_bookings(
+    *, trade: Trade | None = None, zone: Zone | None = None
+) -> QuerySet[Booking]:
+    """Missions clôturées qui peuvent être comptées en public (spec 006).
+
+    Hors pros de démonstration et comptes de revue des stores (client ou gérant). Le métier et
+    le quartier sont ceux de la demande. Pour un compte seulement : jamais de ligne exposée.
+    """
+    bookings = Booking.objects.filter(
+        status=Booking.Status.CLOSED,
+        provider__is_demo=False,
+        provider__owner__is_review_account=False,
+        client__is_review_account=False,
+    )
+    if trade is not None:
+        bookings = bookings.filter(request__trade=trade)
+    if zone is not None:
+        bookings = bookings.filter(request__zone=zone)
+    return bookings
 
 
 def _photos() -> Prefetch:
