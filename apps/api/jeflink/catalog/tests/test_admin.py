@@ -56,7 +56,7 @@ def test_le_groupe_cree_un_metier(saisie):
     assert Trade.objects.get(slug="vitrier").aliases == ["vitre", "verre"]
 
 
-@pytest.mark.parametrize("slug", ["connexion", "Vitrier"])
+@pytest.mark.parametrize("slug", ["connexion", "Vitrier", "tarifs", "wo", "opengraph-image"])
 def test_slug_reserve_ou_mal_forme_refuse(saisie, slug):
     response = saisie.post(reverse("admin:catalog_trade_add"), trade_form(slug=slug))
     assert response.status_code == 200  # formulaire réaffiché avec l'erreur

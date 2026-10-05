@@ -3,6 +3,9 @@
 Libellés traduisibles en colonnes ``_fr`` (obligatoire) et ``_wo`` (vide permis), ADR 0009.
 """
 
+import json
+from pathlib import Path
+
 from django.contrib.postgres.fields import ArrayField
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -13,29 +16,17 @@ from jeflink.common.slugs import slug_check, validate_reference_slug
 
 ALIAS_MAX_LENGTH = 40
 
-# Premier segment des URL du site public : un métier ne peut pas prendre la place d'une page.
-RESERVED_TRADE_SLUGS = frozenset(
-    {
-        "a-propos",
-        "admin",
-        "aide",
-        "api",
-        "blog",
-        "compte",
-        "conditions",
-        "confidentialite",
-        "connexion",
-        "contact",
-        "demande",
-        "devenir-pro",
-        "metiers",
-        "pro",
-        "quartiers",
-        "recherche",
-        "static",
-        "zones",
-    }
-)
+RESERVED_SLUGS_FILE = Path(__file__).with_name("reserved_slugs.json")
+
+
+def _load_reserved_slugs() -> tuple[frozenset[str], frozenset[str]]:
+    data = json.loads(RESERVED_SLUGS_FILE.read_text(encoding="utf-8"))
+    return frozenset(data["trade_slugs"]), frozenset(data["zone_slugs"])
+
+
+# Fichier JSON partagé avec le web (spec 006, ADR 0013) : le premier segment des URL du site
+# public est réservé à ses pages et aux fichiers de Next ; le second, aux fichiers de Next.
+RESERVED_TRADE_SLUGS, RESERVED_ZONE_SLUGS = _load_reserved_slugs()
 
 
 def aliases_field() -> ArrayField:

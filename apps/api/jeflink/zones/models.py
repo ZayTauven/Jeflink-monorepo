@@ -4,9 +4,10 @@ Une zone est un centre et un rayon ; un ``boundary`` saisi prime sur le cercle.
 """
 
 from django.contrib.gis.db import models
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 
-from jeflink.catalog.models import aliases_field
+from jeflink.catalog.models import RESERVED_ZONE_SLUGS, aliases_field
 from jeflink.common.models import BaseModel
 from jeflink.common.slugs import slug_check, validate_reference_slug
 
@@ -66,3 +67,7 @@ class Zone(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+
+    def clean(self) -> None:
+        if self.slug in RESERVED_ZONE_SLUGS:
+            raise ValidationError({"slug": ValidationError("slug réservé", code="slug_reserved")})
