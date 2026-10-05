@@ -38,8 +38,18 @@ NO_SHOW_CONTESTED = "no_show.contested"
 BOOKING_DISPUTED = "booking.disputed"
 DISPUTE_DECIDED = "dispute.decided"
 BOOKING_CLOSED = "booking.closed"
+# Spec 005 : seuils de la dette de commission du pro (référence : ``public_id`` de la fiche pro).
+WALLET_DEBT_ALERT = "wallet.debt_alert"
+WALLET_QUOTES_BLOCKED = "wallet.quotes_blocked"
+WALLET_QUOTES_UNBLOCKED = "wallet.quotes_unblocked"
 SMS_KINDS = frozenset(
-    {COMPLETION_CODE_SMS, AMENDMENT_PROPOSED, DISPUTE_REMINDER, BOOKING_COMPLETED_NO_CODE}
+    {
+        COMPLETION_CODE_SMS,
+        AMENDMENT_PROPOSED,
+        DISPUTE_REMINDER,
+        BOOKING_COMPLETED_NO_CODE,
+        WALLET_QUOTES_BLOCKED,
+    }
 )
 KINDS = frozenset(
     {
@@ -47,7 +57,8 @@ KINDS = frozenset(
         COMPLETION_CODE_SMS, AMENDMENT_PROPOSED, DISPUTE_REMINDER, BOOKING_PROGRESS,
         AMENDMENT_DECIDED, BOOKING_COMPLETED, BOOKING_COMPLETED_NO_CODE, NO_SHOW_CHECK,
         NO_SHOW_CONTESTED, BOOKING_DISPUTED,
-        DISPUTE_DECIDED, BOOKING_CLOSED,
+        DISPUTE_DECIDED, BOOKING_CLOSED, WALLET_DEBT_ALERT, WALLET_QUOTES_BLOCKED,
+        WALLET_QUOTES_UNBLOCKED,
     }
 )  # fmt: skip
 

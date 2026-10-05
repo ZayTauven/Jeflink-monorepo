@@ -209,3 +209,60 @@ class CommissionRate(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.rate_bps} pb · {self.trade_id or 'défaut'} · {self.valid_from:%Y-%m-%d}"
+
+
+class Commission(BaseModel):
+    """Commission d'une réservation close (spec 005) : une par réservation, due ou exemptée, avec
+    les copies de ce qui l'a fixée (assiette, taux, plafond, fin, motif de clôture). Immuable ;
+    un avoir passe par une contre-passation de sa transaction."""
+
+    class Status(models.TextChoices):
+        CHARGED = "charged", "Due"
+        EXEMPT = "exempt", "Exemptée"
+
+    class ExemptReason(models.TextChoices):
+        REVIEW_ACCOUNT = "review_account", "Compte de revue des stores"
+        ZERO_RATE = "zero_rate", "Taux de 0"
+        ZERO_AMOUNT = "zero_amount", "Montant arrondi à 0"
+        RATE_MISSING = "rate_missing", "Aucun taux applicable"
+
+    booking = models.OneToOneField(
+        "bookings.Booking", on_delete=models.PROTECT, related_name="commission"
+    )
+    provider = models.ForeignKey("providers.Provider", on_delete=models.PROTECT, related_name="+")
+    trade = models.ForeignKey("catalog.Trade", on_delete=models.PROTECT, related_name="+")
+    base_xof = models.PositiveBigIntegerField()
+    rate = models.ForeignKey(
+        CommissionRate, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    rate_bps = models.PositiveIntegerField(null=True, blank=True)
+    cap_xof = models.PositiveBigIntegerField(null=True, blank=True)
+    amount_xof = models.PositiveBigIntegerField()
+    status = models.CharField(max_length=8, choices=Status.choices)
+    exempt_reason = models.CharField(max_length=16, choices=ExemptReason.choices, blank=True)
+    completion_method = models.CharField(max_length=7, blank=True)
+    close_reason = models.CharField(max_length=24)
+    ledger_transaction = models.OneToOneField(
+        LedgerTransaction, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "commission"
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=("provider", "created_at"))]
+        constraints = [
+            models.CheckConstraint(
+                condition=_iff(
+                    Q(status="charged"),
+                    Q(amount_xof__gt=0) & Q(ledger_transaction__isnull=False),
+                ),
+                name="commission_charged_iff_posted",
+            ),
+            models.CheckConstraint(
+                condition=_iff(Q(status="exempt"), ~Q(exempt_reason="")),
+                name="commission_exempt_has_reason",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"commission {self.amount_xof} F ({self.status})"

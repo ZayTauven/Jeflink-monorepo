@@ -18,16 +18,21 @@ from django.db import IntegrityError, connection, transaction
 from django.db.models import Sum
 from django.utils import timezone
 
+from jeflink.common.alerts import alert_once
 from jeflink.common.errors import DomainError
 from jeflink.common.pii import contains_pii
+from jeflink.notifications import events
+from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
+from .commission import commission_xof
 from .models import (
     PROVIDER_ACCOUNT_KINDS,
     RATE_BPS_MAX,
     V1_ACCOUNT_KINDS,
     AccountKind,
     ActorKind,
+    Commission,
     CommissionRate,
     LedgerAccount,
     LedgerEntry,
@@ -35,6 +40,7 @@ from .models import (
     Side,
     TransactionKind,
 )
+from .selectors import WalletState, provider_wallet, rate_for
 
 # Forme de chaque mouvement de la V1 : (compte débité, compte crédité). Une contre-passation
 # prend la forme inverse de la transaction qu'elle annule.
@@ -380,3 +386,108 @@ def seed_rates() -> int:
         )
         created += 1
     return created
+
+
+# --- Seuils de dette ---------------------------------------------------------------------------
+
+
+def notify_state_change(provider, before: WalletState, after: WalletState) -> None:
+    """Prévient le pro quand sa dette franchit un seuil, une fois par franchissement (après
+    commit). Référence : ``public_id`` de la fiche pro."""
+    if before == after:
+        return
+    if after == WalletState.BLOCKED:
+        kind = events.WALLET_QUOTES_BLOCKED
+    elif before == WalletState.BLOCKED:
+        kind = events.WALLET_QUOTES_UNBLOCKED
+    elif after == WalletState.ALERT:
+        kind = events.WALLET_DEBT_ALERT
+    else:
+        return  # d'alerte à ok : rien à annoncer
+    events.notify(kind, [provider.owner], provider.public_id)
+
+
+# --- Commission à la clôture -------------------------------------------------------------------
+
+
+def _exempt(booking, reason: str, **copies) -> Commission:
+    return Commission.objects.create(
+        booking=booking,
+        status=Commission.Status.EXEMPT,
+        exempt_reason=reason,
+        amount_xof=0,
+        **copies,
+    )
+
+
+def charge_commission_on_close(booking, reason: str) -> None:
+    """Gestionnaire de clôture (``register_close_handler``) : écrit la commission de la
+    réservation, dans la transaction de la clôture, réservation et fiche pro verrouillées.
+
+    Idempotent (une commission par réservation). Ne lève jamais d'erreur métier : la clôture ne
+    reste pas bloquée par le portefeuille ; une erreur de programmation l'annule, ``close_due``
+    la retente. Assiette : ``amount_xof`` à la clôture (avenants acceptés compris) ; taux en
+    vigueur à l'envoi du devis (ADR 0012)."""
+    if Commission.objects.filter(booking=booking).exists():
+        return
+    provider = booking.provider
+    trade = booking.request.trade
+    copies = {
+        "provider": provider,
+        "trade": trade,
+        "base_xof": booking.amount_xof,
+        "completion_method": booking.completion_method,
+        "close_reason": reason[:24],
+    }
+    rate = rate_for(trade=trade, at=booking.quote.created_at)
+    if rate is not None:
+        copies |= {"rate": rate, "rate_bps": rate.rate_bps, "cap_xof": rate.cap_xof}
+
+    if booking.client.is_review_account:
+        commission = _exempt(booking, Commission.ExemptReason.REVIEW_ACCOUNT, **copies)
+    elif rate is None:
+        commission = _exempt(booking, Commission.ExemptReason.RATE_MISSING, **copies)
+        alert_once(
+            f"wallet_rate_missing:{booking.public_id}",
+            86_400,
+            "wallet_rate_missing",
+            booking=booking.public_id,
+        )
+    elif rate.rate_bps == 0:
+        commission = _exempt(booking, Commission.ExemptReason.ZERO_RATE, **copies)
+    elif (amount := commission_xof(booking.amount_xof, rate.rate_bps, rate.cap_xof)) == 0:
+        commission = _exempt(booking, Commission.ExemptReason.ZERO_AMOUNT, **copies)
+    else:
+        before = provider_wallet(provider).state
+        txn = post_transaction(
+            kind=TransactionKind.COMMISSION,
+            lines=[
+                Line(provider_account(provider), Side.DEBIT, amount),
+                Line(platform_account(AccountKind.PLATFORM_REVENUE), Side.CREDIT, amount),
+            ],
+            idempotency_key=f"commission:{booking.public_id}",
+            actor_kind=ActorKind.SYSTEM,
+            provider=provider,
+            booking=booking,
+        )
+        commission = Commission.objects.create(
+            booking=booking,
+            status=Commission.Status.CHARGED,
+            amount_xof=amount,
+            ledger_transaction=txn,
+            **copies,
+        )
+        notify_state_change(provider, before, provider_wallet(provider).state)
+    audit(
+        action="wallet.commission.recorded",
+        actor_kind=AuditEvent.ActorKind.SYSTEM,
+        target=commission,
+        metadata={
+            "status": commission.status,
+            "exempt_reason": commission.exempt_reason,
+            "amount_xof": commission.amount_xof,
+            "rate_bps": commission.rate_bps,
+            "completion_method": commission.completion_method,
+            "close_reason": commission.close_reason,
+        },
+    )

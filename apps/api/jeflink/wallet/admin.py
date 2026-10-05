@@ -13,6 +13,7 @@ from jeflink.common.errors import DomainError
 
 from .models import (
     CREDIT_NORMAL_KINDS,
+    Commission,
     CommissionRate,
     LedgerAccount,
     LedgerEntry,
@@ -156,3 +157,24 @@ class CommissionRateAdmin(admin.ModelAdmin):
         # L'admin poursuit avec ``obj`` (journal, redirection) : il devient la ligne créée.
         obj.pk, obj.public_id, obj.valid_from = rate.pk, rate.public_id, rate.valid_from
         obj._state.adding = False
+
+
+@admin.register(Commission)
+class CommissionAdmin(ReadOnlyAdmin):
+    """Commissions des réservations closes : filtres pour l'Ops (fins sans code, litiges tranchés
+    pour le client, exemptions), à qui revient de passer un avoir le cas échéant."""
+
+    list_display = (
+        "created_at", "provider", "trade", "base_xof", "rate_bps", "amount_xof", "status",
+        "completion_method", "close_reason",
+    )  # fmt: skip
+    list_filter = ("status", "exempt_reason", "completion_method", "close_reason")
+    readonly_fields = (
+        "public_id", "booking", "provider", "trade", "base_xof", "rate", "rate_bps", "cap_xof",
+        "amount_xof", "status", "exempt_reason", "completion_method", "close_reason",
+        "ledger_transaction", "created_at",
+    )  # fmt: skip
+    fields = readonly_fields
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Commission]:
+        return super().get_queryset(request).select_related("provider", "trade")

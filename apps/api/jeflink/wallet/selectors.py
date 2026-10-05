@@ -1,7 +1,10 @@
 """Soldes du grand livre, toujours dérivés des lignes (aucun champ ``balance``, ADR 0012)."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from enum import StrEnum
 
+from django.conf import settings
 from django.db.models import BigIntegerField, Case, F, Q, Sum, When
 from django.db.models.functions import Coalesce
 
@@ -44,6 +47,53 @@ def provider_balance(provider) -> ProviderBalance:
         )
     )
     return ProviderBalance(due_xof=max(net, 0), credit_xof=max(-net, 0))
+
+
+# Montant des règlements déclarés qui comptent comme payés (spec 005) : ``payments`` s'inscrit
+# ici, ``wallet`` n'importe jamais ``payments`` (ADR 0012). Sans source : 0.
+PendingSource = Callable[[object], int]
+_PENDING_SOURCES: list[PendingSource] = []
+
+
+def register_pending_source(source: PendingSource) -> None:
+    if source not in _PENDING_SOURCES:
+        _PENDING_SOURCES.append(source)
+
+
+class WalletState(StrEnum):
+    OK = "ok"
+    ALERT = "alert"  # alerte envoyée au pro
+    BLOCKED = "blocked"  # nouveaux devis refusés
+
+
+@dataclass(frozen=True)
+class ProviderWallet:
+    due_xof: int
+    credit_xof: int
+    pending_xof: int  # déclarations qui comptent comme payées, plafonnées au dû
+    effective_due_xof: int
+    state: WalletState
+
+
+def state_for(effective_due_xof: int) -> WalletState:
+    if effective_due_xof >= settings.WALLET_DEBT_BLOCK_XOF:
+        return WalletState.BLOCKED
+    if effective_due_xof >= settings.WALLET_DEBT_ALERT_XOF:
+        return WalletState.ALERT
+    return WalletState.OK
+
+
+def provider_wallet(provider) -> ProviderWallet:
+    balance_now = provider_balance(provider)
+    pending = min(sum(source(provider) for source in _PENDING_SOURCES), balance_now.due_xof)
+    effective = balance_now.due_xof - pending
+    return ProviderWallet(
+        due_xof=balance_now.due_xof,
+        credit_xof=balance_now.credit_xof,
+        pending_xof=pending,
+        effective_due_xof=effective,
+        state=state_for(effective),
+    )
 
 
 def rate_for(*, trade, at) -> CommissionRate | None:

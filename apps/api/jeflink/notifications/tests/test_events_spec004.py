@@ -63,7 +63,7 @@ def test_les_onze_types_sont_declares_et_trois_partent_par_sms():
         events.AMENDMENT_PROPOSED,
         events.DISPUTE_REMINDER,
         events.BOOKING_COMPLETED_NO_CODE,
-    } == events.SMS_KINDS
+    } <= events.SMS_KINDS  # la spec 005 en ajoute d'autres
 
 
 def test_chaque_type_est_declenche_par_son_parcours_sans_donnee_personnelle(lines):

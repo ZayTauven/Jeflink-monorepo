@@ -466,6 +466,9 @@ REVIEW_COMMENT_MAX = 500
 REVIEWS_MIN_DISPLAY = 3  # sous 3 avis publiés, aucune note affichée (« Nouveau sur Jeflink »)
 # Repère et position de la demande, vidés après la clôture de la réservation (spec 003, ouvert).
 BOOKING_CONTACT_RETENTION = timedelta(days=90)
+# Portefeuille (spec 005, Q6) : dette effective (dû moins déclarations en attente de décision).
+WALLET_DEBT_ALERT_XOF = 10_000  # alerte au pro
+WALLET_DEBT_BLOCK_XOF = 25_000  # nouveaux devis refusés ; jamais une mission en cours
 
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")

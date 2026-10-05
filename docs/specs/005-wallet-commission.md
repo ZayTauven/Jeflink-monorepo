@@ -88,7 +88,7 @@ Ibou termine une mission à 30 000 F et le client le paie en espèces ou par Wav
 
 ### Commission à la clôture (`wallet.Commission`)
 
-`booking` (OneToOne) · `provider` · `trade` · `base_xof` · `rate` (FK nulle), `rate_bps`, `cap_xof` (copies) · `amount_xof` (≥ 0) · `status` (`charged`, `exempt`) · `exempt_reason` (`review_account`, `zero_rate`, `rate_missing`) · `completion_method`, `close_reason` (copies) · `ledger_transaction` (OneToOne nulle) · `created_at`. Contrainte : `charged` si et seulement si `amount_xof > 0` et une transaction liée. Immuable.
+`booking` (OneToOne) · `provider` · `trade` · `base_xof` · `rate` (FK nulle), `rate_bps`, `cap_xof` (copies) · `amount_xof` (≥ 0) · `status` (`charged`, `exempt`) · `exempt_reason` (`review_account`, `zero_rate`, `zero_amount`, `rate_missing`) · `completion_method`, `close_reason` (copies) · `ledger_transaction` (OneToOne nulle) · `created_at`. Contrainte : `charged` si et seulement si `amount_xof > 0` et une transaction liée. Immuable.
 
 `wallet.services.charge_commission_on_close(booking, reason)` est inscrit par `register_close_handler` dans le `ready()` de `wallet`. Il s'exécute dans la transaction de la clôture, réservation verrouillée.
 
@@ -105,6 +105,7 @@ Ibou termine une mission à 30 000 F et le client le paie en espèces ou par Wav
 | réservation annulée (dont no-show, désistement, Ops) | aucune : elle n'arrive jamais à `closed`                                             |
 | client `is_review_account`                           | `exempt` (`review_account`), sans écriture                                           |
 | taux de 0                                            | `exempt` (`zero_rate`), sans écriture                                                |
+| montant arrondi à 0 (très petite mission)            | `exempt` (`zero_amount`), sans écriture                                              |
 | aucun taux applicable (ne doit pas arriver)          | `exempt` (`rate_missing`), alerte `wallet_rate_missing` ; l'Ops passe une correction |
 | pro de démo (`is_demo`, local et test seulement)     | due : le parcours de démo doit montrer la commission                                 |
 
