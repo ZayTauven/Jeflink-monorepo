@@ -16,7 +16,8 @@ import { CtaPair } from "@/components/site/cta-pair";
 import { JsonLdScript } from "@/components/site/json-ld";
 import { HowSection, PageHeader, Section, WhenSection } from "@/components/site/sections";
 import { ServicesList } from "@/components/site/services-list";
-import { SHORT_FAQ, SiteFaq } from "@/components/site/site-faq";
+import { SiteFaq } from "@/components/site/site-faq";
+import { SHORT_FAQ } from "@/lib/site/faq-rules";
 import { StatFigure } from "@/components/site/stat-figure";
 import { TradeVisual } from "@/components/site/trade-visual";
 import { buttonClass } from "@/components/ui/button";
@@ -37,6 +38,9 @@ import { absoluteUrl } from "@/lib/site/seo";
 import { FALLBACK_SITE_ORIGIN, readSiteConfig } from "@/lib/site-config";
 
 type Params = Promise<{ metier: string; quartier: string }>;
+
+/** Lien du fil d'Ariane : cible de 48 px au moins. */
+const crumb = "inline-flex min-h-12 items-center underline underline-offset-4";
 
 /**
  * Paire canonique (métier, quartier) pour les deux segments : redirection 307 si l'un est un alias,
@@ -158,13 +162,13 @@ export default async function TradeZonePage({ params }: { params: Params }) {
       <nav aria-label={t("breadcrumbLabel")} className="mx-auto max-w-6xl px-4 pt-4 sm:px-6">
         <ol className="flex flex-wrap items-center gap-x-2 text-sm text-ink-muted">
           <li>
-            <Link href={SITE_PATHS.home} className="underline underline-offset-4">
+            <Link href={SITE_PATHS.home} className={crumb}>
               {tSite("seo.siteName")}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
           <li>
-            <Link href={tradePath(tradeSlug)} className="underline underline-offset-4">
+            <Link href={tradePath(tradeSlug)} className={crumb}>
               {tradeName}
             </Link>
           </li>
@@ -174,7 +178,6 @@ export default async function TradeZonePage({ params }: { params: Params }) {
       </nav>
 
       <PageHeader
-        kicker={zone.name}
         title={title}
         lead={intro}
         actions={<CtaPair {...ctaProps} urgentLink />}
@@ -207,7 +210,7 @@ export default async function TradeZonePage({ params }: { params: Params }) {
       <WhenSection rules={rules} tone={proofs.length > 0 ? "sand" : "paper"} />
 
       {zone.nearby.length > 0 ? (
-        <Section title={`${tradeName} · ${t("neighborsTitle")}`}>
+        <Section title={t("neighborsTitle", { trade: tradeName })}>
           <ul className="flex flex-wrap gap-3">
             {zone.nearby.map((near) => (
               <li key={near.slug}>
@@ -247,7 +250,7 @@ export default async function TradeZonePage({ params }: { params: Params }) {
       <Section title={t("supportTitle")} tone="sand">
         <p className="text-lg">{tSite("footer.hours")}</p>
         <div className="mt-6">
-          <CtaPair {...ctaProps} noticeId="cta-notice-final" />
+          <CtaPair {...ctaProps} noticeId="cta-notice-final" onSand />
         </div>
       </Section>
       <ActionBar {...ctaProps} />

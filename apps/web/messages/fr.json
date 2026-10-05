@@ -706,7 +706,7 @@
       "supportTitle": "Support Jeflink",
       "whatsapp": "Écrire sur WhatsApp",
       "call": "Appeler",
-      "hours": "Réponse tous les jours, de 8 h à 20 h.",
+      "hours": "Réponse tous les jours, de 8 h à 20 h.",
       "onlyNumbers": "Ce sont nos seuls numéros.",
       "city": "Dakar, Sénégal",
       "legal": "Jeflink est exploité par {name}.",
@@ -755,11 +755,11 @@
         "label": "devis au plus pour chaque demande"
       },
       "dispute": {
-        "value": "{hours} h",
+        "value": "{hours} h",
         "label": "pour signaler un problème"
       },
       "fees": {
-        "value": "0 F CFA",
+        "value": "0 F CFA",
         "label": "de frais Jeflink pour vous"
       },
       "missions": {
@@ -808,8 +808,7 @@
     "about": {
       "metaTitle": "À propos",
       "metaDescription": "Jeflink met en relation les gens de Dakar et des pros vérifiés. Vous voyez le prix avant de choisir.",
-      "kicker": "À propos",
-      "title": "Un pro vérifié, un prix choisi, un travail suivi.",
+      "title": "Le bon pro à Dakar, au prix que vous choisissez.",
       "lead": "Jeflink aide les gens de Dakar à trouver le bon pro.",
       "statement": "Vous voyez les devis. Vous choisissez. Le prix ne change pas sans votre accord.",
       "reasonsTitle": "Pourquoi Jeflink",
@@ -823,8 +822,8 @@
           "text": "Nous vérifions chaque pro avant de lui confier des demandes."
         },
         "proofs": {
-          "title": "Des preuves, pas des slogans",
-          "text": "Nous n'affichons un chiffre que s'il est vrai."
+          "title": "Des chiffres vrais",
+          "text": "Un chiffre n'apparaît que s'il est exact."
         }
       },
       "verifyTitle": "Ce que nous vérifions",
@@ -844,7 +843,6 @@
     "contact": {
       "metaTitle": "Contact",
       "metaDescription": "Écrivez à Jeflink sur WhatsApp ou appelez le support. Une question, un doute, un message suspect.",
-      "kicker": "Contact",
       "title": "Parlez à Jeflink",
       "lead": "Une question, un doute, un message suspect ? Écrivez-nous.",
       "whatsappHint": "Le plus simple : un message, même vocal.",
@@ -912,7 +910,7 @@
     "when": {
       "title": "Quand le pro vient-il ?",
       "slot": "Les pros proposent un créneau dans leur devis. Vous choisissez.",
-      "confirm": "Le pro confirme sous {hours} h. Sous {urgent} h si c'est urgent.",
+      "confirm": "Le pro confirme sous {hours} h. Sous {urgent} h si c'est urgent.",
       "night": "La nuit ne compte pas dans ce délai."
     },
     "guarantees": {
@@ -921,7 +919,7 @@
       "verified": "Un pro vérifié.",
       "price": "Un prix que vous choisissez, jamais changé sans votre accord.",
       "code": "Un code de fin que vous donnez au pro.",
-      "dispute": "{hours} h pour signaler un problème. Jeflink examine.",
+      "dispute": "{hours} h pour signaler un problème. Jeflink examine.",
       "disputeNoRules": "Un délai pour signaler un problème. Jeflink examine."
     },
     "never": {
@@ -943,12 +941,12 @@
         },
         "when": {
           "q": "Quand le pro vient-il ?",
-          "a": "Les pros proposent un créneau dans leur devis. Vous choisissez. Le pro confirme sous {hours} h.",
+          "a": "Les pros proposent un créneau dans leur devis. Vous choisissez. Le pro confirme sous {hours} h.",
           "aNoRules": "Les pros proposent un créneau dans leur devis. Vous choisissez. Le pro confirme ensuite."
         },
         "urgent": {
           "q": "C'est urgent ?",
-          "a": "Cochez « C'est urgent » dans la demande. Les pros la voient en premier et confirment sous {urgent} h. Sinon, écrivez-nous sur WhatsApp.",
+          "a": "Cochez « C'est urgent » dans la demande. Les pros la voient en premier et confirment sous {urgent} h. Sinon, écrivez-nous sur WhatsApp.",
           "aNoRules": "Cochez « C'est urgent » dans la demande. Les pros la voient en premier. Sinon, écrivez-nous sur WhatsApp."
         },
         "zone": {
@@ -961,7 +959,7 @@
         },
         "problem": {
           "q": "Un problème après le travail ?",
-          "a": "Vous avez {hours} h pour le signaler. Jeflink examine.",
+          "a": "Vous avez {hours} h pour le signaler. Jeflink examine.",
           "aNoRules": "Vous avez un délai pour le signaler. Jeflink examine."
         },
         "genuine": {
@@ -997,7 +995,6 @@
       "zonesLead": "Cherchez le vôtre, ou écrivez-le.",
       "zonesMissing": "Votre quartier n'y est pas ? Écrivez-nous.",
       "zonesWhatsapp": "Écrire mon quartier sur WhatsApp",
-      "figuresTitle": "Des chiffres vrais",
       "proTitle": "Vous êtes artisan ?",
       "proText": "Rejoignez Jeflink et recevez des demandes près de chez vous.",
       "proLink": "Devenir pro",
@@ -1006,7 +1003,6 @@
     "trades": {
       "metaTitle": "Nos métiers",
       "metaDescription": "Tous les métiers de Jeflink à Dakar. Choisissez le vôtre, puis votre quartier.",
-      "kicker": "Métiers",
       "title": "Tous nos métiers",
       "lead": "Choisissez un métier, puis votre quartier.",
       "cardLink": "Voir le métier",
@@ -1026,7 +1022,7 @@
       "metaDescription": "{title} avec des pros vérifiés. Vous choisissez parmi les devis reçus.",
       "ogDescription": "{title}, avec des pros vérifiés.",
       "introFallback": "Des pros vérifiés couvrent ce quartier. Vous choisissez parmi les devis reçus.",
-      "neighborsTitle": "Dans les quartiers voisins",
+      "neighborsTitle": "{trade} : quartiers voisins",
       "othersTitle": "Autres métiers {where}",
       "figuresTitle": "En chiffres",
       "supportTitle": "Une question ? Le support répond.",
@@ -1043,7 +1039,7 @@
       "whatsapp": "Dites-nous où vous êtes",
       "whatsappMessage": "Bonjour, je cherche un pro. Mon quartier n'a pas de page.",
       "backToTrade": "Revenir au métier",
-    "tradeChoiceTitle": "Quel métier {where} ?"
+      "tradeChoiceTitle": "Quel métier {where} ?"
     }
   }
 }

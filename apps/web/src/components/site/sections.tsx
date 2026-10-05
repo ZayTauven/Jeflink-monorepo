@@ -27,7 +27,7 @@ export function Section({
   title?: ReactNode;
   lead?: ReactNode;
   tone?: "paper" | "sand";
-  children: ReactNode;
+  children?: ReactNode;
   className?: string;
 }) {
   const headingId = id ? `${id}-titre` : undefined;
@@ -47,7 +47,7 @@ export function Section({
           </h2>
         ) : null}
         {lead ? <p className="mt-4 max-w-2xl text-lg text-ink-muted">{lead}</p> : null}
-        <div className={title || lead ? "mt-8 sm:mt-10" : ""}>{children}</div>
+        {children ? <div className={title || lead ? "mt-8 sm:mt-10" : ""}>{children}</div> : null}
       </div>
     </section>
   );
@@ -61,7 +61,8 @@ export function PageHeader({
   actions,
   media,
 }: {
-  kicker: string;
+  /** Pastille au-dessus du titre : seulement si elle apporte une information que le titre n'a pas. */
+  kicker?: string;
   title: string;
   lead?: string;
   actions?: ReactNode;
@@ -71,7 +72,7 @@ export function PageHeader({
     <header className="mx-auto max-w-6xl px-4 pb-4 pt-6 sm:px-6 sm:pt-10">
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="flex flex-col items-start gap-5 rounded-card border border-line bg-surface p-6 sm:p-10">
-          <p className={pill}>{kicker}</p>
+          {kicker ? <p className={pill}>{kicker}</p> : null}
           <h1 className="font-display text-balance text-4xl leading-[1.05] tracking-tight sm:text-6xl">
             {title}
           </h1>

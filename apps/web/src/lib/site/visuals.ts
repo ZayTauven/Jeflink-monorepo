@@ -48,7 +48,6 @@ export function tradeVisual(iconKey: string | null | undefined): TradeVisual {
 export const SITE_IMAGES = {
   hero: {
     altKey: "hero",
-    small: { src: `${DIR}/hero-750.webp`, width: 750, height: 938 },
     large: { src: `${DIR}/hero-1600.webp`, width: 1600, height: 2000 },
   },
   pro: { altKey: "pro", image: { src: `${DIR}/pro-600.webp`, width: 600, height: 450 } },

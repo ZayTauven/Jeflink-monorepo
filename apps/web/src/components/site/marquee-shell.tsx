@@ -2,7 +2,7 @@
 
 // Îlot client n° 2 du site public : la pause du bandeau. Le bouton n'apparaît qu'une fois la page
 // hydratée (sans JS, le bandeau est statique : rien à mettre en pause). Le CSS fait le reste
-// (`data-paused`, survol, focus, mouvement réduit) : voir globals.css.
+// (`data-paused`, survol de la piste, mouvement réduit) : voir globals.css.
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 
@@ -18,6 +18,7 @@ export function MarqueeShell({ children }: { children: ReactNode }) {
     <div className="jf-marquee" data-paused={paused ? "true" : "false"}>
       {children}
       {ready ? (
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <button
           type="button"
           aria-pressed={paused}
@@ -27,6 +28,7 @@ export function MarqueeShell({ children }: { children: ReactNode }) {
           {paused ? <PlayIcon className="size-5" /> : <PauseIcon className="size-5" />}
           {paused ? t("play") : t("pause")}
         </button>
+        </div>
       ) : null}
     </div>
   );

@@ -35,7 +35,7 @@ export default async function ContactPage() {
   const whatsapp = whatsappUrl(supportWhatsapp, tSite("footer.supportMessage"));
   return (
     <>
-      <PageHeader kicker={t("kicker")} title={t("title")} lead={t("lead")} />
+      <PageHeader title={t("title")} lead={t("lead")} />
       <Section>
         <div className="grid gap-4 md:grid-cols-2">
           {whatsapp && supportWhatsapp ? (

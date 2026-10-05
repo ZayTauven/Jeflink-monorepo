@@ -35,7 +35,7 @@ export default async function TradesPage() {
   }));
   return (
     <>
-      <PageHeader kicker={t("kicker")} title={t("title")} lead={t("lead")} />
+      <PageHeader title={t("title")} lead={t("lead")} />
       <Section>
         {trades.length > 0 ? (
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

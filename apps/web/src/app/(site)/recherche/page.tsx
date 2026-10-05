@@ -71,7 +71,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
   return (
     <>
       <PageHeader
-        kicker={tSite("search.label")}
         title={
           outcome.kind === "closed" && zoneForTrades
             ? t("closedTitle", { trade: tradeName, where: where(zoneForTrades.name) })

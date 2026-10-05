@@ -4,7 +4,7 @@
 
 /* Site public (spec 006). Barre d'actions mobile : la barre `sticky` ne doit jamais masquer
    l'élément qui a le focus (WCAG 2.4.11). */
-@media (width < 48rem) {
+@media (width < 64rem) {
   html:has(.jf-action-bar) {
     scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom));
   }
@@ -12,7 +12,7 @@
 
 /* Bandeau des métiers. Sans JS ou avec `prefers-reduced-motion` : liste statique qui passe à la
    ligne. Avec JS et sans préférence de mouvement réduit : défilement CSS, copie `aria-hidden`
-   affichée pour la boucle, arrêt au survol, au focus, et par le bouton (data-paused). */
+   affichée pour la boucle, arrêt au survol de la piste et par le bouton (data-paused). */
 .jf-marquee-copy[aria-hidden="true"] {
   display: none;
 }
@@ -33,8 +33,9 @@
   .jf-marquee-copy[aria-hidden="true"] {
     display: flex;
   }
-  .jf-marquee:hover .jf-marquee-track,
-  .jf-marquee:focus-within .jf-marquee-track,
+  /* Survol de la piste seulement : le bouton de pause est dans `.jf-marquee`, il ne doit pas
+     arrêter le défilement quand on le survole pour le relancer. */
+  .jf-marquee-track:hover,
   .jf-marquee[data-paused="true"] .jf-marquee-track {
     animation-play-state: paused;
   }

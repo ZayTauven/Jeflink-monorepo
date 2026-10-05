@@ -4,6 +4,7 @@
 // - Sans JS (et avant l'hydratation) : un simple lien vers le pied de page, qui porte tous les liens.
 // - Avec JS : un bouton qui ouvre un `<dialog>` plein écran. `showModal()` donne le piège à focus,
 //   la fermeture par Échap et le retour du focus au bouton ; `aria-expanded` suit l'état.
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
 
@@ -35,6 +36,16 @@ export function MobileMenu({
   const [ready, setReady] = useState(false);
   const [expanded, setExpanded] = useState(false);
   useEffect(() => setReady(true), []);
+
+  // Le menu est celui du mobile : au point de rupture bureau (lg), il se referme.
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 64rem)");
+    const close = () => {
+      if (query.matches) dialog.current?.close();
+    };
+    query.addEventListener("change", close);
+    return () => query.removeEventListener("change", close);
+  }, []);
 
   if (!ready) {
     return (
@@ -82,24 +93,24 @@ export function MobileMenu({
           </div>
           <nav className="mt-10 flex flex-col">
             {links.map((link) => (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 className="flex min-h-14 items-center border-b border-line py-3 font-display text-3xl tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
               >
                 {link.label}
-              </a>
+              </Link>
             ))}
-            <a
+            <Link
               href={space.href}
               className="flex min-h-14 items-center py-3 text-base font-medium text-ink underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
             >
               {space.label}
-            </a>
+            </Link>
           </nav>
-          <a href={request.href} className={buttonClass("primary", "mt-auto mb-6 w-full")}>
+          <Link href={request.href} className={buttonClass("primary", "mt-auto mb-6 w-full")}>
             {request.label}
-          </a>
+          </Link>
         </div>
       </dialog>
     </>

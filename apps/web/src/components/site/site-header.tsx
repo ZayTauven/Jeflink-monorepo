@@ -37,14 +37,14 @@ export async function SiteHeader() {
         >
           <Logo />
         </Link>
-        <nav aria-label={t("label")} className="hidden items-center gap-1 md:flex">
+        <nav aria-label={t("label")} className="hidden items-center gap-1 lg:flex">
           {links.map((item) => (
             <Link key={item.href} href={item.href} className={link}>
               {item.label}
             </Link>
           ))}
         </nav>
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-2 lg:flex">
           <Link href={space.href} className={link}>
             {space.label}
           </Link>
@@ -52,7 +52,7 @@ export async function SiteHeader() {
             {request.label}
           </Link>
         </div>
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <MobileMenu links={links} space={space} request={request} />
         </div>
       </div>

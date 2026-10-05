@@ -14,7 +14,8 @@ import { CtaPair } from "@/components/site/cta-pair";
 import { JsonLdScript } from "@/components/site/json-ld";
 import { HowSection, PageHeader, Section, WhenSection } from "@/components/site/sections";
 import { ServicesList } from "@/components/site/services-list";
-import { SHORT_FAQ, SiteFaq } from "@/components/site/site-faq";
+import { SiteFaq } from "@/components/site/site-faq";
+import { SHORT_FAQ } from "@/lib/site/faq-rules";
 import { StatFigure } from "@/components/site/stat-figure";
 import { TradeVisual } from "@/components/site/trade-visual";
 import { ZoneSearchForm } from "@/components/site/zone-search-form";
@@ -127,7 +128,6 @@ export default async function TradePage({ params }: { params: Params }) {
       />
 
       <PageHeader
-        kicker={name}
         title={title}
         {...(intro ? { lead: intro } : {})}
         actions={<CtaPair trade={ctaTrade} />}

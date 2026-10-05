@@ -40,7 +40,6 @@ export default async function AboutPage() {
   return (
     <>
       <PageHeader
-        kicker={t("kicker")}
         title={t("title")}
         lead={t("lead")}
         media={
@@ -81,9 +80,7 @@ export default async function AboutPage() {
         </div>
       </Section>
 
-      <Section title={t("dakarTitle")} lead={t("dakarText")} tone="sand">
-        <></>
-      </Section>
+      <Section title={t("dakarTitle")} lead={t("dakarText")} tone="sand" />
 
       <Section>
         <div className="flex flex-col items-start gap-4 rounded-card border border-line bg-surface p-6 sm:p-10">

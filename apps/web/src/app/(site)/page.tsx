@@ -21,11 +21,11 @@ import {
   VerifyList,
   WhenSection,
 } from "@/components/site/sections";
-import { FULL_FAQ, SiteFaq } from "@/components/site/site-faq";
+import { SiteFaq } from "@/components/site/site-faq";
+import { FULL_FAQ } from "@/lib/site/faq-rules";
 import { StatFigure } from "@/components/site/stat-figure";
 import { TradeCard } from "@/components/site/trade-card";
 import { TradeLabel } from "@/components/site/trade-label";
-import { TradeVisual } from "@/components/site/trade-visual";
 import { SupportLink } from "@/components/support-link";
 import { buttonClass } from "@/components/ui/button";
 import { whatsappUrl } from "@/lib/login/support";
@@ -75,7 +75,6 @@ export default async function HomePage() {
     description: trade.short_description ? localized(trade.short_description, locale) : null,
   }));
   const figures = chooseFigures(stats);
-  const photoTrade = trades.find((trade) => trade.iconKey && trade.iconKey !== "appliance");
   const whatsapp = whatsappUrl(supportWhatsapp, t("zonesWhatsapp"));
 
   return (
@@ -134,9 +133,7 @@ export default async function HomePage() {
       </section>
 
       {trades.length > 0 ? (
-        <Section tone="paper" className="overflow-hidden">
-          <Marquee items={trades.map((trade) => trade.name)} />
-        </Section>
+        <Marquee items={trades.map((trade) => trade.name)} className="overflow-hidden py-10 sm:py-14" />
       ) : null}
 
       <HowSection rules={rules} tone="sand" />
@@ -187,20 +184,11 @@ export default async function HomePage() {
       ) : null}
 
       <Section title={tSite("guarantees.title")} tone="sand">
-        <div className="grid gap-4 lg:grid-cols-2">
-          {photoTrade ? (
-            <TradeVisual
-              iconKey={photoTrade.iconKey}
-              sizes="(min-width: 1024px) 560px, 100vw"
-              className="h-full"
-            />
-          ) : null}
-          <div className="flex flex-col items-start gap-6 rounded-card border border-line bg-surface p-6 sm:p-8">
-            <GuaranteesList rules={rules} />
-            <Link href={SITE_PATHS.about} className={buttonClass("secondary")}>
-              {tSite("guarantees.link")}
-            </Link>
-          </div>
+        <div className="flex max-w-3xl flex-col items-start gap-6 rounded-card border border-line bg-surface p-6 sm:p-8">
+          <GuaranteesList rules={rules} />
+          <Link href={SITE_PATHS.about} className={buttonClass("secondary")}>
+            {tSite("guarantees.link")}
+          </Link>
         </div>
         <div className="mt-12 grid gap-10 sm:grid-cols-3">
           {figures.map((figure) => (
@@ -256,7 +244,7 @@ export default async function HomePage() {
       </Section>
 
       <Section title={t("finalTitle")} tone="sand">
-        <CtaPair noticeId="cta-notice-final" />
+        <CtaPair noticeId="cta-notice-final" onSand />
       </Section>
       <ActionBar />
     </>

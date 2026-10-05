@@ -2,7 +2,7 @@
 // - Noms des métiers (données) en Funnel Display, copie doublée en `aria-hidden` pour la boucle.
 // - Le défilement ne démarre que si le JS est actif (`@media (scripting: enabled)`) et si le
 //   visiteur n'a pas demandé moins de mouvement ; sinon, une liste statique, tout est lisible.
-// - Pause : arrêt au survol et au focus (CSS), et bouton « Mettre en pause » (îlot client, WCAG 2.2.2).
+// - Pause : arrêt au survol de la piste (CSS), et bouton « Mettre en pause » (îlot client, WCAG 2.2.2).
 // - Les métiers restent atteignables en liens ailleurs sur la page : ici, du texte seulement.
 import { getTranslations } from "next-intl/server";
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { tradePath } from "@/lib/site/paths";
+import { tradeVisual } from "@/lib/site/visuals";
 
 import { TradeLabel } from "./trade-label";
 import { TradeVisual } from "./trade-visual";
@@ -24,7 +25,12 @@ export async function TradeCard({ trade }: { trade: TradeCardData }) {
     >
       <TradeVisual iconKey={trade.iconKey} sizes="(min-width: 1024px) 360px, (min-width: 640px) 45vw, 100vw" />
       <div className="flex flex-1 flex-col gap-2 px-2 pb-3">
-        <TradeLabel iconKey={trade.iconKey} label={trade.name} className="font-display text-2xl" />
+        {/* Photo : le libellé suffit. Visuel générique (pictogramme) : pictogramme et libellé. */}
+        {tradeVisual(trade.iconKey).kind === "photo" ? (
+          <span className="font-display text-2xl">{trade.name}</span>
+        ) : (
+          <TradeLabel iconKey={trade.iconKey} label={trade.name} className="font-display text-2xl" />
+        )}
         {trade.description ? <p className="text-base text-ink-muted">{trade.description}</p> : null}
         <span className="mt-auto pt-2 text-base font-medium text-accent-strong underline underline-offset-4 group-hover:text-ink">
           {t("cardLink")}

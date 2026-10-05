@@ -42,7 +42,6 @@ describe("tradeVisual", () => {
         const visual = tradeVisual(key);
         return visual.kind === "photo" ? [visual.card, visual.compact] : [];
       }),
-      SITE_IMAGES.hero.small,
       SITE_IMAGES.hero.large,
       SITE_IMAGES.pro.image,
       SITE_IMAGES.dakar.image,

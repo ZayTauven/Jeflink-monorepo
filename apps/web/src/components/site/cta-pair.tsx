@@ -32,6 +32,8 @@ export type CtaPairProps = CtaContext & {
   wolof?: boolean;
   /** Ajoute le lien « C'est urgent ? » vers la demande urgente. */
   urgentLink?: boolean;
+  /** Posé sur un fond `sand` : les liens secondaires passent en `ink` souligné (contraste AA). */
+  onSand?: boolean;
   /** `id` de la mention SMS, reliée au bouton de demande (un seul CtaPair `hero` par page). */
   noticeId?: string;
   className?: string;
@@ -45,6 +47,7 @@ export async function CtaPair({
   wolof = false,
   urgentLink = false,
   noticeId = "cta-notice",
+  onSand = false,
   className = "",
 }: CtaPairProps) {
   const t = await getTranslations("site");
@@ -95,7 +98,7 @@ export async function CtaPair({
           {urgentLink ? (
             <Link
               href={demandPath({ ...demandBase, urgence: true })}
-              className={buttonClass("quiet", "px-0!")}
+              className={buttonClass("quiet", onSand ? "px-0! text-ink!" : "px-0!")}
             >
               {t("cta.urgent")}
             </Link>
@@ -107,6 +110,7 @@ export async function CtaPair({
               label={t("cta.wolof")}
               newTabLabel={t("newTab")}
               variant="quiet"
+              {...(onSand ? { className: "px-0! text-ink!" } : {})}
             />
           ) : null}
         </div>
