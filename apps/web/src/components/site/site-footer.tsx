@@ -36,7 +36,7 @@ export async function SiteFooter({ trades = [] }: { trades?: readonly FooterTrad
   return (
     <footer id="pied-de-page" aria-label={t("footer.label")} className="bg-ink text-sand">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-        <div className="grid gap-10 md:grid-cols-3">
+        <div className={`grid gap-10 ${trades.length > 0 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
           <section aria-labelledby="pied-support">
             <h2 id="pied-support" className={title}>
               {t("footer.supportTitle")}

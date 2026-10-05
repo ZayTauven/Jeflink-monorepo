@@ -2,6 +2,7 @@
 // absent : sous le seuil, l'API renvoie `null` et le site n'affiche ni « 0 » ni compteur vide.
 import { getTranslations } from "next-intl/server";
 
+import { groupDigits } from "@/lib/requests/format";
 import type { Figure } from "@/lib/site/figures";
 
 export async function StatFigure({
@@ -29,11 +30,11 @@ export async function StatFigure({
       label = t("fees.label");
       break;
     case "missions":
-      value = t("missions.value", { count: figure.value });
+      value = t("missions.value", { count: groupDigits(figure.value) });
       label = t("missions.label");
       break;
     case "pros":
-      value = t(figure.value >= 10 ? "pros.approx" : "pros.exact", { count: figure.value });
+      value = t(figure.value >= 10 ? "pros.approx" : "pros.exact", { count: groupDigits(figure.value) });
       label = t("pros.label");
       break;
     case "rating":

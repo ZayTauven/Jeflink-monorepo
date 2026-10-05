@@ -80,7 +80,7 @@ export function MobileMenu({
               {t("close")}
             </button>
           </div>
-          <nav aria-label={t("title")} className="mt-10 flex flex-col">
+          <nav className="mt-10 flex flex-col">
             {links.map((link) => (
               <a
                 key={link.href}
@@ -92,7 +92,7 @@ export function MobileMenu({
             ))}
             <a
               href={space.href}
-              className="flex min-h-14 items-center py-3 text-base font-medium text-accent-strong underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
+              className="flex min-h-14 items-center py-3 text-base font-medium text-ink underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong"
             >
               {space.label}
             </a>

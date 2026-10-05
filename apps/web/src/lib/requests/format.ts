@@ -7,6 +7,11 @@ export const DAKAR_TZ = "Africa/Dakar";
  * « 25 000 F CFA ». L'espace est U+00A0 : Funnel Display n'a pas l'espace fine insécable U+202F
  * que `Intl` insère (DESIGN.md › Typographie).
  */
+/** « 1 200 » : milliers séparés par U+00A0 (jamais l'espace fine de `Intl`, absente de Funnel Display). */
+export function groupDigits(value: number): string {
+  return String(Math.trunc(value)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 export function formatXof(amount: number): string {
   const whole = Math.trunc(Number.isFinite(amount) ? amount : 0);
   const sign = whole < 0 ? "-" : "";
