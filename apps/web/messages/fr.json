@@ -780,6 +780,111 @@
       "handyman": "Un ouvrier casqué travaille sur un mur de chantier.",
       "pro": "Un menuisier en tablier de cuir travaille à son établi.",
       "dakar": "Un car rapide devant un bâtiment blanc, dans une rue de Dakar."
+    },
+    "newTab": "(s'ouvre dans un nouvel onglet)",
+    "error": {
+      "title": "Cette page ne s'affiche pas.",
+      "lead": "Ce n'est pas de votre faute. Réessayez, ou écrivez-nous.",
+      "retry": "Réessayer",
+      "tradesTitle": "Nos métiers",
+      "whatsappLead": "Besoin d'aide tout de suite ? Écrivez-nous.",
+      "whatsapp": "Écrire sur WhatsApp",
+      "home": "Retour à l'accueil"
+    },
+    "notFound": {
+      "metaTitle": "Page introuvable · Jeflink",
+      "title": "Cette page n'existe pas.",
+      "lead": "Cherchez votre quartier, ou choisissez un métier.",
+      "tradesTitle": "Nos métiers",
+      "whatsappLead": "Vous ne trouvez pas ? Écrivez-nous.",
+      "whatsapp": "Écrire sur WhatsApp",
+      "home": "Retour à l'accueil"
+    },
+    "about": {
+      "metaTitle": "À propos · Jeflink",
+      "metaDescription": "Jeflink met en relation les gens de Dakar et des pros vérifiés. Vous voyez le prix avant de choisir.",
+      "kicker": "À propos",
+      "title": "Un pro vérifié, un prix choisi, un travail suivi.",
+      "lead": "Jeflink aide les gens de Dakar à trouver le bon pro.",
+      "statement": "Vous voyez les devis. Vous choisissez. Le prix ne change pas sans votre accord.",
+      "reasonsTitle": "Pourquoi Jeflink",
+      "reasons": {
+        "price": {
+          "title": "Le prix avant le pro",
+          "text": "Plusieurs pros vous envoient un devis. Vous choisissez celui qui vous va."
+        },
+        "verified": {
+          "title": "Des pros vérifiés",
+          "text": "Nous vérifions chaque pro avant de lui confier des demandes."
+        },
+        "proofs": {
+          "title": "Des preuves, pas des slogans",
+          "text": "Nous n'affichons un chiffre que s'il est vrai."
+        }
+      },
+      "verifyTitle": "Ce que nous vérifions",
+      "verify": {
+        "identity": "Son identité, vue en personne.",
+        "phone": "Son numéro de téléphone.",
+        "reference": "Une référence de son travail."
+      },
+      "figuresTitle": "Jeflink en chiffres",
+      "dakarTitle": "Nous commençons à Dakar",
+      "dakarText": "Jeflink travaille d'abord à Dakar. D'autres quartiers s'ajoutent quand des pros les couvrent.",
+      "proTitle": "Vous êtes artisan ?",
+      "proText": "Rejoignez Jeflink et recevez des demandes près de chez vous.",
+      "proLink": "Devenir pro",
+      "ctaTitle": "Besoin d'un pro aujourd'hui ?"
+    },
+    "contact": {
+      "metaTitle": "Contact · Jeflink",
+      "metaDescription": "Écrivez à Jeflink sur WhatsApp ou appelez le support. Une question, un doute, un message suspect.",
+      "kicker": "Contact",
+      "title": "Parlez à Jeflink",
+      "lead": "Une question, un doute, un message suspect ? Écrivez-nous.",
+      "whatsappHint": "Le plus simple : un message, même vocal.",
+      "callTitle": "Appeler le support",
+      "hoursTitle": "Horaires du support",
+      "noNumber": "Les numéros du support seront affichés ici.",
+      "requestTitle": "Vous voulez un pro ?",
+      "requestText": "Pour une intervention, faites une demande."
+    },
+    "pro": {
+      "metaTitle": "Devenir pro · Jeflink",
+      "metaDescription": "Artisan à Dakar ? Rejoignez Jeflink : pas de frais d'entrée, une commission par mission terminée.",
+      "kicker": "Pour les artisans",
+      "title": "Vous êtes artisan ? Rejoignez Jeflink.",
+      "lead": "Recevez des demandes de clients qui cherchent votre métier.",
+      "benefitsTitle": "Ce que Jeflink vous apporte",
+      "benefits": {
+        "clients": {
+          "title": "Des clients près de chez vous",
+          "text": "Vous voyez les demandes de votre métier et de votre quartier."
+        },
+        "quote": {
+          "title": "Votre prix, votre créneau",
+          "text": "Vous proposez votre devis. Le client choisit."
+        },
+        "fees": {
+          "title": "Pas de frais d'entrée",
+          "text": "Pas d'abonnement non plus."
+        },
+        "commission": {
+          "title": "Une commission par mission terminée",
+          "text": "Son taux est affiché avant chaque devis."
+        }
+      },
+      "verifyTitle": "Ce que nous vérifions",
+      "stepsTitle": "Comment entrer",
+      "steps": {
+        "one": "Envoyez-nous un message vocal sur WhatsApp.",
+        "two": "Dites votre métier et votre quartier.",
+        "three": "Nous vous recontactons pour vérifier votre profil."
+      },
+      "join": "Je veux rejoindre Jeflink",
+      "joinMessage": "Bonjour, je suis artisan et je veux rejoindre Jeflink.",
+      "noNumber": "Le numéro WhatsApp sera affiché ici.",
+      "note": "Pas d'inscription en ligne pour le moment."
     }
   }
 }

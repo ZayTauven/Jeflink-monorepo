@@ -53,7 +53,7 @@ describe("payload d'une page publique", () => {
   it("les espaces des îlots existent dans fr.json", () => {
     for (const namespace of SITE_CLIENT_NAMESPACES) {
       assert.ok(
-        sent.some((key) => key.startsWith(`${namespace}.`)),
+        sent.some((key) => key === namespace || key.startsWith(`${namespace}.`)),
         namespace,
       );
     }
