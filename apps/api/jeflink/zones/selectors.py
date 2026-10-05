@@ -5,10 +5,12 @@ Aucune coordonnée d'utilisateur n'est journalisée ni renvoyée : seulement des
 
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 
+from django.conf import settings
 from django.contrib.gis.db.models.functions import Distance
 from django.contrib.gis.geos import Point
-from django.db.models import F, Q, QuerySet
+from django.db.models import F, Max, Q, QuerySet
 
 from jeflink.catalog.models import Trade
 from jeflink.catalog.selectors import active_trades
@@ -44,6 +46,71 @@ def trades_in_zone(zone: Zone) -> QuerySet[Trade]:
 def open_zone_slugs(trade: Trade) -> list[str]:
     """Slugs des zones actives où le métier est ouvert (pages SEO métier par quartier)."""
     return list(active_zones().filter(trades=trade).values_list("slug", flat=True))
+
+
+def is_indexable(zone: Zone) -> bool:
+    """Les pages métier et quartier sont indexables quand le quartier a son texte d'intro (fr).
+
+    Une seule règle, pour le détail de la zone et pour la couverture du sitemap (spec 006).
+    """
+    return bool(zone.seo_intro_fr.strip())
+
+
+def nearby_zones(zone: Zone, trade: Trade | None = None, limit: int = 4) -> list[Zone]:
+    """Zones actives les plus proches, par distance entre les centres (PostGIS).
+
+    Avec ``trade``, seulement celles où le métier est ouvert. La distance sert au tri et ne sort
+    jamais de l'API (ni position, ni rayon).
+    """
+    near = (
+        active_zones()
+        .exclude(pk=zone.pk)
+        .annotate(distance_m=Distance("center", zone.center))
+        .order_by("distance_m", "position", "name")
+    )
+    if trade is not None:
+        near = near.filter(trades=trade)
+    return list(near[:limit])
+
+
+@dataclass(frozen=True)
+class CoveragePair:
+    trade: str
+    zone: str
+    indexable: bool
+    updated_at: datetime
+
+
+def coverage() -> list[CoveragePair]:
+    """Paires métier et zone ouvertes (métier actif, zone et ville actives), pour le sitemap.
+
+    ``updated_at`` : le plus récent du métier, de ses services (actifs ou non : un retrait change
+    la page) et de la zone. Borné par ``COVERAGE_LIST_MAX``.
+    """
+    rows = (
+        Zone.trades.through.objects.filter(
+            zone__is_active=True, zone__city__is_active=True, trade__is_active=True
+        )
+        .annotate(services_updated_at=Max("trade__services__updated_at"))
+        .order_by("trade__position", "trade__name_fr", "zone__position", "zone__name")
+        .values_list(
+            "trade__slug",
+            "zone__slug",
+            "zone__seo_intro_fr",
+            "trade__updated_at",
+            "zone__updated_at",
+            "services_updated_at",
+        )[: settings.COVERAGE_LIST_MAX]
+    )
+    return [
+        CoveragePair(
+            trade=trade_slug,
+            zone=zone_slug,
+            indexable=bool(intro.strip()),
+            updated_at=max(stamp for stamp in (trade_at, zone_at, services_at) if stamp),
+        )
+        for trade_slug, zone_slug, intro, trade_at, zone_at, services_at in rows
+    ]
 
 
 def zones_for_point(point: Point) -> list[Zone]:

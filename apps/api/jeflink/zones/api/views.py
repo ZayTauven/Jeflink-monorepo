@@ -3,10 +3,17 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from jeflink.catalog.api.serializers import TradeSummarySerializer
+from jeflink.catalog.selectors import active_trade
 from jeflink.common.api.reference import PublicReferenceView
-from jeflink.zones.selectors import active_zone, active_zones, trades_in_zone
+from jeflink.zones.selectors import (
+    active_zone,
+    active_zones,
+    is_indexable,
+    nearby_zones,
+    trades_in_zone,
+)
 
-from .serializers import ZoneSerializer
+from .serializers import ZoneDetailSerializer, ZoneSerializer
 
 
 class ZoneListView(PublicReferenceView):
@@ -23,6 +30,35 @@ class ZoneListView(PublicReferenceView):
         return self.cached_response(
             request, ZoneSerializer(zones[: self.list_limit()], many=True).data
         )
+
+
+class ZoneDetailView(PublicReferenceView):
+    """Une zone pour sa page métier et quartier : textes, indexation, quartiers voisins (spec 006).
+
+    ``?trade=`` limite les voisins aux zones où ce métier est ouvert. La distance sert au tri
+    seulement : ni position, ni rayon, ni contour dans la réponse.
+    """
+
+    @extend_schema(
+        tags=["zones"],
+        operation_id="zone_retrieve",
+        parameters=[
+            OpenApiParameter(
+                "trade", str, description="Slug d'un métier : voisins où il est ouvert."
+            )
+        ],
+        responses={
+            200: ZoneDetailSerializer,
+            404: OpenApiResponse(description="zone_not_found, trade_not_found"),
+        },
+    )
+    def get(self, request: Request, slug: str) -> Response:
+        zone = active_zone(slug)
+        trade_slug = request.query_params.get("trade")
+        trade = active_trade(trade_slug) if trade_slug else None
+        zone.nearby_zones = nearby_zones(zone, trade=trade)
+        zone.indexable = is_indexable(zone)
+        return self.cached_response(request, ZoneDetailSerializer(zone).data)
 
 
 class ZoneTradesView(PublicReferenceView):

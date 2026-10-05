@@ -231,6 +231,14 @@ IP_RATE_LIMITS = {
 }
 # Listes de référence bornées sans pagination (spec 002) : quelques dizaines de lignes en V1.
 REFERENCE_LIST_MAX = 200
+# Couverture publique (paires métier et zone ouvertes) : borne, sans pagination (spec 006).
+COVERAGE_LIST_MAX = 5_000
+# Chiffres publics du site (spec 006, Q5) : jamais affichés sous ces seuils (aucun pro isolable).
+PUBLIC_STATS_MIN_MISSIONS = 50  # missions clôturées ; arrondies à la dizaine inférieure
+PUBLIC_STATS_MIN_REVIEWS = 20  # avis comptés pour une note moyenne
+PUBLIC_STATS_MIN_RATED_PROS = 3  # pros distincts notés : une note ne désigne jamais un seul pro
+PUBLIC_STATS_MIN_PROS = 5  # pros vérifiés, sans filtre
+PUBLIC_STATS_MIN_PROS_FILTERED = 3  # pros vérifiés, avec un filtre métier ou zone
 # Quotas par Ops (décision de Zay, revue sécurité tâche 15, I2) : contre l'aspiration de la
 # base par un Ops malveillant ou un compte compromis. Alerte à 50 %, refus au-delà.
 OPS_QUOTAS = {

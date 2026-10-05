@@ -4,7 +4,8 @@ from rest_framework.response import Response
 
 from jeflink.catalog.selectors import active_trade, active_trades
 from jeflink.common.api.reference import PublicReferenceView
-from jeflink.zones.selectors import open_zone_slugs
+from jeflink.zones.api.serializers import CoveragePairSerializer
+from jeflink.zones.selectors import coverage, open_zone_slugs
 
 from .serializers import TradeDetailSerializer, TradeSummarySerializer
 
@@ -37,3 +38,18 @@ class TradeDetailView(PublicReferenceView):
         trade = active_trade(slug)
         trade.open_zone_slugs = open_zone_slugs(trade)[: self.list_limit()]
         return self.cached_response(request, TradeDetailSerializer(trade).data)
+
+
+class CoverageView(PublicReferenceView):
+    """Paires métier et zone ouvertes : les pages du site et son sitemap (spec 006).
+
+    Bornée par ``COVERAGE_LIST_MAX``, sans pagination.
+    """
+
+    @extend_schema(
+        tags=["catalog"],
+        operation_id="catalog_coverage_list",
+        responses=CoveragePairSerializer(many=True),
+    )
+    def get(self, request: Request) -> Response:
+        return self.cached_response(request, CoveragePairSerializer(coverage(), many=True).data)
