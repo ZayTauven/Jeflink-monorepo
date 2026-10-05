@@ -376,6 +376,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 24 * 3600,
         "options": {"expires": 6 * 3600},
     },
+    "payments-purge-payer-last4": {
+        "task": "jeflink.payments.tasks.purge_payer_last4",
+        "schedule": 24 * 3600,
+        "options": {"expires": 6 * 3600},
+    },
     "payments-watch-settlements": {
         "task": "jeflink.payments.tasks.watch_settlements",
         "schedule": 3600,
@@ -493,6 +498,7 @@ WALLET_SETTLEMENT_MAX_AGE = timedelta(days=30)  # paiement déclaré au plus tar
 WALLET_SETTLEMENT_CLOCK_SKEW = timedelta(minutes=5)  # heure du téléphone un peu en avance
 WALLET_SETTLEMENT_MAX_PENDING = 3  # déclarations en attente de décision, par pro
 WALLET_SETTLEMENT_REVIEW_SLA = timedelta(hours=24)  # au-delà, alerte à l'Ops
+WALLET_PAYER_LAST4_RETENTION = timedelta(days=365)  # chiffres du payeur, après décision
 
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")

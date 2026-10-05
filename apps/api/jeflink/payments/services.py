@@ -597,3 +597,50 @@ def watch_settlements(*, now: datetime | None = None) -> int:
     if overdue:
         alert_once("wallet_settlements_overdue", 3600, "wallet_settlements_overdue", count=overdue)
     return overdue
+
+
+# --- Données personnelles ----------------------------------------------------------------------
+
+
+def deletion_blocker(user) -> str | None:
+    """Un gérant dont le portefeuille n'est pas soldé (dette ou avoir) ou qui a une déclaration
+    en attente ne supprime pas son compte (Q10). La dette naît dans la transaction où la
+    réservation quitte ``ENGAGED`` (déjà bloquante) ; une déclaration naît sous le verrou du
+    compte (``_lock_owner_and_provider``)."""
+    provider = Provider.objects.filter(owner=user).first()
+    if provider is None:
+        return None
+    wallet_now = provider_wallet(provider)
+    pending = PaymentIntent.objects.filter(
+        provider=provider, status__in=PaymentIntent.PENDING_STATUSES
+    ).exists()
+    if wallet_now.due_xof or wallet_now.credit_xof or pending:
+        return "deletion_blocked_wallet_balance"
+    return None
+
+
+def anonymize_payments(user) -> None:
+    """Anonymiseur : les 4 derniers chiffres du payeur sont effacés. Montants, références et
+    écritures restent, pour la comptabilité (Q11), sans autre donnée que le lien au pro."""
+    PaymentIntent.objects.filter(provider__owner=user).exclude(payer_last4="").update(
+        payer_last4="", updated_at=timezone.now()
+    )
+
+
+def purge_payer_last4(*, now: datetime | None = None) -> int:
+    """Efface les 4 derniers chiffres du payeur ``WALLET_PAYER_LAST4_RETENTION`` après la
+    décision (ou le retrait). Renvoie le nombre de règlements purgés."""
+    now = now or timezone.now()
+    limit = now - settings.WALLET_PAYER_LAST4_RETENTION
+    stale = PaymentIntent.objects.exclude(payer_last4="").filter(
+        Q(decided_at__lte=limit)
+        | Q(decided_at__isnull=True, status=Status.CANCELLED, updated_at__lte=limit)
+    )
+    count = stale.update(payer_last4="", updated_at=now)
+    if count:
+        audit(
+            action="payments.payer_last4.purged",
+            actor_kind=AuditEvent.ActorKind.SYSTEM,
+            metadata={"count": count},
+        )
+    return count
