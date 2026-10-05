@@ -13,8 +13,10 @@ from django.db.models import Q
 
 from jeflink.common.models import BaseModel
 from jeflink.common.slugs import slug_check, validate_reference_slug
+from jeflink.common.validators import validate_public_text
 
 ALIAS_MAX_LENGTH = 40
+SEO_INTRO_MAX_LENGTH = 600
 
 RESERVED_SLUGS_FILE = Path(__file__).with_name("reserved_slugs.json")
 
@@ -56,6 +58,19 @@ class Trade(BaseModel):
         "titre SEO (fr)", max_length=70, blank=True, help_text="H1 et titre de page ; sinon le nom."
     )
     seo_title_wo = models.CharField("titre SEO (wo)", max_length=70, blank=True)
+    seo_intro_fr = models.CharField(
+        "texte de la page métier (fr)",
+        max_length=SEO_INTRO_MAX_LENGTH,
+        blank=True,
+        validators=[validate_public_text],
+        help_text="Publié tel quel : ni numéro de téléphone, ni lien.",
+    )
+    seo_intro_wo = models.CharField(
+        "texte de la page métier (wo)",
+        max_length=SEO_INTRO_MAX_LENGTH,
+        blank=True,
+        validators=[validate_public_text],
+    )
     aliases = aliases_field()
     icon_key = models.CharField("pictogramme", max_length=40, blank=True)
     is_active = models.BooleanField("actif", default=True)

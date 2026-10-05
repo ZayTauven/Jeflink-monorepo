@@ -7,12 +7,15 @@ from django.contrib.gis.db import models
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
-from jeflink.catalog.models import RESERVED_ZONE_SLUGS, aliases_field
+from jeflink.catalog.models import RESERVED_ZONE_SLUGS, SEO_INTRO_MAX_LENGTH, aliases_field
 from jeflink.common.models import BaseModel
+from jeflink.common.search import normalize
 from jeflink.common.slugs import slug_check, validate_reference_slug
+from jeflink.common.validators import validate_public_text
 
 RADIUS_MIN_M = 200
 RADIUS_MAX_M = 15_000
+LOCATIVE_MAX_LENGTH = 90
 
 
 class City(BaseModel):
@@ -42,6 +45,34 @@ class Zone(BaseModel):
         help_text="Identifiant de l'URL (/plombier/ouakam). Figé après création.",
     )
     aliases = aliases_field()
+    # Forme grammaticale du nom après « à » : « à Ouakam », « aux Almadies » (données, pas du code).
+    locative_fr = models.CharField(
+        "locatif (fr)",
+        max_length=LOCATIVE_MAX_LENGTH,
+        blank=True,
+        validators=[validate_public_text],
+        help_text="« à Ouakam », « au Plateau », « aux Almadies » : doit contenir le nom.",
+    )
+    locative_wo = models.CharField(
+        "locatif (wo)",
+        max_length=LOCATIVE_MAX_LENGTH,
+        blank=True,
+        validators=[validate_public_text],
+    )
+    seo_intro_fr = models.CharField(
+        "texte des pages du quartier (fr)",
+        max_length=SEO_INTRO_MAX_LENGTH,
+        blank=True,
+        validators=[validate_public_text],
+        help_text="Français parlé, repères connus. Publié tel quel : ni numéro, ni lien. "
+        "Sans texte, les pages du quartier ne sont pas indexées.",
+    )
+    seo_intro_wo = models.CharField(
+        "texte des pages du quartier (wo)",
+        max_length=SEO_INTRO_MAX_LENGTH,
+        blank=True,
+        validators=[validate_public_text],
+    )
     center = models.PointField("centre", srid=4326)
     radius_m = models.PositiveIntegerField("rayon (m)", default=1500)
     boundary = models.MultiPolygonField(
@@ -71,3 +102,15 @@ class Zone(BaseModel):
     def clean(self) -> None:
         if self.slug in RESERVED_ZONE_SLUGS:
             raise ValidationError({"slug": ValidationError("slug réservé", code="slug_reserved")})
+        # Pas de « à Ouakam » sur la fiche de Ngor : le locatif reprend le nom de la zone.
+        if (
+            self.locative_fr
+            and f" {normalize(self.name)} " not in f" {normalize(self.locative_fr)} "
+        ):
+            raise ValidationError(
+                {
+                    "locative_fr": ValidationError(
+                        "Le locatif doit contenir le nom de la zone.", code="locative_name_missing"
+                    )
+                }
+            )

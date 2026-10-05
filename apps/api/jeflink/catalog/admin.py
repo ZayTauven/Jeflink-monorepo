@@ -27,6 +27,21 @@ class MissingWolofFilter(admin.SimpleListFilter):
         return queryset
 
 
+class EmptyIntroFilter(admin.SimpleListFilter):
+    """Repère les fiches dont le texte français publié n'est pas encore saisi (spec 006)."""
+
+    title = "texte SEO (fr)"
+    parameter_name = "intro"
+
+    def lookups(self, request, model_admin):
+        return [("vide", "intro vide")]
+
+    def queryset(self, request, queryset):
+        if self.value() == "vide":
+            return queryset.filter(seo_intro_fr="")
+        return queryset
+
+
 class ReferenceDataAdmin(admin.ModelAdmin):
     """Ni suppression ni changement de slug : on désactive (spec 002)."""
 
@@ -71,7 +86,7 @@ class ServiceInline(admin.TabularInline):
 class TradeAdmin(ReferenceDataAdmin):
     list_display = ("name_fr", "slug", "is_active", "position", "service_count")
     list_editable = ("is_active", "position")
-    list_filter = ("is_active", MissingWolofFilter)
+    list_filter = ("is_active", MissingWolofFilter, EmptyIntroFilter)
     search_fields = ("name_fr", "slug")
     inlines = (ServiceInline,)
     actions = ("open_everywhere",)
@@ -80,10 +95,17 @@ class TradeAdmin(ReferenceDataAdmin):
         ("name_fr", "name_wo"),
         ("short_description_fr", "short_description_wo"),
         ("seo_title_fr", "seo_title_wo"),
+        "seo_intro_fr",
+        "seo_intro_wo",
         "aliases",
         "icon_key",
         ("is_active", "position"),
     )
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name.startswith("seo_intro"):
+            kwargs["widget"] = forms.Textarea(attrs={"rows": 4, "cols": 80})
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
     @admin.display(description="services")
     def service_count(self, obj: Trade) -> int:

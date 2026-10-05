@@ -30,6 +30,8 @@ class ServiceSerializer(serializers.Serializer):
 
 class TradeDetailSerializer(TradeSummarySerializer):
     seo_title = serializers.SerializerMethodField()
+    # Texte de la page métier saisi par l'Ops ; ``null`` tant que le français est vide.
+    seo_intro = LocalizedTextField("seo_intro", optional=True)
     services = ServiceSerializer(many=True, source="services.all")
     zones = serializers.ListField(child=serializers.CharField(), source="open_zone_slugs")
 

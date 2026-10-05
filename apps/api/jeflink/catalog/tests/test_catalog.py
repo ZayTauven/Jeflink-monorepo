@@ -98,3 +98,32 @@ def test_resolve_trade_text_par_alias():
     assert resolve_trade_text("frigo") == [froid, menager]
     assert resolve_trade_text("Électro") == [menager]
     assert resolve_trade_text("vitrier") == []
+
+
+@pytest.mark.parametrize(
+    ("text", "code"),
+    [
+        ("Appelez le 77 123 45 67", "contains_phone"),
+        ("Écrivez au +221771234567", "contains_phone"),
+        ("Voir https://exemple.com/plomberie", "contains_url"),
+        ("Sur www.plombier-dakar.sn", "contains_url"),
+        ("Passez par plombier-dakar.com", "contains_url"),
+    ],
+)
+@pytest.mark.parametrize("field", ["seo_intro_fr", "seo_intro_wo"])
+def test_texte_seo_refuse_numero_et_lien(field, text, code):
+    with pytest.raises(ValidationError) as exc:
+        save_trade(trade=Trade(slug="vitrier", name_fr="Vitrerie", **{field: text}))
+    assert exc.value.error_dict[field][0].code == code
+
+
+def test_texte_seo_accepte_un_texte_normal():
+    text = "À Dakar, on intervient du Plateau à Pikine, 24 rues par jour. Fin de phrase.Suite."
+    trade = save_trade(trade=Trade(slug="vitrier", name_fr="Vitrerie", seo_intro_fr=text))
+    assert trade.seo_intro_fr == text
+
+
+def test_texte_seo_borne_a_600_caracteres():
+    with pytest.raises(ValidationError) as exc:
+        save_trade(trade=Trade(slug="vitrier", name_fr="Vitrerie", seo_intro_fr="x" * 601))
+    assert "seo_intro_fr" in exc.value.message_dict

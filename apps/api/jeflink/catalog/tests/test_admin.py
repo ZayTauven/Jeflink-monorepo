@@ -116,3 +116,28 @@ def test_carte_et_cases_des_zones(saisie):
 
 def test_le_reste_de_l_admin_reste_en_lecture_seule(saisie):
     assert saisie.get(reverse("admin:accounts_user_changelist")).status_code == 403
+
+
+def test_texte_seo_saisi_dans_l_admin(saisie):
+    response = saisie.post(
+        reverse("admin:catalog_trade_add"),
+        trade_form(seo_intro_fr="Vitres, miroirs, double vitrage : sur mesure."),
+    )
+    assert response.status_code == 302
+    assert Trade.objects.get(slug="vitrier").seo_intro_fr.startswith("Vitres")
+
+
+def test_texte_seo_avec_numero_refuse_dans_l_admin(saisie):
+    response = saisie.post(
+        reverse("admin:catalog_trade_add"), trade_form(seo_intro_fr="Appelez le 77 123 45 67")
+    )
+    assert response.status_code == 200
+    assert not Trade.objects.filter(slug="vitrier").exists()
+
+
+def test_filtre_intro_vide(saisie):
+    TradeFactory(slug="avec", seo_intro_fr="Un texte.")
+    TradeFactory(slug="sans")
+    response = saisie.get(reverse("admin:catalog_trade_changelist"), {"intro": "vide"})
+    slugs = {t.slug for t in response.context["cl"].queryset}
+    assert slugs == {"sans"}

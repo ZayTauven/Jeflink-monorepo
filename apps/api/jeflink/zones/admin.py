@@ -8,7 +8,7 @@ from django.contrib import admin
 from django.contrib.gis.admin import GISModelAdmin
 from django.http import HttpRequest
 
-from jeflink.catalog.admin import ReferenceDataAdmin
+from jeflink.catalog.admin import EmptyIntroFilter, ReferenceDataAdmin
 
 from .models import City, Zone
 from .services import save_city, save_zone
@@ -26,13 +26,16 @@ class CityAdmin(ReferenceDataAdmin):
 class ZoneAdmin(ReferenceDataAdmin, GISModelAdmin):
     list_display = ("name", "slug", "city", "radius_m", "position", "is_active", "trade_count")
     list_editable = ("position", "is_active")
-    list_filter = ("is_active", "city", "trades")
+    list_filter = ("is_active", "city", "trades", EmptyIntroFilter)
     search_fields = ("name", "slug")
     fields = (
         "city",
         "slug",
         "name",
         "aliases",
+        ("locative_fr", "locative_wo"),
+        "seo_intro_fr",
+        "seo_intro_wo",
         "center",
         "radius_m",
         "boundary",
@@ -43,6 +46,11 @@ class ZoneAdmin(ReferenceDataAdmin, GISModelAdmin):
     @admin.display(description="métiers ouverts")
     def trade_count(self, obj: Zone) -> int:
         return obj.trades.count()
+
+    def formfield_for_dbfield(self, db_field, request, **kwargs):
+        if db_field.name.startswith("seo_intro"):
+            kwargs["widget"] = forms.Textarea(attrs={"rows": 4, "cols": 80})
+        return super().formfield_for_dbfield(db_field, request, **kwargs)
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         if db_field.name == "trades":

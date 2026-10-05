@@ -134,3 +134,18 @@ def test_wo_renseigne(api_client):
         "fr": "Plomberie",
         "wo": "Plombie",
     }
+
+
+def test_detail_du_metier_porte_le_texte_seo(api_client, referentiel):
+    data = api_client.get(reverse("catalog-trade", args=["plombier"])).json()
+    assert data["seo_intro"] is None  # rien de saisi : jamais une chaîne vide
+    trade = referentiel["plomberie"]
+    trade.seo_intro_fr = "Fuite, WC bouché, chauffe-eau : on règle ça vite."
+    trade.save()
+    data = api_client.get(reverse("catalog-trade", args=["plombier"])).json()
+    assert data["seo_intro"] == {"fr": trade.seo_intro_fr, "wo": None}
+    trade.seo_intro_wo = "Mbind mu ñuy dëgmal."
+    trade.save()
+    assert api_client.get(reverse("catalog-trade", args=["plombier"])).json()["seo_intro"]["wo"]
+    # La liste reste légère : pas de texte SEO.
+    assert "seo_intro" not in api_client.get(reverse("catalog-trades")).json()[0]

@@ -215,3 +215,58 @@ def test_un_seul_lieu_exige(plomberie):
         availability(trade_slug="plombier")
     with pytest.raises(ValueError):
         availability(trade_slug="plombier", zone_slug="a", zone_text="b")
+
+
+# --- Textes SEO et locatif (spec 006) -----------------------------------------------------
+
+
+@pytest.mark.parametrize("locative", ["à Ouakam", "à OUAKAM", "aux Almadies Ouakam"])
+def test_locatif_contient_le_nom(locative):
+    zone = save_zone(
+        zone=ZoneFactory.build(
+            city=CityFactory(), name="Ouakam", slug="ouakam", locative_fr=locative
+        )
+    )
+    assert zone.locative_fr == locative
+
+
+def test_locatif_accents_et_ponctuation_ignores():
+    zone = ZoneFactory.build(
+        city=CityFactory(), name="Sacré-Cœur", slug="sacre-coeur", locative_fr="à Sacre Coeur"
+    )
+    zone.full_clean(exclude=["center", "city"])
+
+
+@pytest.mark.parametrize("locative", ["à Ngor", "à Ouak", "Ouakamite"])
+def test_locatif_sans_le_nom_refuse(locative):
+    with pytest.raises(ValidationError) as exc:
+        save_zone(
+            zone=ZoneFactory.build(
+                city=CityFactory(), name="Ouakam", slug="ouakam", locative_fr=locative
+            )
+        )
+    assert exc.value.error_dict["locative_fr"][0].code == "locative_name_missing"
+
+
+def test_locatif_vide_permis():
+    save_zone(zone=ZoneFactory.build(city=CityFactory(), name="Ouakam", slug="ouakam"))
+
+
+@pytest.mark.parametrize("field", ["seo_intro_fr", "seo_intro_wo", "locative_fr", "locative_wo"])
+@pytest.mark.parametrize("text", ["Ouakam 77 123 45 67", "Ouakam https://exemple.com"])
+def test_textes_de_zone_refusent_numero_et_lien(field, text):
+    with pytest.raises(ValidationError) as exc:
+        save_zone(
+            zone=ZoneFactory.build(
+                city=CityFactory(), name="Ouakam", slug="ouakam", **{field: text}
+            )
+        )
+    assert field in exc.value.error_dict
+
+
+def test_admin_zone_filtre_intro_vide_et_champs():
+    from jeflink.zones.admin import ZoneAdmin
+
+    fields = [f for row in ZoneAdmin.fields for f in ([row] if isinstance(row, str) else row)]
+    assert {"locative_fr", "locative_wo", "seo_intro_fr", "seo_intro_wo"} <= set(fields)
+    assert any(getattr(f, "parameter_name", "") == "intro" for f in ZoneAdmin.list_filter)
