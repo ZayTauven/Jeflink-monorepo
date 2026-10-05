@@ -27,4 +27,8 @@ class WalletConfig(AppConfig):
                 "close_reason": str,
             },
         )
+        # Ni la note de l'Ops ni aucune donnée personnelle : type, montant, motif.
+        register_audit_schema(
+            "wallet.adjustment.posted", {"type": str, "amount_xof": int, "reason_code": str}
+        )
         register_close_handler(charge_commission_on_close)

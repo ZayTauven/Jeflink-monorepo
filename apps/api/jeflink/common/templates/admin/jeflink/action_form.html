@@ -1,0 +1,19 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+{% if intro %}<p>{{ intro }}</p>{% endif %}
+<p>Un code de l'application d'authentification est redemandé pour toute action d'argent ; il
+reste valable 5 minutes.</p>
+<ul>
+  {% for item in selected %}<li>{{ item }}</li>{% endfor %}
+</ul>
+<form method="post">
+  {% csrf_token %}
+  {% for item in selected %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ item.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="{{ action }}">
+  <input type="hidden" name="apply" value="1">
+  {{ form.as_p }}
+  <input type="submit" value="Valider">
+</form>
+{% endblock %}

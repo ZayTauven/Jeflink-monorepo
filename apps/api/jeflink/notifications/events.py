@@ -46,6 +46,8 @@ WALLET_QUOTES_UNBLOCKED = "wallet.quotes_unblocked"
 WALLET_SETTLEMENT_CONFIRMED = "wallet.settlement_confirmed"
 WALLET_SETTLEMENT_NEEDS_CORRECTION = "wallet.settlement_needs_correction"
 WALLET_SETTLEMENT_REJECTED = "wallet.settlement_rejected"
+# Ajustement de la Comptabilité (référence : ``public_id`` de la transaction).
+WALLET_ADJUSTMENT_POSTED = "wallet.adjustment_posted"
 SMS_KINDS = frozenset(
     {
         COMPLETION_CODE_SMS,
@@ -64,7 +66,7 @@ KINDS = frozenset(
         NO_SHOW_CONTESTED, BOOKING_DISPUTED,
         DISPUTE_DECIDED, BOOKING_CLOSED, WALLET_DEBT_ALERT, WALLET_QUOTES_BLOCKED,
         WALLET_QUOTES_UNBLOCKED, WALLET_SETTLEMENT_CONFIRMED, WALLET_SETTLEMENT_NEEDS_CORRECTION,
-        WALLET_SETTLEMENT_REJECTED,
+        WALLET_SETTLEMENT_REJECTED, WALLET_ADJUSTMENT_POSTED,
     }
 )  # fmt: skip
 

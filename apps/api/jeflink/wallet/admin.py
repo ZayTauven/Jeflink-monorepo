@@ -1,16 +1,22 @@
 """Grand livre dans l'admin Django (spec 005) : lecture seule, aucune suppression nulle part.
-Une erreur se corrige par une contre-passation (actions de la tâche 6), jamais par une édition.
-La note de l'Ops est visible ici seulement."""
+Une erreur se corrige par une écriture de plus (avoir, geste, correction, contre-passation),
+jamais par une édition. Ces écritures sont réservées à la Comptabilité (``adjust_ledger``) et
+exigent un code TOTP frais. La note de l'Ops est visible ici seulement."""
+
+import uuid
 
 from django import forms
 from django.contrib import admin
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import BigIntegerField, Case, F, QuerySet, Sum, When
 from django.db.models.functions import Coalesce
 from django.http import HttpRequest
+from django.urls import path, reverse
 
 from jeflink.accounts.admin_site import StepUpForm
+from jeflink.common.admin_forms import action_page, form_page
 from jeflink.common.errors import DomainError
+from jeflink.providers.models import Provider
 
 from .models import (
     CREDIT_NORMAL_KINDS,
@@ -21,7 +27,14 @@ from .models import (
     LedgerTransaction,
     Side,
 )
-from .services import add_rate, check_rate
+from .services import (
+    ADJUSTMENT_REASONS,
+    add_rate,
+    check_rate,
+    post_correction_debit,
+    post_goodwill_credit,
+    waive_commission,
+)
 
 RATE_ERRORS = {
     "rate_invalid": "Taux en points de base, de 0 à 5 000 (1 000 = 10 %).",
@@ -30,6 +43,52 @@ RATE_ERRORS = {
     "note_invalid": "Note de 200 caractères au plus, sans numéro de téléphone.",
     "rate_duplicate": "Un taux existe déjà pour ce métier à cette date d'effet.",
 }
+ADJUSTMENT_ERRORS = {
+    "operator_is_provider": "Vous ne pouvez pas ajuster votre propre compte pro.",
+    "adjustment_reason_invalid": "Motif invalide.",
+    "adjustment_amount_invalid": "Montant invalide.",
+    "adjustment_exceeds_remaining": "Montant supérieur à ce qui reste de la commission.",
+    "adjustment_not_allowed": "Ajustement impossible sur cet élément.",
+    "note_invalid": "Note obligatoire, 200 caractères au plus, sans numéro de téléphone.",
+}
+REASON_CHOICES = [(code, code) for code in ADJUSTMENT_REASONS]
+
+
+def has_adjust_permission(request: HttpRequest) -> bool:
+    return request.user.has_perm("wallet.adjust_ledger")
+
+
+class AdjustmentForm(StepUpForm):
+    """Motif et note obligatoires ; la clé masquée rend le formulaire rejouable sans doublon."""
+
+    reason_code = forms.ChoiceField(label="Motif", choices=REASON_CHOICES)
+    note = forms.CharField(label="Note (obligatoire, sans numéro)", max_length=200)
+    key = forms.CharField(widget=forms.HiddenInput())
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.initial.setdefault("key", uuid.uuid4().hex)
+
+
+class WaiveForm(AdjustmentForm):
+    amount_xof = forms.IntegerField(label="Montant de l'avoir (F CFA)", min_value=1)
+
+
+class LedgerAdjustmentForm(AdjustmentForm):
+    KINDS = [
+        ("goodwill", "Geste commercial (la dette baisse)"),
+        ("correction", "Correction en faveur de Jeflink (la dette augmente)"),
+    ]
+
+    kind = forms.ChoiceField(label="Type", choices=KINDS)
+    provider = forms.ModelChoiceField(
+        label="Pro", queryset=Provider.objects.order_by("business_name")
+    )
+    amount_xof = forms.IntegerField(label="Montant (F CFA)", min_value=1)
+    booking = forms.UUIDField(
+        label="Réservation concernée (identifiant, facultatif)", required=False
+    )
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
@@ -70,6 +129,58 @@ class LedgerTransactionAdmin(ReadOnlyAdmin):
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[LedgerTransaction]:
         return super().get_queryset(request).select_related("provider")
+
+    def get_urls(self):
+        return [
+            path(
+                "adjust/",
+                self.admin_site.admin_view(self.adjust_view),
+                name="wallet_ledgertransaction_adjust",
+            ),
+            *super().get_urls(),
+        ]
+
+    def changelist_view(self, request: HttpRequest, extra_context=None):
+        extra = {"can_adjust": has_adjust_permission(request), **(extra_context or {})}
+        return super().changelist_view(request, extra_context=extra)
+
+    def adjust_view(self, request: HttpRequest):
+        from jeflink.bookings.models import Booking
+
+        if not has_adjust_permission(request):
+            raise PermissionDenied
+
+        def submit(data) -> str:
+            common = {
+                "provider": data["provider"],
+                "amount_xof": data["amount_xof"],
+                "reason_code": data["reason_code"],
+                "note": data["note"],
+                "operator": request.user,
+                "key": data["key"],
+            }
+            if data["kind"] == "goodwill":
+                post_goodwill_credit(**common)
+                return "Geste commercial enregistré."
+            booking = None
+            if data["booking"]:
+                booking = Booking.objects.filter(public_id=data["booking"]).first()
+                if booking is None:
+                    raise DomainError("adjustment_not_allowed")
+            post_correction_debit(booking=booking, **common)
+            return "Correction enregistrée."
+
+        return form_page(
+            self,
+            request,
+            title="Ajustement du portefeuille d'un pro",
+            intro="Toujours avec un motif et une note. Le pro est prévenu.",
+            form_class=LedgerAdjustmentForm,
+            initial={},
+            submit=submit,
+            success_url=reverse("admin:wallet_ledgertransaction_changelist"),
+            labels=ADJUSTMENT_ERRORS,
+        )
 
 
 @admin.register(LedgerAccount)
@@ -181,6 +292,34 @@ class CommissionAdmin(ReadOnlyAdmin):
         "ledger_transaction", "created_at",
     )  # fmt: skip
     fields = readonly_fields
+    actions = ("waive",)
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Commission]:
         return super().get_queryset(request).select_related("provider", "trade")
+
+    def has_adjust_permission(self, request: HttpRequest) -> bool:
+        return has_adjust_permission(request)
+
+    @admin.action(description="Passer un avoir", permissions=("adjust",))
+    def waive(self, request: HttpRequest, queryset: QuerySet[Commission]):
+        def apply(commission, data):
+            waive_commission(
+                commission=commission,
+                amount_xof=data["amount_xof"],
+                reason_code=data["reason_code"],
+                note=data["note"],
+                operator=request.user,
+                key=f"{data['key']}-{commission.pk}",
+            )
+
+        return action_page(
+            self,
+            request,
+            list(queryset.select_related("provider", "ledger_transaction")),
+            action="waive",
+            title="Passer un avoir",
+            intro="L'avoir ne dépasse jamais ce qui reste de la commission. Le pro est prévenu.",
+            form_class=WaiveForm,
+            apply=apply,
+            labels=ADJUSTMENT_ERRORS,
+        )

@@ -219,3 +219,35 @@ def test_deux_declarations_simultanees_de_la_meme_reference(setup, settings):
 
     assert results == ["ok", "settlement_reference_used"]
     assert PaymentIntent.objects.filter(reference="T_RACE00001").count() == 1
+
+
+# --- Comptabilité : ajustements dans l'admin ---------------------------------------------------
+
+
+def test_la_comptabilite_passe_un_geste_commercial_dans_l_admin(setup):
+    provider, _, _ = setup
+    client, totp = login(staff("+221770000305", "Comptabilité"))
+    url = reverse("admin:wallet_ledgertransaction_adjust")
+    assert client.get(url).status_code == 200
+
+    response = client.post(
+        url,
+        {
+            "kind": "goodwill",
+            "provider": provider.pk,
+            "amount_xof": 1_000,
+            "reason_code": "goodwill",
+            "note": "Geste après un retard de paiement du client.",
+            "key": uuid.uuid4().hex,
+            "otp_code": code_for(totp, 1),
+        },
+    )
+    assert response.status_code == 302
+    txn = LedgerTransaction.objects.get(kind="goodwill_credit")
+    assert txn.actor.phone == "+221770000305"
+    assert provider_balance(provider).due_xof == 8_000
+
+
+def test_le_rapprochement_ne_passe_pas_d_ajustement(setup):
+    client, _ = login(staff("+221770000306", "Rapprochement"))
+    assert client.get(reverse("admin:wallet_ledgertransaction_adjust")).status_code == 403

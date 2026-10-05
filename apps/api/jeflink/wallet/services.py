@@ -520,3 +520,199 @@ def record_settlement(*, intent, operator) -> LedgerTransaction:
         provider=provider,
         payment_intent=intent,
     )
+
+
+# --- Ajustements de la Comptabilité ------------------------------------------------------------
+
+ADJUSTMENT_REASONS = (
+    "dispute_refund",
+    "no_payment",
+    "entry_error",
+    "goodwill",
+    "duplicate_settlement",
+    "other",
+)
+
+
+def _lock_provider(provider):
+    from jeflink.providers.models import Provider
+
+    return Provider.objects.select_for_update().select_related("owner").get(pk=provider.pk)
+
+
+def _check_adjustment(*, provider, operator, reason_code: str, note: str, key: str) -> str:
+    if provider.owner_id == operator.pk:
+        raise DomainError("operator_is_provider", status=403)
+    if reason_code not in ADJUSTMENT_REASONS:
+        raise DomainError("adjustment_reason_invalid", status=422)
+    note = " ".join((note or "").split())
+    if not 1 <= len(note) <= 200 or contains_pii(note):
+        raise DomainError("note_invalid", status=422)
+    if not key or len(key) > 64:
+        raise DomainError("idempotency_key_required")
+    return note
+
+
+def _check_adjustment_amount(amount_xof: object) -> int:
+    if type(amount_xof) is not int or amount_xof <= 0:
+        raise DomainError("adjustment_amount_invalid", status=422)
+    return amount_xof
+
+
+def _adjust(*, provider, operator, kind: str, key: str, write) -> LedgerTransaction:
+    """Écrit un ajustement (``write()`` rend la transaction), une seule fois par clé : audité,
+    notifié au pro, seuils réévalués."""
+    if (existing := LedgerTransaction.objects.filter(idempotency_key=key).first()) is not None:
+        return existing  # rejeu du même formulaire
+    before = provider_wallet(provider).state
+    txn = write()
+    audit(
+        action="wallet.adjustment.posted",
+        actor=operator,
+        actor_kind=AuditEvent.ActorKind.OPS,
+        target=txn,
+        metadata={
+            "type": kind,
+            "amount_xof": transaction_total(txn),
+            "reason_code": txn.reason_code,
+        },
+    )
+    events.notify(events.WALLET_ADJUSTMENT_POSTED, [provider.owner], txn.public_id)
+    notify_state_change(provider, before, provider_wallet(provider).state)
+    return txn
+
+
+@transaction.atomic
+def waive_commission(
+    *, commission: Commission, amount_xof: int, reason_code: str, note: str, operator, key: str
+) -> LedgerTransaction:
+    """Avoir sur une commission (pro qui a remboursé le client, client parti sans payer...) :
+    contre-passation partielle ou totale, jamais au-delà de ce qui reste."""
+    provider = _lock_provider(commission.provider)
+    note = _check_adjustment(
+        provider=provider, operator=operator, reason_code=reason_code, note=note, key=key
+    )
+    amount_xof = _check_adjustment_amount(amount_xof)
+    original = commission.ledger_transaction
+    if original is None:
+        raise DomainError("adjustment_not_allowed", status=409)
+    key = f"reversal:{key}"
+
+    def write():
+        _lock_provider_accounts([provider_account(provider)])
+        if reversed_total(original) + amount_xof > transaction_total(original):
+            raise DomainError("adjustment_exceeds_remaining", status=422)
+        return reverse(
+            original=original,
+            amount_xof=amount_xof,
+            idempotency_key=key,
+            reason_code=reason_code,
+            note=note,
+            actor=operator,
+        )
+
+    return _adjust(provider=provider, operator=operator, kind="waiver", key=key, write=write)
+
+
+@transaction.atomic
+def reverse_settlement(*, intent, reason_code: str, note: str, operator, key: str):
+    """Contre-passation d'un règlement confirmé à tort (doublon, versement introuvable après
+    coup) : la dette du pro revient, pour tout ce qui n'a pas déjà été contre-passé."""
+    provider = _lock_provider(intent.provider)
+    note = _check_adjustment(
+        provider=provider, operator=operator, reason_code=reason_code, note=note, key=key
+    )
+    original = LedgerTransaction.objects.filter(
+        kind=TransactionKind.SETTLEMENT, payment_intent_id=intent.pk
+    ).first()
+    if original is None:
+        raise DomainError("adjustment_not_allowed", status=409)
+    key = f"reversal:{key}"
+
+    def write():
+        _lock_provider_accounts([provider_account(provider)])
+        remaining = transaction_total(original) - reversed_total(original)
+        if remaining <= 0:
+            raise DomainError("adjustment_exceeds_remaining", status=422)
+        return reverse(
+            original=original,
+            amount_xof=remaining,
+            idempotency_key=key,
+            reason_code=reason_code,
+            note=note,
+            actor=operator,
+        )
+
+    return _adjust(
+        provider=provider, operator=operator, kind="settlement_reversal", key=key, write=write
+    )
+
+
+@transaction.atomic
+def post_goodwill_credit(
+    *, provider, amount_xof: int, reason_code: str, note: str, operator, key: str
+) -> LedgerTransaction:
+    """Geste commercial : la dette du pro baisse (ou un avoir naît), à la charge de Jeflink."""
+    return _post_adjustment(
+        provider=provider,
+        kind=TransactionKind.GOODWILL_CREDIT,
+        accounts=lambda p: (platform_account(AccountKind.PLATFORM_GOODWILL), provider_account(p)),
+        amount_xof=amount_xof,
+        reason_code=reason_code,
+        note=note,
+        operator=operator,
+        key=key,
+    )
+
+
+@transaction.atomic
+def post_correction_debit(
+    *, provider, amount_xof: int, reason_code: str, note: str, operator, key: str, booking=None
+) -> LedgerTransaction:
+    """Correction en faveur de Jeflink (commission oubliée, taux manquant) : la dette augmente.
+    Rattachée à la réservation quand il y en a une."""
+    if booking is not None and booking.provider_id != provider.pk:
+        raise DomainError("adjustment_not_allowed", status=409)
+    return _post_adjustment(
+        provider=provider,
+        kind=TransactionKind.CORRECTION_DEBIT,
+        accounts=lambda p: (provider_account(p), platform_account(AccountKind.PLATFORM_REVENUE)),
+        amount_xof=amount_xof,
+        reason_code=reason_code,
+        note=note,
+        operator=operator,
+        key=key,
+        booking=booking,
+    )
+
+
+def _post_adjustment(
+    *, provider, kind, accounts, amount_xof, reason_code, note, operator, key, booking=None
+) -> LedgerTransaction:
+    """``accounts(provider)`` rend (compte débité, compte crédité)."""
+    provider = _lock_provider(provider)
+    note = _check_adjustment(
+        provider=provider, operator=operator, reason_code=reason_code, note=note, key=key
+    )
+    amount_xof = _check_adjustment_amount(amount_xof)
+    prefix = "goodwill" if kind == TransactionKind.GOODWILL_CREDIT else "correction"
+    ledger_key = f"{prefix}:{key}"
+
+    def write():
+        debited, credited = accounts(provider)
+        return post_transaction(
+            kind=kind,
+            lines=[
+                Line(debited, Side.DEBIT, amount_xof),
+                Line(credited, Side.CREDIT, amount_xof),
+            ],
+            idempotency_key=ledger_key,
+            actor=operator,
+            actor_kind=ActorKind.OPS,
+            provider=provider,
+            booking=booking,
+            reason_code=reason_code,
+            note=note,
+        )
+
+    return _adjust(provider=provider, operator=operator, kind=kind, key=ledger_key, write=write)

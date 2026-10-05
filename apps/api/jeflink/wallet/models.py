@@ -148,6 +148,12 @@ class LedgerTransaction(BaseModel):
         verbose_name = "transaction du grand livre"
         verbose_name_plural = "transactions du grand livre"
         ordering = ("-created_at",)
+        permissions = [
+            (
+                "adjust_ledger",
+                "Comptabilité : avoirs, gestes commerciaux, corrections et contre-passations",
+            )
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=_iff(Q(kind=TransactionKind.REVERSAL), Q(reverses__isnull=False)),
