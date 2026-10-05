@@ -2,10 +2,12 @@
 // des pages SEO, la langue vient du cookie NEXT_LOCALE ; toute autre valeur donne le français.
 // Les textes wolof sont écrits et validés par l'équipe (Q12) : une clé absente de wo.json
 // retombe sur le français.
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
 
 import fr from "../../messages/fr.json";
+import { PATH_HEADER } from "../lib/routes.ts";
+import { usesLocaleCookie } from "./locale-scope.ts";
 
 export const LOCALES = ["fr", "wo"] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -31,7 +33,10 @@ function withFallback(base: Messages, override: Messages): Messages {
 }
 
 export default getRequestConfig(async () => {
-  const requested = (await cookies()).get("NEXT_LOCALE")?.value;
+  // Le site public est en français pour tout le monde (ADR 0013) : le cookie ne compte que pour
+  // l'espace client. Une page publique ne lit donc jamais un cookie du visiteur.
+  const path = (await headers()).get(PATH_HEADER);
+  const requested = usesLocaleCookie(path) ? (await cookies()).get("NEXT_LOCALE")?.value : undefined;
   const locale = isLocale(requested) ? requested : DEFAULT_LOCALE;
   if (locale === "fr") return { locale, messages: fr };
   const wo: Messages = (await import("../../messages/wo.json")).default;

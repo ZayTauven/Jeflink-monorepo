@@ -11,6 +11,7 @@ import {
   checkPublicPath,
   createPublicTransport,
   isNotFoundError,
+  MAX_COPY_BYTES,
   PUBLIC_REQUEST_HEADERS,
   PublicApiRefusal,
 } from "./public-api-core.ts";
@@ -182,6 +183,34 @@ describe("createPublicTransport : dernière copie", () => {
     assert.equal((await transport("/api/zones/ouakam/", {})).status, 404);
   });
 
+  it("429 ou 503 : la dernière copie bonne est servie", async () => {
+    let status = 200;
+    const transport = createPublicTransport(SETTINGS, {
+      fetchImpl: async () =>
+        status === 200 ? ok('[{"slug":"plombier"}]') : new Response("x", { status }),
+    });
+    await transport("/api/catalog/trades/", {});
+    for (status of [429, 503]) {
+      const stale = await transport("/api/catalog/trades/", {});
+      assert.equal(stale.status, 200, String(status));
+      assert.equal(stale.headers.get("x-jeflink-stale"), "1");
+    }
+  });
+
+  it("la copie mémoire est bornée en octets (5 Mo)", async () => {
+    const big = "x".repeat(2 * 1024 * 1024);
+    const copies = new Map();
+    const transport = createPublicTransport(SETTINGS, {
+      fetchImpl: async () => ok(big),
+      copies,
+    });
+    for (const slug of ["a", "b", "c", "d"]) await transport(`/api/zones/${slug}/`, {});
+    let total = 0;
+    for (const copy of copies.values()) total += copy.body.length;
+    assert.ok(total <= MAX_COPY_BYTES, `${total} octets`);
+    assert.ok(copies.size >= 1);
+  });
+
   it("la requête envoyée à Django suit la liste fermée", async () => {
     let seen: RequestInit | undefined;
     const transport = createPublicTransport(SETTINGS, {
@@ -272,6 +301,18 @@ describe("architecture : pages publiques", () => {
     for (const file of files) {
       const text = code(file);
       assert.doesNotMatch(text, /from ["']next\/headers["']/, file);
+    }
+  });
+
+  it("aucun appel de détail avec un slug non résolu (limite catalog_read partagée)", () => {
+    // `getTrade`, `getZone`, `getZoneTrades` et `getStats` avec filtre n'arrivent que dans un
+    // fichier qui valide d'abord le slug contre les listes en cache (`known` ou `resolve`).
+    const detail = /\b(getTrade|getZone|getZoneTrades)\(|\bgetStats\(\{/;
+    const guards = /@\/lib\/site\/(known|resolve)/;
+    const callers = files.filter((file) => detail.test(code(file)));
+    assert.ok(callers.length >= 5, "pages métier, quartier, recherche et images OG");
+    for (const file of callers) {
+      assert.match(code(file), guards, `${file} appelle un détail sans valider le slug`);
     }
   });
 

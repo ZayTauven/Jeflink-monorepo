@@ -16,7 +16,8 @@ import { ZoneSearchForm } from "@/components/site/zone-search-form";
 import { SupportLink } from "@/components/support-link";
 import { buttonClass } from "@/components/ui/button";
 import { localized } from "@/lib/requests/catalog";
-import { getTrade, getTrades, getZoneTrades, getZones } from "@/lib/site/data";
+import { getTrade, getZoneTrades, getZones } from "@/lib/site/data";
+import { knownTradeSlug } from "@/lib/site/known";
 import { zoneLocative } from "@/lib/site/locative";
 import { demandPath, SITE_PATHS, tradePath, tradeZonePath } from "@/lib/site/paths";
 import { cleanQuery, searchZones } from "@/lib/site/zone-search";
@@ -44,8 +45,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
   const { supportWhatsapp } = readSiteConfig(process.env);
 
   // Le métier vient d'un slug validé contre le catalogue ; sinon ignoré, sans bruit.
-  const trades = await getTrades();
-  const tradeSlug = trades.find((trade) => trade.slug === metierParam)?.slug ?? null;
+  const tradeSlug = await knownTradeSlug(metierParam);
   const trade = tradeSlug ? await getTrade(tradeSlug) : null;
   const zones = await getZones();
   const outcome = searchZones(

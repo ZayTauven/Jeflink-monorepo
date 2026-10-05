@@ -97,10 +97,21 @@ export function buildPublicRequest(
 type Copy = { body: string; status: number; contentType: string };
 
 const MAX_COPIES = 500;
+/** Borne de la copie mémoire en octets (~5 Mo) : elle ne grossit jamais sans limite. */
+export const MAX_COPY_BYTES = 5 * 1024 * 1024;
+
+/** Statuts où l'API est indisponible ou nous limite : on sert la dernière copie bonne. */
+const FALLBACK_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+function totalBytes(copies: Map<string, Copy>): number {
+  let total = 0;
+  for (const copy of copies.values()) total += new TextEncoder().encode(copy.body).length;
+  return total;
+}
 
 /**
  * Transport pour les fonctions générées de `@jeflink/api-client`. Dernière copie bonne servie si
- * l'API ne répond pas (réseau coupé, 5xx) : le site tient debout pendant une panne. Un 404 ou un
+ * l'API ne répond pas ou nous limite (réseau coupé, 5xx, 429) : le site tient debout pendant une panne. Un 404 ou un
  * 4xx est une vraie réponse, jamais remplacé par une copie.
  */
 export function createPublicTransport(
@@ -129,7 +140,7 @@ export function createPublicTransport(
       if (stale) return stale;
       throw error;
     }
-    if (response.status >= 500) {
+    if (response.status >= 500 || FALLBACK_STATUSES.has(response.status)) {
       const stale = serveCopy(request.url);
       if (stale) return stale;
       return response;
@@ -142,9 +153,11 @@ export function createPublicTransport(
         status: 200,
         contentType: response.headers.get("content-type") ?? "application/json",
       });
-      if (copies.size > MAX_COPIES) {
+      // Les plus anciennes sortent d'abord, par nombre puis par taille totale.
+      while (copies.size > 1 && (copies.size > MAX_COPIES || totalBytes(copies) > MAX_COPY_BYTES)) {
         const oldest = copies.keys().next().value;
-        if (oldest !== undefined) copies.delete(oldest);
+        if (oldest === undefined) break;
+        copies.delete(oldest);
       }
     }
     return response;

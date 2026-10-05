@@ -29,6 +29,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     // Base des URL absolues (canonical, Open Graph). Sans SITE_URL (dev, staging), une valeur
     // inoffensive : le site n'est de toute façon pas indexable.
+    // Pas de lien « tel: » automatique : seuls nos numéros de service sont des liens (spec 006).
+    formatDetection: { telephone: false },
     metadataBase: new URL(siteUrl ?? FALLBACK_SITE_ORIGIN),
     title: t("title"),
     description: t("description"),
