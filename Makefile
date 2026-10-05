@@ -15,8 +15,9 @@ shell:         ; $(API) python manage.py shell
 seed:          ; $(API) python manage.py seed_reference_data
 # Local seulement : crée le bucket de photos (SeaweedFS), sans effet s'il existe déjà (ADR 0011).
 bucket:        ; $(API) python manage.py ensure_bucket
-# Local seulement : catalogue, zones, puis 3 pros de démonstration vérifiés (spec 003).
-demo:          ; $(API) python manage.py seed_reference_data && $(API) python manage.py seed_demo_pros
+# Local seulement : catalogue, zones et taux, 3 pros de démonstration vérifiés (spec 003),
+# canaux de règlement factices (spec 005).
+demo:          ; $(API) python manage.py seed_reference_data && $(API) python manage.py seed_demo_pros && $(API) python manage.py seed_settlement_channels
 openapi:
 	$(API) python manage.py spectacular --file schema.yaml
 	pnpm --filter @jeflink/api-client generate

@@ -14,6 +14,8 @@
     manage.py demo_pro complete <booking_id> (--code 1234 | --no-code client_absent)
         [--photo | --pending]
     manage.py demo_pro contest <booking_id> --note "J'étais sur place"
+    manage.py demo_pro wallet [--pro 1]
+    manage.py demo_pro pay --amount 1500 [--channel wave-demo] [--pro 1]
 
 Refusé hors ``DJANGO_ENV=local``. Il n'agit que par les services, avec les pros ``is_demo``
 créés par ``seed_demo_pros`` : mêmes règles que l'API (3 places, devis ``visit``, délais).
@@ -47,6 +49,8 @@ from jeflink.bookings.services import (
 )
 from jeflink.common.dakar import dakar_today
 from jeflink.common.errors import DomainError
+from jeflink.payments.selectors import channel_by_slug, intents_for_provider
+from jeflink.payments.services import declare_settlement
 from jeflink.providers.models import Provider
 from jeflink.requests.models import Quote, ServiceRequest
 from jeflink.requests.quotes import (
@@ -56,6 +60,7 @@ from jeflink.requests.quotes import (
     withdraw_quote,
 )
 from jeflink.requests.selectors import quotes_for_provider, requests_for_provider
+from jeflink.wallet.selectors import entries_for_provider, provider_wallet
 
 # Trois propositions de départ : prix et créneaux différents, comme trois vrais pros.
 AUTOQUOTE_PLANS = [
@@ -97,7 +102,7 @@ def _key() -> str:
 class Command(BaseCommand):
     help = (
         "Joue le côté pro en local : list, quote, autoquote, withdraw, confirm, cancel, "
-        "en-route, arrive, start, photo, amend, complete, contest."
+        "en-route, arrive, start, photo, amend, complete, contest, wallet, pay."
     )
 
     def add_arguments(self, parser: ArgumentParser) -> None:
@@ -160,6 +165,12 @@ class Command(BaseCommand):
         contest = sub.add_parser("contest", help="Le pro conteste un no-show.")
         contest.add_argument("booking_id")
         contest.add_argument("--note", required=True)
+        wallet = sub.add_parser("wallet", help="Portefeuille du pro : dette, état, historique.")
+        wallet.add_argument("--pro", type=int, default=1)
+        pay = sub.add_parser("pay", help="Le pro déclare un règlement (référence factice).")
+        pay.add_argument("--amount", type=int, required=True)
+        pay.add_argument("--channel", default="wave-demo")
+        pay.add_argument("--pro", type=int, default=1)
 
     def handle(self, *args, **options) -> None:
         if settings.DJANGO_ENV != "local":
@@ -355,3 +366,46 @@ class Command(BaseCommand):
         booking = self._booking(options["booking_id"], pros)
         contest_no_show(booking=booking, actor=booking.provider.owner, note=options["note"])
         self.stdout.write("No-show contesté : l'Ops tranche.")
+
+    # --- Portefeuille (spec 005) ---------------------------------------------------------------
+
+    def _pro(self, pros: list[Provider], number: int) -> Provider:
+        if not 1 <= number <= len(pros):
+            raise CommandError(f"--pro : de 1 à {len(pros)}.")
+        return pros[number - 1]
+
+    def do_wallet(self, pros: list[Provider], options: dict) -> None:
+        pro = self._pro(pros, options["pro"])
+        wallet = provider_wallet(pro)
+        self.stdout.write(
+            f"== {pro.business_name} : doit {wallet.due_xof} XOF · en attente "
+            f"{wallet.pending_xof} · dette effective {wallet.effective_due_xof} · {wallet.state}"
+        )
+        for entry in entries_for_provider(pro)[:10]:
+            sign = "+" if entry.side == "debit" else "-"
+            self.stdout.write(
+                f"  {entry.created_at:%d/%m %H:%M} · {entry.transaction.kind} · "
+                f"{sign}{entry.amount_xof} XOF"
+            )
+        for intent in intents_for_provider(pro)[:10]:
+            self.stdout.write(
+                f"  règlement {intent.public_id} · {intent.channel.slug} · "
+                f"{intent.declared_xof} XOF · {intent.status}"
+            )
+
+    def do_pay(self, pros: list[Provider], options: dict) -> None:
+        pro = self._pro(pros, options["pro"])
+        intent = declare_settlement(
+            provider=pro,
+            actor=pro.owner,
+            channel=channel_by_slug(options["channel"]),
+            amount_xof=options["amount"],
+            reference=f"DEMO{secrets.token_hex(5).upper()}",
+            paid_at=timezone.now(),
+            payer_last4="",
+            idempotency_key=_key(),
+        ).intent
+        self.stdout.write(
+            f"Règlement déclaré : {intent.public_id} ({intent.declared_xof} XOF). "
+            "Le groupe Rapprochement le confirme dans l'admin."
+        )
