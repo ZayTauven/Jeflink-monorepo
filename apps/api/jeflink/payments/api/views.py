@@ -221,7 +221,7 @@ class SettlementCorrectView(APIView):
             409: error("settlement_not_correctable, settlement_reference_used"),
             422: error(
                 "settlement_exceeds_due, settlement_amount_invalid, settlement_reference_invalid, "
-                "paid_at_invalid, payer_last4_invalid"
+                "paid_at_invalid, payer_last4_invalid, channel_inactive"
             ),
             **ERRORS,
         },
@@ -243,7 +243,11 @@ class SettlementCancelView(APIView):
         tags=["wallet"],
         operation_id="pro_wallet_settlements_cancel",
         request=None,
-        responses={200: SettlementSerializer, 409: error("settlement_not_pending"), **ERRORS},
+        responses={
+            200: SettlementSerializer,
+            409: error("settlement_not_pending, settlement_not_cancellable"),
+            **ERRORS,
+        },
     )
     def post(self, request: Request, public_id) -> Response:
         provider = owned_provider(request)

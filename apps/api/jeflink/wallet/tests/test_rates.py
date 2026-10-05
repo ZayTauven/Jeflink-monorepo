@@ -250,8 +250,10 @@ def test_le_formulaire_de_l_admin_applique_les_regles_du_service(trade, rf, monk
 @pytest.mark.django_db
 def test_ajouter_un_taux_exige_un_code_totp_frais(trade, rf, monkeypatch):
     monkeypatch.setattr("jeflink.accounts.admin_site.admin_step_up_valid", lambda request: False)
+    request = rf.post("/")
+    request.session = {}  # fenêtre fermée : le code est exigé
     form = CommissionRateForm(
-        data={"trade": trade.pk, "rate_bps": 700, "note": "", "otp_code": ""}, request=rf.post("/")
+        data={"trade": trade.pk, "rate_bps": 700, "note": "", "otp_code": ""}, request=request
     )
     assert not form.is_valid()
     assert "Code invalide" in str(form.errors)

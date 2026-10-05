@@ -536,8 +536,14 @@ ADJUSTMENT_REASONS = (
 
 
 def _lock_provider(provider):
+    """Compte du gérant puis fiche : un ajustement crée un solde, donc un objet bloquant la
+    suppression du compte ; il naît sous le verrou du compte, actif (revue sécurité 4)."""
+    from jeflink.accounts.models import User
     from jeflink.providers.models import Provider
 
+    owner = User.objects.select_for_update(no_key=True).get(pk=provider.owner_id)
+    if not owner.is_active or owner.is_deleted:
+        raise DomainError("account_inactive", status=403)
     return Provider.objects.select_for_update().select_related("owner").get(pk=provider.pk)
 
 
@@ -560,10 +566,15 @@ def _check_adjustment_amount(amount_xof: object) -> int:
     return amount_xof
 
 
-def _adjust(*, provider, operator, kind: str, key: str, write) -> LedgerTransaction:
+def _adjust(*, provider, operator, kind: str, key: str, write, reverses=None) -> LedgerTransaction:
     """Écrit un ajustement (``write()`` rend la transaction), une seule fois par clé : audité,
-    notifié au pro, seuils réévalués."""
+    notifié au pro, seuils réévalués. Un rejeu ne rend que la transaction du même pro et de la
+    même cible."""
     if (existing := LedgerTransaction.objects.filter(idempotency_key=key).first()) is not None:
+        if existing.provider_id != provider.pk or existing.reverses_id != (
+            reverses.pk if reverses is not None else None
+        ):
+            raise DomainError("idempotency_key_reused", status=409)
         return existing  # rejeu du même formulaire
     before = provider_wallet(provider).state
     txn = write()
@@ -612,7 +623,14 @@ def waive_commission(
             actor=operator,
         )
 
-    return _adjust(provider=provider, operator=operator, kind="waiver", key=key, write=write)
+    return _adjust(
+        provider=provider,
+        operator=operator,
+        kind="waiver",
+        key=key,
+        write=write,
+        reverses=original,
+    )
 
 
 @transaction.atomic
@@ -645,7 +663,12 @@ def reverse_settlement(*, intent, reason_code: str, note: str, operator, key: st
         )
 
     return _adjust(
-        provider=provider, operator=operator, kind="settlement_reversal", key=key, write=write
+        provider=provider,
+        operator=operator,
+        kind="settlement_reversal",
+        key=key,
+        write=write,
+        reverses=original,
     )
 
 

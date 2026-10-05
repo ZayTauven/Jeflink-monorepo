@@ -40,13 +40,27 @@ ERRORS = {
     "received_amount_needs_single": "Pour changer le montant reçu, sélectionnez un seul règlement.",
     "paid_at_invalid": "Heure du paiement invalide (ni future, ni de plus de 30 jours).",
     "receipt_number_invalid": "Numéro de reçu invalide.",
+    "receipt_number_used": "Ce reçu a déjà été enregistré sur cette caisse.",
+    "received_exceeds_declared": "Montant reçu supérieur au déclaré : cochez la confirmation.",
     "channel_inactive": "Ce canal ne convient pas à ce type de règlement.",
     "idempotency_key_reused": "Ce formulaire a déjà servi pour un autre règlement : rechargez-le.",
 }
 
 
+class SettlementChannelForm(StepUpForm, forms.ModelForm):
+    """Le numéro où les pros paient : un code TOTP frais pour toute modification."""
+
+    class Meta:
+        model = SettlementChannel
+        fields = (
+            "slug", "gateway", "label_fr", "label_wo", "account_display", "instructions_fr",
+            "instructions_wo", "is_active", "position",
+        )  # fmt: skip
+
+
 @admin.register(SettlementChannel)
 class SettlementChannelAdmin(admin.ModelAdmin):
+    form = SettlementChannelForm
     list_display = ("label_fr", "slug", "gateway", "account_display", "is_active", "position")
     list_filter = ("gateway", "is_active")
     fields = (
@@ -59,6 +73,10 @@ class SettlementChannelAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
         return False
+
+    def get_form(self, request: HttpRequest, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        return type(form.__name__, (form,), {"step_up_request": request})
 
     def save_model(self, request: HttpRequest, obj: SettlementChannel, form, change: bool) -> None:
         services.save_channel(channel=obj, operator=request.user)
@@ -73,6 +91,10 @@ class ConfirmForm(StepUpForm):
         min_value=1,
         required=False,
         help_text="Vide : le montant déclaré. Un seul règlement sélectionné pour le changer.",
+    )
+    confirm_excess = forms.BooleanField(
+        label="Montant reçu supérieur au déclaré : je confirme (l'excédent devient un avoir)",
+        required=False,
     )
 
 
@@ -169,6 +191,12 @@ class PaymentIntentAdmin(admin.ModelAdmin):
             received = data.get("received_xof")
             if received is not None and count != 1:
                 raise DomainError("received_amount_needs_single")
+            if (
+                received is not None
+                and received > intent.declared_xof
+                and not data.get("confirm_excess")
+            ):
+                raise DomainError("received_exceeds_declared")
             services.confirm_settlement(
                 intent=intent, operator=request.user, received_xof=received or intent.declared_xof
             )

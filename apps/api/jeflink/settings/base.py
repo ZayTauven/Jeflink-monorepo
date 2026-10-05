@@ -497,6 +497,7 @@ WALLET_REMINDER_EVERY = timedelta(days=7)  # relance d'un pro au-dessus du seuil
 WALLET_SETTLEMENT_MAX_AGE = timedelta(days=30)  # paiement déclaré au plus tard 30 j après
 WALLET_SETTLEMENT_CLOCK_SKEW = timedelta(minutes=5)  # heure du téléphone un peu en avance
 WALLET_SETTLEMENT_MAX_PENDING = 3  # déclarations en attente de décision, par pro
+WALLET_SETTLEMENT_CANCEL_WINDOW = timedelta(minutes=30)  # retrait par le pro (faute de frappe)
 WALLET_SETTLEMENT_REVIEW_SLA = timedelta(hours=24)  # au-delà, alerte à l'Ops
 WALLET_PAYER_LAST4_RETENTION = timedelta(days=365)  # chiffres du payeur, après décision
 

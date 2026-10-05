@@ -17,7 +17,9 @@ from .models import (
     CommissionRate,
     LedgerAccount,
     LedgerEntry,
+    LedgerTransaction,
     Side,
+    TransactionKind,
 )
 
 
@@ -149,3 +151,17 @@ def commission_for_transaction(transaction) -> Commission | None:
 
 def reversals_of(transaction):
     return transaction.reversals.order_by("created_at")
+
+
+def settlement_reversals(provider) -> dict:
+    """Règlements contre-passés du pro : ``{id de l'intention : date de la contre-passation}``
+    (``payments`` en déduit la perte de confiance, sans importer le grand livre)."""
+    rows = LedgerTransaction.objects.filter(
+        provider=provider,
+        kind=TransactionKind.REVERSAL,
+        reverses__kind=TransactionKind.SETTLEMENT,
+    ).values_list("reverses__payment_intent_id", "created_at")
+    reversals: dict = {}
+    for intent_id, created_at in rows:
+        reversals[intent_id] = max(created_at, reversals.get(intent_id, created_at))
+    return reversals

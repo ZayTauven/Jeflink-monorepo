@@ -163,6 +163,7 @@ def test_un_canal_se_cree_s_audite_et_garde_son_slug(user_factory):
         "gateway": "manual_mobile_money",
         "is_active": True,
         "created": True,
+        "changed_fields": [],
     }
 
     channel.is_active = False

@@ -256,7 +256,11 @@ def test_le_pro_retire_une_declaration_en_attente(provider, wave):
     assert code_of(services.cancel_settlement, intent=intent, actor=provider.owner) == (
         "settlement_not_pending"
     )
-    declare(provider, wave)  # la référence d'une déclaration retirée se libère
+    # La référence retirée ne resert pas au même pro (revue sécurité 1), mais un autre pro peut.
+    assert code_of(declare, provider, wave) == "settlement_reference_used"
+    other = VerifiedProviderFactory()
+    owe(other, 4_500)
+    declare(other, wave)
 
 
 def test_un_autre_ne_retire_pas_la_declaration(provider, wave, user_factory):
@@ -424,12 +428,12 @@ def test_apres_un_rejet_introuvable_les_declarations_suivantes_ne_comptent_plus(
     assert provider_wallet(provider).pending_xof == 5_500
 
 
-def test_un_rejet_pour_montant_ne_retire_pas_la_confiance(provider, wave, ops):
+def test_un_rejet_pour_montant_different_retire_aussi_la_confiance(provider, wave, ops):
     owe(provider, 9_000)
     first = declare(provider, wave, amount=4_500, reference="T_AMOUNT001").intent
     services.reject_settlement(intent=first, operator=ops, reason="amount_mismatch", note="")
     declare(provider, wave, amount=4_500, reference="T_AMOUNT002")
-    assert provider_wallet(provider).pending_xof == 4_500
+    assert provider_wallet(provider).pending_xof == 0
 
 
 # --- Saisie par l'Ops --------------------------------------------------------------------------

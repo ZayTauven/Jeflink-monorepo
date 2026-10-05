@@ -18,7 +18,13 @@ class PaymentsConfig(AppConfig):
         check_payment_settings()
         register_audit_schema(
             "payments.channel.saved",
-            {"slug": str, "gateway": str, "is_active": bool, "created": bool},
+            {
+                "slug": str,
+                "gateway": str,
+                "is_active": bool,
+                "created": bool,
+                "changed_fields": list,
+            },
         )
         # Montants et codes seulement : jamais la référence ni les chiffres du payeur.
         register_audit_schema("payments.settlement.declared", {"amount_xof": int, "channel": str})

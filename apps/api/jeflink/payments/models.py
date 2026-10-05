@@ -133,6 +133,12 @@ class PaymentIntent(BaseModel):
                 condition=~Q(reference="") & ~Q(status__in=("rejected", "cancelled")),
                 name="intent_unique_live_reference",
             ),
+            # Un reçu d'espèces ne règle qu'une fois sur une caisse.
+            models.UniqueConstraint(
+                fields=("channel", "receipt_number"),
+                condition=~Q(receipt_number="") & ~Q(status__in=("rejected", "cancelled")),
+                name="intent_unique_live_receipt",
+            ),
             models.CheckConstraint(
                 condition=Q(declared_xof__gt=0), name="intent_declared_positive"
             ),

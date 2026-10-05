@@ -19,7 +19,7 @@ from datetime import datetime
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Max, Q, Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from jeflink.accounts.models import User
@@ -33,9 +33,9 @@ from jeflink.requests.services import IDEMPOTENCY_KEY
 from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 from jeflink.wallet import services as wallet
-from jeflink.wallet.selectors import provider_wallet
+from jeflink.wallet.selectors import provider_wallet, settlement_reversals
 
-from .gateways import get_gateway
+from .gateways import FAKE_ALLOWED_ENVS, get_gateway
 from .models import Gateway, PaymentIntent, SettlementChannel
 
 Status = PaymentIntent.Status
@@ -45,8 +45,12 @@ DECLARE_LIMIT = Limit("payments:declare", 10, 24 * 3600)
 # Passerelles qu'un pro peut déclarer lui-même (les espèces sont saisies par l'Ops).
 DECLARABLE = frozenset({Gateway.MANUAL_MOBILE_MONEY, Gateway.FAKE})
 # Rejets qui retirent la confiance : les déclarations suivantes ne comptent plus comme payées
-# avant qu'un règlement soit confirmé (revue terrain B1).
-DISTRUST_REJECTIONS = (PaymentIntent.RejectReason.NOT_FOUND, PaymentIntent.RejectReason.DUPLICATE)
+# avant qu'un règlement soit confirmé en entier (revue terrain B1, revue sécurité 2).
+DISTRUST_REJECTIONS = (
+    PaymentIntent.RejectReason.NOT_FOUND,
+    PaymentIntent.RejectReason.DUPLICATE,
+    PaymentIntent.RejectReason.AMOUNT_MISMATCH,
+)
 
 
 @dataclass(frozen=True)
@@ -63,10 +67,18 @@ def save_channel(*, channel: SettlementChannel, operator) -> SettlementChannel:
     """Crée ou modifie un canal de règlement : slug figé, contraintes vérifiées, audité. Un canal
     ne se supprime pas : on le désactive."""
     created = channel.pk is None
+    if channel.gateway == Gateway.FAKE and settings.DJANGO_ENV not in FAKE_ALLOWED_ENVS:
+        raise ValidationError("Passerelle factice interdite hors local et test.")
+    changed: list[str] = []
     if not created:
-        stored = SettlementChannel.objects.filter(pk=channel.pk).values_list("slug", "gateway")
-        if (row := stored.first()) is not None and row != (channel.slug, channel.gateway):
+        stored = SettlementChannel.objects.get(pk=channel.pk)
+        if (stored.slug, stored.gateway) != (channel.slug, channel.gateway):
             raise ValidationError("Le slug et la passerelle d'un canal sont figés.")
+        changed = [
+            name
+            for name in CHANNEL_EDITABLE_FIELDS
+            if getattr(stored, name) != getattr(channel, name)
+        ]
     channel.full_clean()
     channel.save()
     audit(
@@ -78,9 +90,29 @@ def save_channel(*, channel: SettlementChannel, operator) -> SettlementChannel:
             "gateway": channel.gateway,
             "is_active": channel.is_active,
             "created": created,
+            "changed_fields": changed,  # noms des champs seulement
         },
     )
+    if "account_display" in changed:
+        # Le numéro où les pros paient a changé : l'Ops le sait tout de suite.
+        alert_once(
+            f"wallet_channel_account_changed:{channel.public_id}",
+            300,
+            "wallet_channel_account_changed",
+            channel=channel.slug,
+        )
     return channel
+
+
+CHANNEL_EDITABLE_FIELDS = (
+    "label_fr",
+    "label_wo",
+    "account_display",
+    "instructions_fr",
+    "instructions_wo",
+    "is_active",
+    "position",
+)
 
 
 # --- Règles de saisie --------------------------------------------------------------------------
@@ -131,23 +163,42 @@ def _payload_hash(*parts: object) -> str:
 # --- Ce qui compte comme payé ------------------------------------------------------------------
 
 
+def distrusted_since(provider) -> datetime | None:
+    """Depuis quand les déclarations du pro ne comptent plus comme payées (``None`` : elles
+    comptent). La confiance se perd par un rejet « introuvable », « doublon » ou « montant
+    différent », par une confirmation d'un montant reçu inférieur au déclaré, ou par la
+    contre-passation d'un règlement ; elle ne revient qu'avec une confirmation où le montant
+    reçu couvre le déclaré, jamais contre-passée depuis."""
+    reversed_at = settlement_reversals(provider)
+    distrust = list(reversed_at.values())
+    trust = []
+    decided = PaymentIntent.objects.filter(provider=provider, decided_at__isnull=False)
+    for pk, status, reason, declared, received, decided_at in decided.values_list(
+        "pk", "status", "reject_reason", "declared_xof", "received_xof", "decided_at"
+    ):
+        if (status == Status.REJECTED and reason in DISTRUST_REJECTIONS) or (
+            status == Status.CONFIRMED and received < declared
+        ):
+            distrust.append(decided_at)
+        elif status == Status.CONFIRMED and pk not in reversed_at:
+            trust.append(decided_at)
+    if not distrust:
+        return None
+    last_distrust = max(distrust)
+    if trust and max(trust) > last_distrust:
+        return None
+    return last_distrust
+
+
 def counted_pending_xof(provider) -> int:
     """Montant des déclarations qui comptent comme payées (source inscrite auprès de
     ``wallet.selectors``) : toute déclaration en attente de décision, sans limite de durée,
-    sauf celles faites après un rejet « introuvable » ou « doublon » tant qu'aucun règlement
-    n'a été confirmé depuis."""
-    decided = PaymentIntent.objects.filter(provider=provider).aggregate(
-        distrust=Max(
-            "decided_at", filter=Q(status=Status.REJECTED, reject_reason__in=DISTRUST_REJECTIONS)
-        ),
-        trust=Max("decided_at", filter=Q(status=Status.CONFIRMED)),
-    )
+    sauf celles faites depuis que la confiance est perdue (``distrusted_since``)."""
     pending = PaymentIntent.objects.filter(
         provider=provider, status__in=PaymentIntent.PENDING_STATUSES
     )
-    distrust, trust = decided["distrust"], decided["trust"]
-    if distrust is not None and (trust is None or trust < distrust):
-        pending = pending.filter(created_at__lt=distrust)
+    if (since := distrusted_since(provider)) is not None:
+        pending = pending.filter(created_at__lt=since)
     return pending.aggregate(total=Sum("declared_xof"))["total"] or 0
 
 
@@ -271,7 +322,7 @@ def _insert_declaration(
         raise DomainError("nothing_due", status=409)
     if amount_xof > payable:
         raise DomainError("settlement_exceeds_due", status=422, payable_xof=payable)
-    if _reference_used(channel, reference):
+    if _reference_used(channel, reference, provider=provider):
         raise DomainError("settlement_reference_used", status=409)
     before = provider_wallet(provider).state
     intent = PaymentIntent(
@@ -302,22 +353,40 @@ def _insert_declaration(
     return intent
 
 
-def _reference_used(channel: SettlementChannel, reference: str, *, excluding=None) -> bool:
-    live = PaymentIntent.objects.filter(channel=channel, reference=reference).exclude(
-        status__in=PaymentIntent.CLOSED_WITHOUT_PAYMENT
-    )
+def _reference_used(
+    channel: SettlementChannel, reference: str, *, provider=None, excluding=None
+) -> bool:
+    """Une transaction ne règle jamais deux fois sur un canal (intentions vivantes de tous les
+    pros) ; un pro ne réutilise jamais une référence qu'il a déjà déclarée, même retirée ou
+    rejetée (revue sécurité 1)."""
+    same = PaymentIntent.objects.filter(channel=channel, reference=reference)
     if excluding is not None:
-        live = live.exclude(pk=excluding.pk)
-    return live.exists()
+        same = same.exclude(pk=excluding.pk)
+    used = same.exclude(status__in=PaymentIntent.CLOSED_WITHOUT_PAYMENT)
+    if provider is not None:
+        used = used | same.filter(provider=provider)
+    return used.exists()
+
+
+def can_cancel(intent: PaymentIntent, *, now: datetime | None = None) -> bool:
+    if intent.status not in PaymentIntent.PENDING_STATUSES:
+        return False
+    since = intent.corrected_at or intent.created_at
+    return (now or timezone.now()) - since <= settings.WALLET_SETTLEMENT_CANCEL_WINDOW
 
 
 @transaction.atomic
 def cancel_settlement(*, intent: PaymentIntent, actor) -> PaymentIntent:
-    """Le pro retire une déclaration encore en attente de décision."""
+    """Le pro retire une déclaration encore en attente de décision, seulement dans les
+    ``WALLET_SETTLEMENT_CANCEL_WINDOW`` qui suivent sa déclaration ou sa correction (faute de
+    frappe). Au-delà, seule l'Ops décide : retirer pour redéclarer ne prolonge pas l'effet d'une
+    déclaration (revue sécurité 1)."""
     _refuse_other_provider(intent, actor)
     provider, intent = _lock_intent(intent)
     if intent.status not in PaymentIntent.PENDING_STATUSES:
         raise DomainError("settlement_not_pending", status=409)
+    if not can_cancel(intent):
+        raise DomainError("settlement_not_cancellable", status=409)
     before = provider_wallet(provider).state
     intent.status = Status.CANCELLED
     intent.save(update_fields=["status", "updated_at"])
@@ -352,11 +421,14 @@ def correct_settlement(
     provider, intent = _lock_intent(intent)
     if intent.status != Status.NEEDS_CORRECTION:
         raise DomainError("settlement_not_correctable", status=409)
+    if not intent.channel.is_active or intent.channel.gateway not in DECLARABLE:
+        raise DomainError("channel_inactive", status=422)
     payable = provider_wallet(provider).due_xof - _pending_total(provider, excluding=intent)
     if amount_xof > payable:
         raise DomainError("settlement_exceeds_due", status=422, payable_xof=max(payable, 0))
-    if _reference_used(intent.channel, reference, excluding=intent):
+    if _reference_used(intent.channel, reference, provider=provider, excluding=intent):
         raise DomainError("settlement_reference_used", status=409)
+    before = provider_wallet(provider).state
     intent.declared_xof = amount_xof
     intent.reference = reference
     intent.paid_at = paid_at
@@ -375,6 +447,7 @@ def correct_settlement(
         AuditEvent.ActorKind.USER,
         amount_xof=amount_xof,
     )
+    wallet.notify_state_change(provider, before, provider_wallet(provider).state)
     return intent
 
 
@@ -546,9 +619,11 @@ def _record_by_ops(
         return CreatedIntent(existing, created=False)
     try:
         with transaction.atomic():
-            provider = Provider.objects.select_for_update().get(pk=provider.pk)
+            provider = _lock_owner_and_provider(provider)
             if fields.get("reference") and _reference_used(channel, fields["reference"]):
                 raise DomainError("settlement_reference_used", status=409)
+            if fields.get("receipt_number") and _receipt_used(channel, fields["receipt_number"]):
+                raise DomainError("receipt_number_used", status=409)
             before = provider_wallet(provider).state
             intent = PaymentIntent(
                 purpose=PaymentIntent.Purpose.COMMISSION_SETTLEMENT,
@@ -579,8 +654,19 @@ def _record_by_ops(
     except IntegrityError:
         if (existing := _replay(provider, idempotency_key, digest)) is not None:
             return CreatedIntent(existing, created=False)
-        raise DomainError("settlement_reference_used", status=409) from None
+        code = (
+            "receipt_number_used" if fields.get("receipt_number") else "settlement_reference_used"
+        )
+        raise DomainError(code, status=409) from None
     return CreatedIntent(intent, created=True)
+
+
+def _receipt_used(channel: SettlementChannel, receipt_number: str) -> bool:
+    return (
+        PaymentIntent.objects.filter(channel=channel, receipt_number=receipt_number)
+        .exclude(status__in=PaymentIntent.CLOSED_WITHOUT_PAYMENT)
+        .exists()
+    )
 
 
 # --- Surveillance ------------------------------------------------------------------------------

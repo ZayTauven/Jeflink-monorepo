@@ -248,13 +248,12 @@ def test_retirer_puis_corriger_une_declaration(api_client, provider, wave):
         intent=intent, operator=CompleteUserFactory(), reason="reference_not_found"
     )
     url = reverse("pro-wallet-settlement-correct", args=[second["id"]])
-    corrected = api.post(
-        url, {k: v for k, v in body(amount_xof=4_500).items() if k != "channel"}, format="json"
-    )
+    # Nouvelle référence : celle de la déclaration retirée ne resert pas au même pro.
+    fixed = body(amount_xof=4_500, reference="T_FIXED00001")
+    fixed.pop("channel")
+    corrected = api.post(url, fixed, format="json")
     assert (corrected.status_code, corrected.json()["status"]) == (200, "declared")
-    refused = api.post(
-        url, {k: v for k, v in body(amount_xof=4_500).items() if k != "channel"}, format="json"
-    )
+    refused = api.post(url, fixed, format="json")
     assert (refused.status_code, refused.json()["code"]) == (409, "settlement_not_correctable")
 
 

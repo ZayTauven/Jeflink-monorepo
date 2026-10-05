@@ -42,6 +42,10 @@ SENSITIVE_KEYS = frozenset(
         "csrfmiddlewaretoken",
         "idempotency_key",
         "install_id",
+        # Règlements (spec 005) : référence de transaction, chiffres du payeur, reçu.
+        "reference",
+        "payer_last4",
+        "receipt_number",
     }
 )
 # Toute en-tête interne X-Jeflink-* (secret BFF, IP cliente…).

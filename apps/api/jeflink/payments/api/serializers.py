@@ -4,6 +4,7 @@ de transaction ne sort qu'en 4 derniers caractères ; les chiffres du payeur jam
 from rest_framework import serializers
 
 from jeflink.payments.models import PaymentIntent, SettlementChannel
+from jeflink.payments.services import can_cancel
 from jeflink.wallet.models import Side
 
 
@@ -104,7 +105,7 @@ class SettlementSerializer(serializers.ModelSerializer):
         return intent.reference[-4:]
 
     def get_can_cancel(self, intent) -> bool:
-        return intent.status in PaymentIntent.PENDING_STATUSES
+        return can_cancel(intent)
 
     def get_can_correct(self, intent) -> bool:
         return intent.status == PaymentIntent.Status.NEEDS_CORRECTION

@@ -2428,7 +2428,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
-          description: settlement_not_pending
+          description: settlement_not_pending, settlement_not_cancellable
         '401':
           description: not_authenticated
         '403':
@@ -2478,7 +2478,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
           description: settlement_exceeds_due, settlement_amount_invalid, settlement_reference_invalid,
-            paid_at_invalid, payer_last4_invalid
+            paid_at_invalid, payer_last4_invalid, channel_inactive
         '401':
           description: not_authenticated
         '403':

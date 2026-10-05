@@ -196,11 +196,14 @@ def verify_admin_step_up(request: HttpRequest, code: str) -> None:
 
 
 def admin_step_up_valid(request: HttpRequest) -> bool:
-    flag = request.session.get(STEP_UP_KEY)
+    session = getattr(request, "session", None)
+    if session is None or not getattr(request, "user", None):
+        return False  # sans session, jamais de fenêtre ouverte (échec fermé, sans 500)
+    flag = session.get(STEP_UP_KEY)
     if not isinstance(flag, dict) or flag.get("uid") != str(request.user.public_id):
         return False
     age = timezone.now().timestamp() - int(flag.get("at", 0))
-    mfa = request.session.get(SESSION_KEY) or {}
+    mfa = session.get(SESSION_KEY) or {}
     return (
         0 <= age <= settings.ADMIN_STEP_UP_TTL
         and flag.get("device") == mfa.get("device")
@@ -235,6 +238,8 @@ class StepUpForm(forms.Form):
             raise forms.ValidationError("Second facteur indisponible.")
         if admin_step_up_valid(request):
             return cleaned
+        if getattr(request, "session", None) is None:
+            raise forms.ValidationError("Second facteur indisponible.")
         code = (cleaned.get("otp_code") or "").strip()
         try:
             if len(code) != 6 or not code.isdigit():
