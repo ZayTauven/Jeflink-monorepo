@@ -1,6 +1,6 @@
 # ADR 0012 — Grand livre : journal équilibré en base, commission au taux du devis, règlements par intention de paiement
 
-Statut : proposé · 2026-10-04 · Spec : `docs/specs/005-wallet-commission.md` · Précise l'ADR 0002
+Statut : accepté · 2026-10-05 (proposé le 2026-10-04) · Spec : `docs/specs/005-wallet-commission.md` · Précise l'ADR 0002
 
 ## Contexte
 

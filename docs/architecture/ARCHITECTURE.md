@@ -37,17 +37,17 @@ flowchart LR
 | `accounts`      | Comptes par téléphone, OTP SMS, sessions d'appareil (JWT + refresh rotatif), rôles et invitations, second facteur Ops, changement de numéro, suppression et anonymisation, purge (spec 001) |
 | `zones`         | Quartiers (centre + rayon, contour optionnel), villes, disponibilité des métiers par zone                                                                                                   |
 | `catalog`       | Métiers, services, fourchettes de prix de référence. Métiers = lignes en base (slug stable, libellés `fr`/`wo`, actif oui/non), jamais un `enum` ou des `choices` dans le code              |
-| `providers`     | Fiche pro (statut `pending`, `verified`, `suspended`, métiers, zones), création et vérification par l'Ops (spec 003) ; équipes, disponibilités, badges, Passeport Pro plus tard                |
+| `providers`     | Fiche pro (statut `pending`, `verified`, `suspended`, métiers, zones), création et vérification par l'Ops (spec 003) ; équipes, disponibilités, badges, Passeport Pro plus tard             |
 | `requests`      | Demande (cycle `needs_zone` à `expired`), devis (3 au plus, prix ferme ou visite), diffusion aux pros éligibles ; photos et voix plus tard (spec 003, ADR 0010)                             |
-| `bookings`      | Réservation née à `accepted`, machine à états déclarée en entier, `BookingEvent`, confirmation du pro ; avenants, code de fin, preuves à l'étape 4 (spec 003, ADR 0010)                    |
-| `payments`      | Interface `PaymentGateway`, intentions, webhooks                                                                                                                                            |
-| `wallet`        | Grand livre en partie double, soldes dérivés, versements                                                                                                                                    |
-| `reviews`       | Avis (note, puces, commentaire facultatif), publication à la clôture, moyenne, modération                                                                                                                                                              |
+| `bookings`      | Réservation née à `accepted`, machine à états déclarée en entier, `BookingEvent`, confirmation du pro ; avenants, code de fin, preuves à l'étape 4 (spec 003, ADR 0010)                     |
+| `payments`      | `PaymentGateway` et adaptateurs, canaux de règlement, intentions de paiement (déclaration, décision de l'Ops), API du portefeuille pro (spec 005)                                           |
+| `wallet`        | Grand livre en partie double immuable, soldes dérivés, taux et commission à la clôture, seuils de dette, ajustements de la Comptabilité (spec 005, ADR 0012)                                |
+| `reviews`       | Avis (note, puces, commentaire facultatif), publication à la clôture, moyenne, modération                                                                                                   |
 | `messaging`     | Conversations, pièces jointes, masquage des numéros avant réservation                                                                                                                       |
-| `notifications` | `notify(kind, recipients, ref)` après commit (adaptateur `log` en local/test) ; push, SMS (`SmsGateway`, adaptateur `fake` en local/test seulement), WhatsApp, préférences, replis            |
+| `notifications` | `notify(kind, recipients, ref)` après commit (adaptateur `log` en local/test) ; push, SMS (`SmsGateway`, adaptateur `fake` en local/test seulement), WhatsApp, préférences, replis          |
 | `trust`         | KYC, litiges, garantie, signalements, `AuditEvent`                                                                                                                                          |
 | `promotions`    | Codes promo, parrainage                                                                                                                                                                     |
-| `analytics`     | `UnservedDemand` (demandes non servies, sans identifiant d'utilisateur) ; autres événements produit plus tard                                                                              |
+| `analytics`     | `UnservedDemand` (demandes non servies, sans identifiant d'utilisateur) ; autres événements produit plus tard                                                                               |
 | `ai`            | Fournisseurs, prompts versionnés, schémas, évals, journal de coûts                                                                                                                          |
 
 ## Demande, devis et réservation : deux cycles de vie
@@ -106,7 +106,7 @@ Règles :
 - **Fiabilité (trace seulement)** : un désistement du pro après `scheduled` pèse 1, et 2 s'il a lieu à moins de 2 h du créneau (`late`) ; rien avant `scheduled`. Le client n'est jamais pénalisé (une annulation tardive est tracée).
 - **Divulgation** : le repère, la position et le numéro du client (vers le pro), le numéro du pro (vers le client) ne sont renvoyés qu'à partir de `scheduled` (`machine.DISCLOSED_STATUSES`), jamais après une annulation. Avant, les numéros saisis dans une description ou un message de devis sont masqués à l'affichage (`common.pii.mask_numbers`) ; ce masquage n'est pas étanche et un compteur par pro (`Provider.masked_numbers_count`) aide l'Ops à repérer les abus.
 - **Ordre des verrous** : comptes (par id), fiche pro, demande, réservation. Deux acceptations simultanées donnent une seule réservation.
-- **Argent** : aucun. Les montants de devis sont des entiers XOF informatifs ; aucun `LedgerEntry` (étape 5). Mention fixe sur la réservation : à régler au pro.
+- **Argent** : le client règle le pro (mention fixe : à régler au pro) ; aucun mouvement avant la clôture. À la clôture, la commission s'écrit au grand livre (voir « Argent »).
 - **Notifications** : `notifications.events.notify(kind, recipients, ref)`, appelé après commit, ne transporte que des `public_id` (`request.new`, `quote.received`, `booking.to_confirm`, `booking.scheduled`, `booking.cancelled`, puis, spec 004 : `completion_code.sms`, `amendment.proposed`, `booking.dispute_reminder` (SMS), `booking.progress`, `amendment.decided`, `booking.completed`, `booking.no_show_check`, `no_show.contested`, `booking.disputed`, `dispute.decided`, `booking.closed`). Le futur adaptateur SMS rend le gabarit (code, prix) côté serveur à partir de la référence. Push et SMS : étape 6.
 
 ### Déroulé, fin de mission, litige et avis (spec 004)
@@ -115,16 +115,54 @@ Règles :
 - **Photos** (`BookingPhoto`, ADR 0011) : envoi multipart par le gérant, réencodé en WebP sans EXIF ni GPS dans la requête, miniature par tâche Celery, URL signées de 10 min, signalement par le client (masquée pour les deux, gardée pour l'Ops en cas de litige), purge 12 mois après la clôture. Repère et position de la demande vidés 90 jours après la clôture.
 - **Avenant** (`Amendment`) : le pro propose le nouveau prix complet (3 au plus, un seul en attente) ; seul le client, depuis sa session, le fait changer : `accept_amendment` est le seul endroit où `Booking.amount_xof` change après la création (test d'architecture). Aucun mouvement d'argent.
 - **No-show** (`NoShowReport`) : déclaré par le client après `slot_end` + 60 min, la réservation est annulée et la demande rouverte tout de suite ; le poids de fiabilité 3 n'est journalisé qu'après 24 h sans contestation du pro, ou sur décision de l'Ops (groupe `Médiation`).
-- **Clôture** : `close_due` (beat, 5 min) clôt à `dispute_deadline` ; `bookings.services.register_close_handler(fn)` appelle `fn(booking, reason)` dans la transaction de toute arrivée à `closed`. `reviews` y publie les avis ; `wallet` s'y inscrira (étape 5).
+- **Clôture** : `close_due` (beat, 5 min) clôt à `dispute_deadline` ; `bookings.services.register_close_handler(fn)` appelle `fn(booking, reason)` dans la transaction de toute arrivée à `closed`. `reviews` y publie les avis ; `wallet` y écrit la commission (spec 005).
 - **Litige** (`trust.Dispute`) : `bookings.services` appelle `trust.services`, jamais l'inverse. L'Ops tranche dans l'admin (`resolve_dispute`, aucun remboursement en V1) ; `for_client` journalise un poids de 2 et rouvre l'avis 7 jours.
 - **Avis** (`reviews.Review`) : une note suffit, publié à la clôture, moyenne (`rating_for_providers`) à partir de 3 avis publiés, hors masqués, comptes de revue et pros de démo ; modération (`Modération avis`) sans suppression.
 
 ## Argent
 
-- Grand livre en partie double (`wallet.LedgerEntry`) : chaque mouvement = au moins deux écritures équilibrées. Les soldes sont dérivés, jamais stockés comme source de vérité.
-- Comptes types : `client_escrow`, `pro_available`, `pro_pending`, `pro_commission_due`, `platform_revenue`.
-- Paiement cash : écriture `pro_commission_due` à la clôture. Paiement en ligne (V2) : fonds en `pro_pending` jusqu'à `closed`, commission prélevée, reste en `pro_available`.
-- `PaymentGateway` : `create_intent`, `confirm`, `refund`, `payout`, `verify_webhook`. Adaptateurs : `cash`, `manual_mobile_money` (V1), `wiipay` (V2), `fake` (tests).
+Référence : spec `docs/specs/005-wallet-commission.md`, ADR 0012 (précise l'ADR 0002). En V1, Jeflink ne détient aucun fonds de client : le client paie le pro (espèces ou mobile money), et la commission devient une dette du pro, qu'il règle en mobile money ou au bureau.
+
+### Grand livre (`wallet`)
+
+- **Deux tables** : `LedgerTransaction` (en-tête : type, clé d'idempotence unique, pro, réservation ou intention liée, contre-passation, motif, acteur) et `LedgerEntry` (compte, côté `debit` ou `credit`, `amount_xof` strictement positif). Au moins deux lignes, débits égaux aux crédits. Pas de montant signé.
+- **Garanties en base** : triggers d'immuabilité sur les deux tables (et sur `CommissionRate` et `Commission`) ; trigger de contrainte différé qui refuse au commit une transaction déséquilibrée ou à une seule ligne, même écrite en SQL brut. `post_transaction` force la vérification avant de rendre la main. Une réécriture à l'identique est permise (rechargement des données de test).
+- **Un seul écrivain** : `wallet.services.post_transaction()` ; les modèles du grand livre ne sont importés que dans `wallet` (tests d'architecture). Montants `int` vérifiés (jamais `bool`, `float` ni `Decimal`), aucune division réelle ni `float` dans `wallet` et `payments`, aucun champ `balance` dans aucun modèle.
+- **Soldes dérivés** à la lecture (`wallet.selectors`) : `provider_wallet(provider)` rend dû, avoir, en attente, dette effective et état (`ok`, `alert`, `blocked`).
+
+| Compte                                          | Propriétaire          | Rôle                                                         |
+| ----------------------------------------------- | --------------------- | ------------------------------------------------------------ |
+| `pro_commission_due`                            | un pro                | Créance de Jeflink sur le pro (négatif : avoir)              |
+| `platform_revenue`                              | Jeflink               | Commissions acquises                                         |
+| `platform_collections`                          | Jeflink, un par canal | Fonds reçus, à rapprocher du relevé du canal                 |
+| `platform_goodwill`                             | Jeflink               | Gestes commerciaux                                           |
+| `client_escrow`, `pro_pending`, `pro_available` | (V2)                  | Déclarés, aucune écriture permise en V1 (`post_transaction`) |
+
+| Mouvement                  | Débit                                                                              | Crédit               |
+| -------------------------- | ---------------------------------------------------------------------------------- | -------------------- |
+| Commission à la clôture    | `pro_commission_due`                                                               | `platform_revenue`   |
+| Règlement confirmé         | `platform_collections[c]`                                                          | `pro_commission_due` |
+| Geste commercial           | `platform_goodwill`                                                                | `pro_commission_due` |
+| Correction (dette oubliée) | `pro_commission_due`                                                               | `platform_revenue`   |
+| Contre-passation, avoir    | forme inverse de la transaction annulée (partielle permise, plafonnée sous verrou) |
+
+### Commission
+
+- **Taux** (`CommissionRate`) : en ajout seul, par défaut ou par métier, en points de base, plafond par mission, date d'effet jamais dans le passé. Le taux en vigueur à l'envoi du devis s'applique (`rate_for`). Lancement : 10 % plafonné à 20 000 F, 7 % pour la climatisation, l'électroménager et la plomberie (`seed_reference_data`).
+- **À la clôture** : `charge_commission_on_close`, inscrit par `register_close_handler`, écrit une `Commission` par réservation (assiette = montant à la clôture, avenants compris ; `commission_xof` arrondit à l'entier inférieur). Due pour toute fin (code ou `no_code`) et toute décision de litige ; exemptée sans écriture pour un compte de revue, un taux de 0, un montant arrondi à 0 ou un taux manquant (alerte). Idempotente ; ne bloque jamais une clôture.
+- **Seuils** (réglages `WALLET_DEBT_ALERT_XOF`, `WALLET_DEBT_BLOCK_XOF`) sur la dette effective : alerte, puis nouveaux devis refusés (`409 commission_debt_over_limit`, garde inscrite par `requests.quotes.register_quote_guard`). Rien d'autre n'est bloqué. Une déclaration compte comme payée tant que l'Ops n'a pas décidé, sauf après un rejet « introuvable » ou « doublon » non suivi d'une confirmation. `remind_debts` relance une fois par semaine.
+
+### Règlements (`payments`)
+
+- **`PaymentGateway`** (`create_intent`, `confirm`, `refund`, `payout`, `verify_webhook`), registre `get_gateway(name)`. Adaptateurs : `manual_mobile_money` et `cash` (V1 ; remboursement, versement et webhook non offerts), `fake` (local et test seulement, refusé au démarrage, à l'appel et en base), `wiipay` (V2). Une passerelle n'écrit jamais en base.
+- **Canaux** (`SettlementChannel`) : données saisies par la Comptabilité (Wave, Orange Money, caisse…), slug et passerelle figés, jamais supprimés.
+- **`PaymentIntent`** : déclaré par le pro (`Idempotency-Key`, référence unique par canal tant que l'intention vit, 4 derniers chiffres si payé d'un autre numéro) ou saisi par l'Ops (relevé, espèces). Statuts : `declared`, `needs_correction` (une fois), `confirmed`, `rejected`, `cancelled`. Confirmé, il s'écrit au grand livre (`wallet.record_settlement`). `payments` appelle `wallet`, jamais l'inverse ; `wallet` lit les déclarations en attente par un registre (`register_pending_source`).
+- **Admin** : `Rapprochement` décide et saisit les règlements, `Comptabilité` gère taux et canaux et passe avoirs, gestes, corrections et contre-passations. Toute écriture d'argent exige un code TOTP saisi depuis moins de 5 minutes (`accounts.admin_site.StepUpForm`), jamais sur son propre compte pro, auditée.
+- **API pro** : `/api/pro/wallet/…` (résumé, historique, déclarations), vues dans `payments`. La référence ne sort qu'en 4 derniers caractères, les chiffres du payeur jamais.
+
+### Ordre des verrous (prolongé)
+
+Comptes utilisateurs (par id), fiche pro, demande, réservation, intention de paiement, comptes du grand livre du pro (par id). Les comptes de la plateforme ne sont jamais verrouillés.
 
 ## Couche IA (`apps/api/jeflink/ai`)
 
