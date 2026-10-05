@@ -1,0 +1,8 @@
+{% extends "admin/change_list.html" %}
+{% block object-tools-items %}
+  {% if can_record %}
+    <li><a href="{% url 'admin:payments_paymentintent_record_mobile_money' %}">Créditer un versement (relevé)</a></li>
+    <li><a href="{% url 'admin:payments_paymentintent_record_cash' %}">Enregistrer des espèces</a></li>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}

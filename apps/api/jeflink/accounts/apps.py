@@ -96,6 +96,7 @@ class AccountsConfig(AppConfig):
         register_audit_schema("accounts.deletion.blocked", {"reasons": list})
         register_audit_schema("accounts.mfa.enrolled", {})
         register_audit_schema("accounts.admin.logged_in", {})
+        register_audit_schema("accounts.admin.step_up", {})
         register_audit_schema("accounts.admin.totp_confirmed", {})
         register_audit_schema("accounts.admin.login_failed", {"username_hmac": PhoneHmac})
         register_audit_schema(

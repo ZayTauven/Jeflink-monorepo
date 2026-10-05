@@ -256,3 +256,18 @@ def test_les_contraintes_des_intentions_tiennent_en_base(saved, fields):
 def test_une_intention_confirmee_porte_son_montant_recu(saved):
     confirmed = saved(status="confirmed", received_xof=4_400, decided_at=timezone.now())
     assert confirmed.received_xof == 4_400
+
+
+# --- Architecture ------------------------------------------------------------------------------
+
+
+def test_aucune_ecriture_du_statut_d_une_intention_hors_de_payments_services():
+    from jeflink.bookings.tests.test_machine import _source_files, status_writes
+
+    offenders = [
+        f"{name}:{line}"
+        for path, name in _source_files()
+        if name != "payments/services.py"
+        for line in status_writes(path.read_text(encoding="utf-8"), "PaymentIntent", "intent")
+    ]
+    assert offenders == []

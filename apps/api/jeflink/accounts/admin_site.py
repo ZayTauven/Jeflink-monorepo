@@ -38,6 +38,7 @@ from jeflink.trust.models import AuditEvent
 from jeflink.trust.services import audit
 
 SESSION_KEY = "jf_admin_mfa"
+STEP_UP_KEY = "jf_admin_step_up"
 LOGIN_PER_IP = Limit("admin:login_ip", 10, 600)
 LOGIN_PER_USERNAME = Limit("admin:login_username", 10, 3600)
 INVALID = "Identifiants ou code invalides."
@@ -108,7 +109,7 @@ def _audit_admin_login_failed(sender, credentials, request=None, **kwargs) -> No
     )
 
 
-def verify_admin_code(user, code: str):
+def verify_admin_code(user, code: str, *, audit_action: str = "accounts.admin.logged_in"):
     """Code TOTP de l'admin, dans une transaction qui compte l'échec (même logique que l'Ops).
 
     Renvoie le ``public_id`` de l'appareil, auquel la session est liée. Un appareil non
@@ -139,7 +140,7 @@ def verify_admin_code(user, code: str):
                 )
             device.save(update_fields=fields)
             audit(
-                action="accounts.admin.logged_in",
+                action=audit_action,
                 actor=user,
                 actor_kind=AuditEvent.ActorKind.USER,
                 target=user,
@@ -174,6 +175,74 @@ def admin_mfa_valid(request: HttpRequest) -> bool:
         confirmed_at__isnull=False,
         locked_at__isnull=True,
     ).exists()
+
+
+# --- Second facteur redemandé pour l'argent (spec 005) -----------------------------------------
+
+
+def verify_admin_step_up(request: HttpRequest, code: str) -> None:
+    """Code TOTP frais : ouvre, pour cette session, une fenêtre de ``ADMIN_STEP_UP_TTL`` pendant
+    laquelle l'opérateur enchaîne les actions d'argent. Même mécanisme que la connexion
+    (anti-rejeu, verrou), audité ``accounts.admin.step_up``. La fenêtre ne se prolonge pas à
+    l'usage."""
+    if not admin_mfa_valid(request):
+        raise DomainError("mfa_required", status=403)
+    device_public_id = verify_admin_code(request.user, code, audit_action="accounts.admin.step_up")
+    request.session[STEP_UP_KEY] = {
+        "uid": str(request.user.public_id),
+        "device": str(device_public_id),
+        "at": int(timezone.now().timestamp()),
+    }
+
+
+def admin_step_up_valid(request: HttpRequest) -> bool:
+    flag = request.session.get(STEP_UP_KEY)
+    if not isinstance(flag, dict) or flag.get("uid") != str(request.user.public_id):
+        return False
+    age = timezone.now().timestamp() - int(flag.get("at", 0))
+    mfa = request.session.get(SESSION_KEY) or {}
+    return (
+        0 <= age <= settings.ADMIN_STEP_UP_TTL
+        and flag.get("device") == mfa.get("device")
+        and admin_mfa_valid(request)
+    )
+
+
+class StepUpForm(forms.Form):
+    """Base des formulaires d'argent de l'admin : exige un code TOTP quand la fenêtre de
+    ``ADMIN_STEP_UP_TTL`` est fermée. La requête est passée à la construction (``request=``) ou
+    portée par la classe (``step_up_request``, formulaires des ``ModelAdmin``)."""
+
+    otp_code = forms.CharField(
+        label="Code de l'application d'authentification (redemandé pour toute action d'argent)",
+        required=False,
+        max_length=6,
+        widget=forms.TextInput(attrs={"autocomplete": "one-time-code", "inputmode": "numeric"}),
+    )
+    step_up_request: HttpRequest | None = None
+
+    def __init__(self, *args, request: HttpRequest | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if request is not None:
+            self.step_up_request = request
+        if self.step_up_request is not None and admin_step_up_valid(self.step_up_request):
+            self.fields["otp_code"].widget = forms.HiddenInput()
+
+    def clean(self):
+        cleaned = super().clean()
+        request = self.step_up_request
+        if request is None:
+            raise forms.ValidationError("Second facteur indisponible.")
+        if admin_step_up_valid(request):
+            return cleaned
+        code = (cleaned.get("otp_code") or "").strip()
+        try:
+            if len(code) != 6 or not code.isdigit():
+                raise DomainError("mfa_code_invalid")
+            verify_admin_step_up(request, code)
+        except DomainError as exc:
+            raise forms.ValidationError("Code invalide ou expiré.", code="step_up") from exc
+        return cleaned
 
 
 class JeflinkAdminSite(admin.AdminSite):

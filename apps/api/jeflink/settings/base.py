@@ -277,6 +277,9 @@ OTP_REVIEW_MAX_DAYS = 45
 # Seul l'admin utilise des sessions Django (l'API est en Bearer JWT).
 SESSION_COOKIE_AGE = 12 * 3600
 ADMIN_MFA_MAX_AGE = 12 * 3600
+# Second facteur redemandé pour toute écriture d'argent dans l'admin (spec 005, Q9) : un code
+# frais ouvre une fenêtre de 5 minutes, qui ne se prolonge pas à l'usage.
+ADMIN_STEP_UP_TTL = 5 * 60
 
 # --- Invitations (spec 001, S19) ------------------------------------------------------------
 INVITATION_TTL_DAYS = 7
@@ -362,6 +365,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "jeflink.requests.tasks.purge_locations",
         "schedule": 24 * 3600,
         "options": {"expires": 6 * 3600},
+    },
+    "payments-watch-settlements": {
+        "task": "jeflink.payments.tasks.watch_settlements",
+        "schedule": 3600,
+        "options": {"expires": 1800},
     },
 }
 
@@ -470,6 +478,10 @@ BOOKING_CONTACT_RETENTION = timedelta(days=90)
 # Portefeuille (spec 005, Q6) : dette effective (dû moins déclarations en attente de décision).
 WALLET_DEBT_ALERT_XOF = 10_000  # alerte au pro
 WALLET_DEBT_BLOCK_XOF = 25_000  # nouveaux devis refusés ; jamais une mission en cours
+WALLET_SETTLEMENT_MAX_AGE = timedelta(days=30)  # paiement déclaré au plus tard 30 j après
+WALLET_SETTLEMENT_CLOCK_SKEW = timedelta(minutes=5)  # heure du téléphone un peu en avance
+WALLET_SETTLEMENT_MAX_PENDING = 3  # déclarations en attente de décision, par pro
+WALLET_SETTLEMENT_REVIEW_SLA = timedelta(hours=24)  # au-delà, alerte à l'Ops
 
 # IA (côté serveur uniquement, règle 4) : modèles jamais en dur dans le code.
 AI_MODEL_DEFAULT = env("AI_MODEL_DEFAULT", default="")

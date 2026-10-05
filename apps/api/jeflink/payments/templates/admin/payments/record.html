@@ -1,0 +1,11 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Chaque saisie s'écrit au grand livre. Un code de l'application d'authentification est
+redemandé pour toute action d'argent ; il reste valable 5 minutes. Jamais pour votre propre
+compte pro.</p>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <input type="submit" value="Enregistrer">
+</form>
+{% endblock %}

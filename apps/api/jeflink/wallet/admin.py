@@ -9,6 +9,7 @@ from django.db.models import BigIntegerField, Case, F, QuerySet, Sum, When
 from django.db.models.functions import Coalesce
 from django.http import HttpRequest
 
+from jeflink.accounts.admin_site import StepUpForm
 from jeflink.common.errors import DomainError
 
 from .models import (
@@ -96,7 +97,7 @@ class LedgerAccountAdmin(ReadOnlyAdmin):
         return -account.net_xof if account.kind in CREDIT_NORMAL_KINDS else account.net_xof
 
 
-class CommissionRateForm(forms.ModelForm):
+class CommissionRateForm(StepUpForm, forms.ModelForm):
     valid_from = forms.DateTimeField(
         label="En vigueur à partir de",
         required=False,
@@ -144,6 +145,11 @@ class CommissionRateAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
         return False
+
+    def get_form(self, request: HttpRequest, obj=None, **kwargs):
+        # Le second facteur redemandé lit la session : la requête est portée par la classe.
+        form = super().get_form(request, obj, **kwargs)
+        return type(form.__name__, (form,), {"step_up_request": request})
 
     def save_model(self, request: HttpRequest, obj: CommissionRate, form, change: bool) -> None:
         rate = add_rate(

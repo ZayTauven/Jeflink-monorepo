@@ -42,6 +42,10 @@ BOOKING_CLOSED = "booking.closed"
 WALLET_DEBT_ALERT = "wallet.debt_alert"
 WALLET_QUOTES_BLOCKED = "wallet.quotes_blocked"
 WALLET_QUOTES_UNBLOCKED = "wallet.quotes_unblocked"
+# Décisions de l'Ops sur un règlement (référence : ``public_id`` de l'intention de paiement).
+WALLET_SETTLEMENT_CONFIRMED = "wallet.settlement_confirmed"
+WALLET_SETTLEMENT_NEEDS_CORRECTION = "wallet.settlement_needs_correction"
+WALLET_SETTLEMENT_REJECTED = "wallet.settlement_rejected"
 SMS_KINDS = frozenset(
     {
         COMPLETION_CODE_SMS,
@@ -49,6 +53,7 @@ SMS_KINDS = frozenset(
         DISPUTE_REMINDER,
         BOOKING_COMPLETED_NO_CODE,
         WALLET_QUOTES_BLOCKED,
+        WALLET_SETTLEMENT_NEEDS_CORRECTION,
     }
 )
 KINDS = frozenset(
@@ -58,7 +63,8 @@ KINDS = frozenset(
         AMENDMENT_DECIDED, BOOKING_COMPLETED, BOOKING_COMPLETED_NO_CODE, NO_SHOW_CHECK,
         NO_SHOW_CONTESTED, BOOKING_DISPUTED,
         DISPUTE_DECIDED, BOOKING_CLOSED, WALLET_DEBT_ALERT, WALLET_QUOTES_BLOCKED,
-        WALLET_QUOTES_UNBLOCKED,
+        WALLET_QUOTES_UNBLOCKED, WALLET_SETTLEMENT_CONFIRMED, WALLET_SETTLEMENT_NEEDS_CORRECTION,
+        WALLET_SETTLEMENT_REJECTED,
     }
 )  # fmt: skip
 

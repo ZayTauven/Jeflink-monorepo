@@ -233,15 +233,28 @@ def test_seed_rates_ignore_un_metier_absent():
 
 
 @pytest.mark.django_db
-def test_le_formulaire_de_l_admin_applique_les_regles_du_service(trade):
+def test_le_formulaire_de_l_admin_applique_les_regles_du_service(trade, rf, monkeypatch):
+    monkeypatch.setattr("jeflink.accounts.admin_site.admin_step_up_valid", lambda request: True)
+    request = rf.post("/")
     past = CommissionRateForm(
-        data={"trade": trade.pk, "rate_bps": 700, "valid_from": at(-1), "note": ""}
+        data={"trade": trade.pk, "rate_bps": 700, "valid_from": at(-1), "note": ""},
+        request=request,
     )
     assert not past.is_valid()
     assert "passé" in str(past.errors)
 
-    now = CommissionRateForm(data={"trade": trade.pk, "rate_bps": 700, "note": ""})
+    now = CommissionRateForm(data={"trade": trade.pk, "rate_bps": 700, "note": ""}, request=request)
     assert now.is_valid(), now.errors
+
+
+@pytest.mark.django_db
+def test_ajouter_un_taux_exige_un_code_totp_frais(trade, rf, monkeypatch):
+    monkeypatch.setattr("jeflink.accounts.admin_site.admin_step_up_valid", lambda request: False)
+    form = CommissionRateForm(
+        data={"trade": trade.pk, "rate_bps": 700, "note": "", "otp_code": ""}, request=rf.post("/")
+    )
+    assert not form.is_valid()
+    assert "Code invalide" in str(form.errors)
 
 
 @pytest.mark.django_db

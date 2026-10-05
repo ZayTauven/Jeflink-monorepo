@@ -493,3 +493,30 @@ def charge_commission_on_close(booking, reason: str) -> None:
             "close_reason": commission.close_reason,
         },
     )
+
+
+# --- Règlements --------------------------------------------------------------------------------
+
+
+def record_settlement(*, intent, operator) -> LedgerTransaction:
+    """Écrit un règlement confirmé (appelé par ``payments.services``, jamais l'inverse) : fonds
+    reçus sur le compte du canal, dette du pro diminuée du montant réellement reçu. Un excédent
+    devient un avoir. Idempotent par intention."""
+    amount = _check_amount(intent.received_xof)
+    provider = intent.provider
+    return post_transaction(
+        kind=TransactionKind.SETTLEMENT,
+        lines=[
+            Line(
+                platform_account(AccountKind.PLATFORM_COLLECTIONS, intent.channel),
+                Side.DEBIT,
+                amount,
+            ),
+            Line(provider_account(provider), Side.CREDIT, amount),
+        ],
+        idempotency_key=f"settlement:{intent.public_id}",
+        actor=operator,
+        actor_kind=ActorKind.OPS,
+        provider=provider,
+        payment_intent=intent,
+    )

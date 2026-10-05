@@ -113,6 +113,12 @@ class PaymentIntent(BaseModel):
         verbose_name = "intention de paiement"
         verbose_name_plural = "intentions de paiement"
         ordering = ("created_at",)
+        permissions = [
+            (
+                "decide_paymentintent",
+                "Rapprochement : confirmer, renvoyer ou rejeter un règlement, en saisir un",
+            )
+        ]
         indexes = [
             models.Index(fields=("status", "created_at")),
             models.Index(fields=("provider", "status")),
