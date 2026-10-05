@@ -49,3 +49,8 @@ export function pageMetadata(seo: PageSeo): Metadata {
     ...(seo.indexable === false ? { robots: { index: false, follow: true } } : {}),
   };
 }
+
+/** URL absolue d'un chemin du site (JSON-LD, sitemap) à partir de l'origine publique. */
+export function absoluteUrl(origin: string, path: string): string {
+  return new URL(path, origin).toString();
+}
