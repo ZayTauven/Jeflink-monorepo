@@ -12,17 +12,23 @@ plateforme ne sont jamais verrouillés.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Sum
+from django.utils import timezone
 
+from jeflink.common.errors import DomainError
 from jeflink.common.pii import contains_pii
+from jeflink.trust.services import audit
 
 from .models import (
     PROVIDER_ACCOUNT_KINDS,
+    RATE_BPS_MAX,
     V1_ACCOUNT_KINDS,
     AccountKind,
     ActorKind,
+    CommissionRate,
     LedgerAccount,
     LedgerEntry,
     LedgerTransaction,
@@ -290,3 +296,87 @@ def reverse(
         reason_code=reason_code,
         note=note,
     )
+
+
+# --- Taux de commission ------------------------------------------------------------------------
+
+
+def check_rate(
+    *, trade, rate_bps: int, cap_xof: int | None, valid_from: datetime | None, note: str
+) -> None:
+    """Règles d'un nouveau taux, partagées par le service et le formulaire de l'admin.
+    ``valid_from`` nul : en vigueur tout de suite."""
+    if type(rate_bps) is not int or not 0 <= rate_bps <= RATE_BPS_MAX:
+        raise DomainError("rate_invalid")
+    if cap_xof is not None and (type(cap_xof) is not int or cap_xof <= 0):
+        raise DomainError("rate_cap_invalid")
+    if valid_from is not None and valid_from < timezone.now():
+        raise DomainError("rate_valid_from_past")
+    if len(note) > 200 or contains_pii(note):
+        raise DomainError("note_invalid")
+    if (
+        valid_from is not None
+        and CommissionRate.objects.filter(trade=trade, valid_from=valid_from).exists()
+    ):
+        raise DomainError("rate_duplicate", status=409)
+
+
+@transaction.atomic
+def add_rate(
+    *,
+    trade,
+    rate_bps: int,
+    cap_xof: int | None,
+    valid_from: datetime | None,
+    note: str,
+    operator,
+) -> CommissionRate:
+    """Ajoute un taux (jamais de modification ni de suppression). Sans date : en vigueur tout de
+    suite. Un taux déjà en vigueur ne change jamais une mission déjà devisée (ADR 0012)."""
+    check_rate(trade=trade, rate_bps=rate_bps, cap_xof=cap_xof, valid_from=valid_from, note=note)
+    immediate = valid_from is None
+    rate = CommissionRate.objects.create(
+        trade=trade,
+        rate_bps=rate_bps,
+        cap_xof=cap_xof,
+        valid_from=timezone.now() if immediate else valid_from,
+        note=note,
+        created_by=operator,
+    )
+    audit(
+        action="wallet.rate.added",
+        actor=operator,
+        target=rate,
+        metadata={
+            "trade": trade.slug if trade is not None else "",
+            "rate_bps": rate_bps,
+            "cap_xof": cap_xof,
+            "immediate": immediate,
+        },
+    )
+    return rate
+
+
+@transaction.atomic
+def seed_rates() -> int:
+    """Taux de lancement par métier (spec 005, Q1), chargés par ``seed_reference_data`` comme
+    les métiers : seulement pour un métier qui existe et n'a encore aucun taux. Renvoie le nombre
+    de taux créés."""
+    from jeflink.catalog.selectors import trade_by_slug
+
+    from .reference_data import LAUNCH_TRADE_RATES
+
+    created = 0
+    for data in LAUNCH_TRADE_RATES:
+        trade = trade_by_slug(data["trade"])
+        if trade is None or CommissionRate.objects.filter(trade=trade).exists():
+            continue
+        CommissionRate.objects.create(
+            trade=trade,
+            rate_bps=data["rate_bps"],
+            cap_xof=data["cap_xof"],
+            valid_from=timezone.now(),
+            note="Taux de lancement (spec 005)",
+        )
+        created += 1
+    return created

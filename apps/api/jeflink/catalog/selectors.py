@@ -28,6 +28,11 @@ def active_trade(slug: str) -> Trade:
     return trade
 
 
+def trade_by_slug(slug: str) -> Trade | None:
+    """Métier par son slug, actif ou non (données de référence des autres domaines)."""
+    return Trade.objects.filter(slug=slug).first()
+
+
 def trade_terms(trade: Trade) -> list[str]:
     return [trade.name_fr, trade.name_wo, trade.seo_title_fr, trade.slug, *trade.aliases]
 

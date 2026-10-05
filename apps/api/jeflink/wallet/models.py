@@ -167,3 +167,45 @@ class LedgerEntry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.side} {self.amount_xof}"
+
+
+RATE_BPS_MAX = 5_000  # 50 % : au-delà, c'est une erreur de saisie (points de base)
+
+
+class CommissionRate(BaseModel):
+    """Taux de commission, en ajout seul comme un journal (spec 005) : un nouveau taux remplace
+    l'ancien à sa date d'effet. ``trade`` nul : taux par défaut. Le taux en vigueur à l'envoi du
+    devis s'applique (ADR 0012). Immuable jusqu'en base."""
+
+    trade = models.ForeignKey(
+        "catalog.Trade", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    rate_bps = models.PositiveIntegerField("taux (points de base)")
+    cap_xof = models.PositiveBigIntegerField("plafond par mission (F CFA)", null=True, blank=True)
+    valid_from = models.DateTimeField("en vigueur à partir de")
+    note = models.CharField(max_length=200, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "taux de commission"
+        verbose_name_plural = "taux de commission"
+        ordering = ("-valid_from",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("trade", "valid_from"),
+                name="commissionrate_unique_trade_valid_from",
+                nulls_distinct=False,
+            ),
+            models.CheckConstraint(
+                condition=Q(rate_bps__lte=RATE_BPS_MAX), name="commissionrate_rate_bps_max"
+            ),
+            models.CheckConstraint(
+                condition=Q(cap_xof__isnull=True) | Q(cap_xof__gt=0),
+                name="commissionrate_cap_positive",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.rate_bps} pb · {self.trade_id or 'défaut'} · {self.valid_from:%Y-%m-%d}"

@@ -2,12 +2,32 @@
 Une erreur se corrige par une contre-passation (actions de la tâche 6), jamais par une édition.
 La note de l'Ops est visible ici seulement."""
 
+from django import forms
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 from django.db.models import BigIntegerField, Case, F, QuerySet, Sum, When
 from django.db.models.functions import Coalesce
 from django.http import HttpRequest
 
-from .models import CREDIT_NORMAL_KINDS, LedgerAccount, LedgerEntry, LedgerTransaction, Side
+from jeflink.common.errors import DomainError
+
+from .models import (
+    CREDIT_NORMAL_KINDS,
+    CommissionRate,
+    LedgerAccount,
+    LedgerEntry,
+    LedgerTransaction,
+    Side,
+)
+from .services import add_rate, check_rate
+
+RATE_ERRORS = {
+    "rate_invalid": "Taux en points de base, de 0 à 5 000 (1 000 = 10 %).",
+    "rate_cap_invalid": "Le plafond est un montant positif, ou vide pour aucun plafond.",
+    "rate_valid_from_past": "La date d'effet ne peut pas être dans le passé.",
+    "note_invalid": "Note de 200 caractères au plus, sans numéro de téléphone.",
+    "rate_duplicate": "Un taux existe déjà pour ce métier à cette date d'effet.",
+}
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
@@ -73,3 +93,66 @@ class LedgerAccountAdmin(ReadOnlyAdmin):
     @admin.display(description="Solde (F CFA)")
     def balance_xof(self, account: LedgerAccount) -> int:
         return -account.net_xof if account.kind in CREDIT_NORMAL_KINDS else account.net_xof
+
+
+class CommissionRateForm(forms.ModelForm):
+    valid_from = forms.DateTimeField(
+        label="En vigueur à partir de",
+        required=False,
+        help_text="Vide : tout de suite. Jamais dans le passé.",
+    )
+
+    class Meta:
+        model = CommissionRate
+        fields = ("trade", "rate_bps", "cap_xof", "valid_from", "note")
+        help_texts = {
+            "trade": "Vide : taux par défaut, pour les métiers sans taux propre.",
+            "rate_bps": "1 000 = 10 %. Le taux en vigueur à l'envoi du devis s'applique.",
+        }
+
+    def clean(self):
+        data = super().clean()
+        if self.errors:
+            return data
+        try:
+            check_rate(
+                trade=data.get("trade"),
+                rate_bps=data["rate_bps"],
+                cap_xof=data.get("cap_xof"),
+                valid_from=data.get("valid_from"),
+                note=data.get("note", ""),
+            )
+        except DomainError as exc:
+            raise ValidationError(RATE_ERRORS.get(exc.code, exc.code)) from exc
+        return data
+
+
+@admin.register(CommissionRate)
+class CommissionRateAdmin(admin.ModelAdmin):
+    """Taux en ajout seul : on ajoute un taux qui remplace l'ancien à sa date d'effet."""
+
+    form = CommissionRateForm
+    list_display = ("valid_from", "trade", "rate_bps", "cap_xof", "created_by")
+    list_filter = ("trade",)
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[CommissionRate]:
+        return super().get_queryset(request).select_related("trade", "created_by")
+
+    def has_change_permission(self, request: HttpRequest, obj=None) -> bool:
+        return False
+
+    def has_delete_permission(self, request: HttpRequest, obj=None) -> bool:
+        return False
+
+    def save_model(self, request: HttpRequest, obj: CommissionRate, form, change: bool) -> None:
+        rate = add_rate(
+            trade=obj.trade,
+            rate_bps=obj.rate_bps,
+            cap_xof=obj.cap_xof,
+            valid_from=form.cleaned_data.get("valid_from"),
+            note=obj.note,
+            operator=request.user,
+        )
+        # L'admin poursuit avec ``obj`` (journal, redirection) : il devient la ligne créée.
+        obj.pk, obj.public_id, obj.valid_from = rate.pk, rate.public_id, rate.valid_from
+        obj._state.adding = False

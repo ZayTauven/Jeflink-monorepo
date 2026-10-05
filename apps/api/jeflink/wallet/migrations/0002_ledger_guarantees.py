@@ -2,7 +2,8 @@
 
 - Immuabilité : PostgreSQL refuse toute mise à jour et toute suppression d'une transaction ou
   d'une ligne. Une erreur se corrige par une contre-passation. TRUNCATE (flush des tests) n'est
-  pas concerné par un trigger de ligne.
+  pas concerné par un trigger de ligne ; une réécriture à l'identique (rechargement des données
+  par ``serialized_rollback``) est permise, puisqu'elle ne change rien.
 - Équilibre : un trigger de contrainte différé vérifie au commit que chaque transaction écrite
   compte au moins deux lignes et que ses débits égalent ses crédits, même si l'écriture vient
   d'un script ou de SQL brut. ``post_transaction`` force la vérification avant de rendre la main
@@ -14,6 +15,10 @@ from django.db import migrations
 FORWARD = """
 CREATE OR REPLACE FUNCTION wallet_ledger_immutable() RETURNS trigger AS $$
 BEGIN
+    -- Une réécriture à l'identique ne change rien (rechargement des données de test).
+    IF TG_OP = 'UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN
+        RETURN NEW;
+    END IF;
     RAISE EXCEPTION '% est immuable (%)', TG_TABLE_NAME, TG_OP;
 END;
 $$ LANGUAGE plpgsql;
