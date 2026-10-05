@@ -3,9 +3,9 @@
 // publique (Client Component). Libellé visible et exemple ; le texte tapé reste dans la requête.
 import { Button } from "@/components/ui/button";
 import { SITE_PATHS } from "@/lib/site/paths";
+import { ZONE_QUERY_MAX_LENGTH } from "@/lib/site/zone-query";
 
-/** Longueur maximale du texte tapé ; `/recherche` la revérifie côté serveur. */
-export const ZONE_QUERY_MAX_LENGTH = 40;
+export { ZONE_QUERY_MAX_LENGTH };
 
 export type ZoneSearchLabels = { label: string; example: string; submit: string };
 

@@ -1042,7 +1042,8 @@
       "closedText": "Voici les métiers ouverts dans ce quartier.",
       "whatsapp": "Dites-nous où vous êtes",
       "whatsappMessage": "Bonjour, je cherche un pro. Mon quartier n'a pas de page.",
-      "backToTrade": "Revenir au métier"
+      "backToTrade": "Revenir au métier",
+    "tradeChoiceTitle": "Quel métier {where} ?"
     }
   }
 }
