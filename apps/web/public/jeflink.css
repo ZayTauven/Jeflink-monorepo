@@ -1,0 +1,202 @@
+/* Ajouts Jeflink au template Crafto « Marketing strategy ». Chargé après les CSS Crafto.
+   Règle : réutiliser les classes utilitaires Crafto d'abord ; n'ajouter ici que ce qui manque. */
+
+/* Logo (provisoire, d'après le concept) */
+.jeflink-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dark-gray);
+  line-height: 1;
+}
+.jeflink-logo-mark {
+  width: 46px;
+  height: auto;
+  flex-shrink: 0;
+}
+.jeflink-logo-word {
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -1px;
+}
+.footer-logo .jeflink-logo,
+.footer-dark .jeflink-logo {
+  color: #fff;
+}
+.jeflink-logo-xl {
+  gap: 2vw;
+}
+.jeflink-logo-xl .jeflink-logo-mark {
+  width: 11vw;
+  max-width: 190px;
+}
+.jeflink-logo-xl .jeflink-logo-word {
+  font-size: min(9vw, 150px);
+  letter-spacing: -0.04em;
+}
+
+/* Statut d'une demande */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  text-transform: uppercase;
+  padding: 6px 16px;
+  border-radius: 50px;
+  white-space: nowrap;
+}
+.status-open {
+  background: #fff1e8;
+  color: #b33c00;
+}
+.status-booked {
+  background: #e7f0ff;
+  color: #1f4fa8;
+}
+.status-done {
+  background: #e6f5ec;
+  color: #1d6b3a;
+}
+.status-cancelled {
+  background: #eeeeee;
+  color: #5a5a5a;
+}
+
+/* Formulaires de l'espace (style du formulaire de contact Crafto) */
+.jf-form label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dark-gray);
+  margin-bottom: 6px;
+}
+.jf-form .form-control,
+.jf-form select.form-control {
+  border-radius: 6px;
+}
+.jf-form .is-invalid {
+  border-color: #dc3545 !important;
+}
+.jf-form .hint {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--medium-gray);
+  margin-top: 6px;
+}
+.jf-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.jf-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 50px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 400;
+}
+.jf-checks label span {
+  white-space: nowrap;
+}
+/* Crafto donne aux input une largeur, un rembourrage et un display de champ texte : on les
+   remet à l'état de vraie case à cocher. */
+.jf-checks input[type="checkbox"] {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  accent-color: var(--base-color);
+}
+.jf-checks label:has(input:checked) {
+  border-color: var(--base-color);
+  background: #fff1e8;
+}
+.jf-checks label:has(input:focus-visible) {
+  outline: 2px solid var(--base-color);
+  outline-offset: 2px;
+}
+.jf-form button[disabled],
+.jf-form fieldset[disabled] .btn {
+  opacity: 0.6;
+}
+
+/* Note en étoiles */
+.jf-stars {
+  color: var(--base-color);
+  letter-spacing: 2px;
+}
+.jf-rating-input {
+  position: relative;
+  display: inline-flex;
+  flex-direction: row-reverse;
+  gap: 4px;
+}
+/* Radios masqués mais focusables ; seul le clic sur l'étoile (label) compte. */
+.jf-rating-input input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.jf-rating-input label {
+  font-size: 30px;
+  line-height: 1;
+  color: #d0d0d0;
+  cursor: pointer;
+  margin: 0;
+}
+.jf-rating-input input:checked ~ label,
+.jf-rating-input label:hover,
+.jf-rating-input label:hover ~ label {
+  color: var(--base-color);
+}
+.jf-rating-input input:focus-visible + label {
+  outline: 2px solid var(--base-color);
+  outline-offset: 2px;
+}
+
+/* Historique d'une demande */
+.jf-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.jf-timeline li {
+  position: relative;
+  padding: 0 0 18px 26px;
+}
+.jf-timeline li::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 7px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--base-color);
+}
+.jf-timeline li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 18px;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.15);
+}
