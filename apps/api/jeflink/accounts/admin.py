@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import ProProfile, User
+from .models import ContactMessage, ProProfile, User
 
 
 class ProProfileInline(admin.StackedInline):
@@ -37,3 +37,11 @@ class ProProfileAdmin(admin.ModelAdmin):
     list_filter = ["is_verified", "trades"]
     filter_horizontal = ["trades", "zones"]
     search_fields = ["user__email", "user__first_name", "user__last_name"]
+
+
+@admin.register(ContactMessage)
+class ContactMessageAdmin(admin.ModelAdmin):
+    list_display = ["name", "email", "created_at", "is_handled"]
+    list_editable = ["is_handled"]
+    list_filter = ["is_handled"]
+    readonly_fields = ["name", "email", "message", "created_at"]

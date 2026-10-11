@@ -116,3 +116,21 @@ class ProProfile(models.Model):
             avg=Avg("rating"), n=Count("id")
         )
         return {"average": round(agg["avg"], 1) if agg["avg"] else None, "count": agg["n"]}
+
+
+class ContactMessage(models.Model):
+    """Message envoyé depuis la page Contact du site, lu par l'équipe dans l'admin."""
+
+    name = models.CharField("nom", max_length=120)
+    email = models.EmailField()
+    message = models.TextField()
+    is_handled = models.BooleanField("traité", default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "message de contact"
+        verbose_name_plural = "messages de contact"
+
+    def __str__(self):
+        return f"{self.name} — {self.created_at:%d/%m/%Y}"

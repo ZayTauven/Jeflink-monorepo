@@ -76,6 +76,28 @@ class PublicProSerializer(serializers.ModelSerializer):
         return profile.user.missions.filter(status=ServiceRequest.Status.DONE).count()
 
 
+class PublicReviewSerializer(serializers.ModelSerializer):
+    author = serializers.CharField(source="request.client.public_name")
+    pro = serializers.CharField(source="request.pro.public_name")
+    trade = serializers.CharField(source="request.trade.name")
+
+    class Meta:
+        model = Review
+        fields = ["rating", "comment", "author", "pro", "trade", "created_at"]
+
+
+class ReviewList(generics.ListAPIView):
+    """Derniers avis avec commentaire (vitrine)."""
+
+    permission_classes = [AllowAny]
+    serializer_class = PublicReviewSerializer
+    queryset = (
+        Review.objects.exclude(comment="")
+        .select_related("request__client", "request__pro", "request__trade")
+        .order_by("-created_at")[:6]
+    )
+
+
 class TradeList(generics.ListAPIView):
     permission_classes = [AllowAny]
     serializer_class = TradeSerializer

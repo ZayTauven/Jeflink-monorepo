@@ -1,9 +1,0 @@
-{
-  "extends": "@jeflink/config/tsconfig/base.json",
-  "compilerOptions": {
-    "lib": ["ES2022", "DOM"],
-    "jsx": "react-jsx",
-    "erasableSyntaxOnly": true
-  },
-  "include": ["src", "orval.config.ts"]
-}

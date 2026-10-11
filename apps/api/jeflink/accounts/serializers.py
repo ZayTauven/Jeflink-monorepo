@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from jeflink.catalog.models import Trade, Zone
 
-from .models import ProProfile, User, normalize_phone
+from .models import ContactMessage, ProProfile, User, normalize_phone
 
 
 class ProProfileSerializer(serializers.ModelSerializer):
@@ -97,3 +97,9 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Email ou mot de passe incorrect.")
         attrs["user"] = user
         return attrs
+
+
+class ContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactMessage
+        fields = ["name", "email", "message"]

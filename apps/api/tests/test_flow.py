@@ -134,3 +134,13 @@ def test_un_pro_ne_publie_pas_de_demande(catalog):
         format="json",
     )
     assert res.status_code == 403
+
+
+def test_contact_et_avis_publics(catalog):
+    res = APIClient().post(
+        "/api/auth/contact/",
+        {"name": "Awa", "email": "awa@example.com", "message": "Bonjour"},
+        format="json",
+    )
+    assert res.status_code == 201
+    assert APIClient().get("/api/reviews/").status_code == 200
