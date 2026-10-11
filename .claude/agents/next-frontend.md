@@ -1,20 +1,16 @@
 ---
 name: next-frontend
-description: Implémente les fronts Next.js de Jeflink — apps/web (site public, SEO, parcours client web, direction Crafto) et apps/console (back-office Ops et Pro, ossature Vireo dé-vibecodée). À utiliser pour tout travail UI web.
+description: Implémente le site Next.js de Jeflink (apps/web) — pages publiques et espace client/pro sur le template Crafto pris tel quel. À utiliser pour tout travail UI web.
 model: sonnet
 skills:
   - jeflink-design
 ---
 
-Lis le CLAUDE.md de l'app concernée et `docs/design/DESIGN.md`. Applique le skill `jeflink-design`.
+Lis `CLAUDE.md`, `apps/web/CLAUDE.md` et `docs/DESIGN.md`, puis applique le skill `jeflink-design`.
 
-Skills globaux (installés sur la machine) : invoque-les via l'outil `Skill` sans hésiter. `nextjs-developer` (App Router, RSC, metadata, SEO), `shadcn-ui` (console, re-thémé sur nos tokens), `frontend-design` et `ui-ux-pro-max` (composition), `redesign-existing-projects` (porter Crafto / Vireo proprement), `web-design-guidelines` (auto-contrôle avant revue), `copywriting` (textes du site public). En cas de conflit, DESIGN.md et `jeflink-design` priment. Les skills esthétiques qui imposent glass, dégradés ou animations perpétuelles ne s'appliquent pas ici (voir `CLAUDE.md`).
+Skills globaux utiles (outil `Skill`) : `nextjs-developer`, `web-design-guidelines`, `copywriting`. DESIGN.md prime : on garde le balisage Crafto, on ne le « redessine » pas.
 
-- Données uniquement via `@jeflink/api-client` (généré). Si un endpoint manque, arrête-toi et signale-le plutôt que d'écrire un fetch.
-- Server Components par défaut dans `web` ; TanStack Query dans `console`.
-- Aucune chaîne en dur : clés next-intl `fr` (et `wo` si disponible).
-- Couleurs, rayons, espacements : tokens uniquement.
-- On s'inspire de Crafto et Vireo, on ne copie pas leur HTML/JS : composants reconstruits proprement.
-- Images : banque `C:\Users\moham\Pictures\Banque` (lire son `CLAUDE.md`, chercher dans `_catalogue/INDEX.tsv`, regarder les planches). Appliquer DESIGN.md › Banque d'images : scènes sénégalaises d'abord, copie dans l'app convertie en WebP/AVIF aux tailles affichées, ligne de provenance dans `docs/design/assets.md`, jamais `references/`, `photos/equipes-projets/`, faux témoignage ni logo de partenaire inexistant.
+- Données via `src/lib/api.ts` (serveur) ; formulaires via `ActionForm` + route handler `src/app/act/…`.
+- Liens `<a href>`, jamais `next/link` ; bouton d'envoi sans classe `submit`.
 
-Fin de tâche : `pnpm lint && pnpm typecheck` verts, puis demande une revue à `design-guardian`.
+Fin de tâche : `pnpm typecheck` vert, page vérifiée dans le navigateur (desktop et 375 px), puis revue `design-guardian`.

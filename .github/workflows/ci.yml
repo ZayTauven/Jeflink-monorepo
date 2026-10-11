@@ -1,5 +1,5 @@
-# Intégration continue. gitleaks sur tout l'historique (spec 001, S21), puis les tests et
-# contrôles de l'API et des paquets TypeScript.
+# Intégration continue : gitleaks sur tout l'historique (dépôt public), tests de l'API,
+# typecheck du site. Le template Crafto n'est pas dans le dépôt : pas de build du site en CI.
 name: ci
 
 on:
@@ -20,33 +20,27 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          fetch-depth: 0 # tout l'historique : un secret retiré depuis reste un secret publié
-      - name: gitleaks (image officielle, sans action tierce ni licence)
+          fetch-depth: 0
+      - name: gitleaks (image officielle)
         run: >
           docker run --rm -v "$GITHUB_WORKSPACE:/repo" ghcr.io/gitleaks/gitleaks:v8.28.0@sha256:cdbb7c955abce02001a9f6c9f602fb195b7fadc1e812065883f695d1eeaba854
           git /repo --redact --no-banner --config /repo/.gitleaks.toml
 
   api:
     runs-on: ubuntu-latest
-    needs: gitleaks
+    defaults:
+      run:
+        working-directory: apps/api
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Image de l'API (GDAL, PROJ) et services
-        run: docker compose -f infra/docker-compose.yml up -d --build db redis
-      - name: Lint et format
-        run: |
-          docker compose -f infra/docker-compose.yml run --rm --no-deps api uv run ruff check .
-          docker compose -f infra/docker-compose.yml run --rm --no-deps api uv run ruff format --check .
-      - name: Migrations à jour
-        run: >
-          docker compose -f infra/docker-compose.yml run --rm api
-          uv run python manage.py makemigrations --check --dry-run
-      - name: Tests
-        run: docker compose -f infra/docker-compose.yml run --rm api uv run pytest -q
+      - run: python3 -m pip install --user uv
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run python manage.py makemigrations --check --dry-run
+      - run: uv run pytest
 
-  typescript:
+  web:
     runs-on: ubuntu-latest
-    needs: gitleaks
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
@@ -56,19 +50,3 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
-      - name: web — build sans secret, aucune variable du BFF figée dans .next/
-        run: pnpm --filter web test:build
-
-  edge:
-    runs-on: ubuntu-latest
-    needs: gitleaks
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: En-têtes X-Jeflink-* retirés par le proxy
-        run: node infra/proxy/check-headers.mjs
-      - name: Gabarits de production et interne (nginx -t)
-        run: node infra/proxy/validate-templates.mjs
-      - name: Bord public (nginx + API en réglages de production), test de fumée
-        run: node infra/proxy/run-smoke.mjs

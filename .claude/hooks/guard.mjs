@@ -13,8 +13,10 @@ function refuse(message) {
 
 // Les .env* sont lisibles et modifiables par Claude (décision Zay, 2026-09-30) ; leur contenu
 // n'est jamais exposé ni recopié ailleurs : voir « Secrets » dans CLAUDE.md.
-if (rel.startsWith("packages/api-client/src/generated/")) {
-  refuse("client généré. Modifie l'API Django puis lance 'make openapi'.");
+if (rel.startsWith("apps/web/public/crafto/")) {
+  refuse(
+    "copie du template Crafto, régénérée par scripts/sync-crafto.mjs. Mets tes ajouts dans apps/web/public/jeflink.css.",
+  );
 }
 if (rel.startsWith("references/")) {
   refuse(

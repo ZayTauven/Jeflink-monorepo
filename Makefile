@@ -1,23 +1,16 @@
-COMPOSE = docker compose -f infra/docker-compose.yml
-API     = $(COMPOSE) exec api uv run
+API = uv run --directory apps/api
 
-.PHONY: up down logs migrate makemigrations api-test openapi shell seed demo bucket
+.PHONY: install api web demo demo-reset test admin
 
-up:
-	$(COMPOSE) up -d --build
-	-@sleep 5; $(MAKE) --no-print-directory bucket
-down:          ; $(COMPOSE) down
-logs:          ; $(COMPOSE) logs -f api worker
-migrate:       ; $(API) python manage.py migrate
-makemigrations:; $(API) python manage.py makemigrations
-api-test:      ; $(API) pytest -q
-shell:         ; $(API) python manage.py shell
-seed:          ; $(API) python manage.py seed_reference_data
-# Local seulement : crée le bucket de photos (SeaweedFS), sans effet s'il existe déjà (ADR 0011).
-bucket:        ; $(API) python manage.py ensure_bucket
-# Local seulement : catalogue, zones et taux, 3 pros de démonstration vérifiés (spec 003),
-# canaux de règlement factices (spec 005).
-demo:          ; $(API) python manage.py seed_reference_data && $(API) python manage.py seed_demo_pros && $(API) python manage.py seed_settlement_channels
-openapi:
-	$(API) python manage.py spectacular --file schema.yaml
-	pnpm --filter @jeflink/api-client generate
+# Dépendances Python (uv) et JS (pnpm), base SQLite à jour.
+install:
+	$(API) python manage.py migrate
+	pnpm install
+
+api:        ; $(API) python manage.py runserver 8000
+web:        ; pnpm dev
+test:       ; $(API) pytest
+# Métiers, quartiers, comptes de démo et demandes à chaque étape (mot de passe : voir README).
+demo:       ; $(API) python manage.py migrate && $(API) python manage.py seed_demo
+demo-reset: ; $(API) python manage.py seed_demo --reset
+admin:      ; $(API) python manage.py createsuperuser
