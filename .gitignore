@@ -16,4 +16,7 @@ references/
 .pytest_cache/
 .ruff_cache/
 apps/api/staticfiles/
-celerybeat-schedule*
+apps/api/db.sqlite3
+
+# Copie locale du template Crafto (licence Envato) : générée par `pnpm --filter web crafto`
+apps/web/public/crafto/

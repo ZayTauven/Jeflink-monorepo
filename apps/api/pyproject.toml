@@ -1,41 +1,27 @@
 [project]
 name = "jeflink-api"
-version = "0.0.0"
+version = "0.1.0"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-  "django>=5.2.17,<5.3",
+  "django>=5.2.7,<5.3",
   "djangorestframework>=3.16",
   "drf-spectacular>=0.28",
-  "django-environ>=0.12",
-  "psycopg[binary]>=3.2",
-  "celery[redis]>=5.5",
-  "phonenumbers>=9.0",
-  "pyotp>=2.9",
-  "redis>=5.2",
-  "cryptography>=44",
-  "pyjwt>=2.10",
-  "uvicorn[standard]>=0.34",
-  "django-storages[s3]>=1.14",
-  "pillow>=11",
 ]
 
 [dependency-groups]
 dev = [
   "pytest>=8.3",
   "pytest-django>=4.10",
-  "factory-boy>=3.3",
   "ruff>=0.11",
-  "pytest-factoryboy>=2.7",
 ]
 
 [tool.uv]
 package = false
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "jeflink.settings.test"
+DJANGO_SETTINGS_MODULE = "jeflink.settings"
 python_files = ["test_*.py"]
-# --ds prime sur DJANGO_SETTINGS_MODULE, que docker-compose fixe à « local ».
-addopts = "-q --ds=jeflink.settings.test"
+addopts = "-q"
 
 [tool.ruff]
 line-length = 100
@@ -43,13 +29,5 @@ target-version = "py313"
 extend-exclude = ["**/migrations/*"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "DJ", "S", "SIM", "RUF"]
-ignore = ["RUF012"]
-
-[tool.ruff.lint.per-file-ignores]
-"**/tests/*" = ["S101", "S105", "S106"]
-# Homoglyphes volontaires : c'est ce que le validateur de noms doit reconnaître (S26).
-"jeflink/accounts/validators.py" = ["RUF001"]
-"jeflink/accounts/tests/test_phone.py" = ["RUF001"]
-"jeflink/settings/local.py" = ["S105"]
-"jeflink/settings/test.py" = ["S105"]
+select = ["E", "F", "W", "I", "UP", "B", "DJ", "SIM"]
+ignore = ["DJ001"]

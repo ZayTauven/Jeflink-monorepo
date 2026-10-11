@@ -1,135 +1,48 @@
-"""Métiers et services (spec 002) : des données saisies par l'Ops, jamais des ``choices``.
-
-Libellés traduisibles en colonnes ``_fr`` (obligatoire) et ``_wo`` (vide permis), ADR 0009.
-"""
-
-import json
-from pathlib import Path
-
-from django.contrib.postgres.fields import ArrayField
-from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
-
-from jeflink.common.models import BaseModel
-from jeflink.common.slugs import slug_check, validate_reference_slug
-from jeflink.common.validators import validate_public_text
-
-ALIAS_MAX_LENGTH = 40
-SEO_INTRO_MAX_LENGTH = 600
-
-RESERVED_SLUGS_FILE = Path(__file__).with_name("reserved_slugs.json")
 
 
-def _load_reserved_slugs() -> tuple[frozenset[str], frozenset[str]]:
-    data = json.loads(RESERVED_SLUGS_FILE.read_text(encoding="utf-8"))
-    return frozenset(data["trade_slugs"]), frozenset(data["zone_slugs"])
+class Trade(models.Model):
+    """Un métier (plomberie, électricité…). Donnée administrée, jamais une liste en dur."""
 
-
-# Fichier JSON partagé avec le web (spec 006, ADR 0013) : le premier segment des URL du site
-# public est réservé à ses pages et aux fichiers de Next ; le second, aux fichiers de Next.
-RESERVED_TRADE_SLUGS, RESERVED_ZONE_SLUGS = _load_reserved_slugs()
-
-
-def aliases_field() -> ArrayField:
-    """Mots des clients, sans langue (un terme wolof validé s'y ajoute par saisie)."""
-    return ArrayField(
-        models.CharField(max_length=ALIAS_MAX_LENGTH, validators=[validate_public_text]),
-        default=list,
-        blank=True,
-        help_text="Séparés par des virgules : « frigoriste, clim ».",
+    slug = models.SlugField(unique=True)
+    name = models.CharField("nom", max_length=80)
+    tagline = models.CharField("résumé", max_length=180, blank=True)
+    description = models.TextField(blank=True)
+    services = models.JSONField(
+        "prestations courantes", default=list, blank=True, help_text='Liste JSON : ["Fuite", …]'
     )
-
-
-class Trade(BaseModel):
-    """Métier : plomberie, électricité… Désactivé plutôt que supprimé."""
-
-    slug = models.CharField(
-        max_length=50,
-        unique=True,
-        validators=[validate_reference_slug],
-        help_text="Identifiant de l'URL (/plombier/ouakam). Figé après création.",
+    starting_price = models.PositiveIntegerField(
+        "à partir de (F CFA)", null=True, blank=True, help_text="Entier en F CFA, sans décimales."
     )
-    name_fr = models.CharField("nom (fr)", max_length=60, validators=[validate_public_text])
-    name_wo = models.CharField(
-        "nom (wo)", max_length=60, blank=True, validators=[validate_public_text]
+    icon = models.CharField(
+        "icône", max_length=40, blank=True, help_text="Classe Bootstrap Icons, ex. bi-droplet"
     )
-    short_description_fr = models.CharField(
-        "description courte (fr)", max_length=160, blank=True, validators=[validate_public_text]
+    image = models.CharField(
+        "image", max_length=200, blank=True, help_text="Chemin d'image servi par le site web."
     )
-    short_description_wo = models.CharField(
-        "description courte (wo)", max_length=160, blank=True, validators=[validate_public_text]
-    )
-    seo_title_fr = models.CharField(
-        "titre SEO (fr)",
-        max_length=70,
-        blank=True,
-        validators=[validate_public_text],
-        help_text="H1 et titre de page ; sinon le nom.",
-    )
-    seo_title_wo = models.CharField(
-        "titre SEO (wo)", max_length=70, blank=True, validators=[validate_public_text]
-    )
-    seo_intro_fr = models.CharField(
-        "texte de la page métier (fr)",
-        max_length=SEO_INTRO_MAX_LENGTH,
-        blank=True,
-        validators=[validate_public_text],
-        help_text="Publié tel quel : ni numéro de téléphone, ni lien.",
-    )
-    seo_intro_wo = models.CharField(
-        "texte de la page métier (wo)",
-        max_length=SEO_INTRO_MAX_LENGTH,
-        blank=True,
-        validators=[validate_public_text],
-    )
-    aliases = aliases_field()
-    icon_key = models.CharField("pictogramme", max_length=40, blank=True)
+    position = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField("actif", default=True)
-    position = models.PositiveSmallIntegerField(default=100)
 
     class Meta:
+        ordering = ["position", "name"]
         verbose_name = "métier"
-        ordering = ("position", "name_fr")
-        constraints = [
-            models.CheckConstraint(condition=slug_check(), name="trade_slug_format"),
-            models.CheckConstraint(condition=~Q(name_fr=""), name="trade_name_fr_required"),
-        ]
 
-    def __str__(self) -> str:
-        return self.name_fr
-
-    def clean(self) -> None:
-        if self.slug in RESERVED_TRADE_SLUGS:
-            raise ValidationError({"slug": ValidationError("slug réservé", code="slug_reserved")})
+    def __str__(self):
+        return self.name
 
 
-class Service(BaseModel):
-    """Ce qu'on fait dans un métier (« débouchage »), avec un prix de départ indicatif."""
+class Zone(models.Model):
+    """Un quartier ou une commune desservie."""
 
-    trade = models.ForeignKey(Trade, on_delete=models.PROTECT, related_name="services")
-    slug = models.CharField(max_length=50, validators=[validate_reference_slug])
-    name_fr = models.CharField("nom (fr)", max_length=80, validators=[validate_public_text])
-    name_wo = models.CharField(
-        "nom (wo)", max_length=80, blank=True, validators=[validate_public_text]
-    )
-    aliases = aliases_field()
-    # Entier XOF ; jamais une fourchette, jamais transmis à l'IA pour être restitué (spec 002).
-    price_from_xof = models.PositiveBigIntegerField("à partir de (XOF)", null=True, blank=True)
-    urgent = models.BooleanField(
-        default=False, help_text="Fuite, panne de courant, frigo en panne."
-    )
+    slug = models.SlugField(unique=True)
+    name = models.CharField("nom", max_length=80)
+    city = models.CharField("ville", max_length=80, default="Dakar")
+    position = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField("actif", default=True)
-    position = models.PositiveSmallIntegerField(default=100)
 
     class Meta:
-        verbose_name = "service"
-        ordering = ("position", "name_fr")
-        constraints = [
-            models.UniqueConstraint(fields=("trade", "slug"), name="service_slug_unique_per_trade"),
-            models.CheckConstraint(condition=slug_check(), name="service_slug_format"),
-            models.CheckConstraint(condition=~Q(name_fr=""), name="service_name_fr_required"),
-        ]
+        ordering = ["position", "name"]
+        verbose_name = "quartier"
 
-    def __str__(self) -> str:
-        return self.name_fr
+    def __str__(self):
+        return self.name
