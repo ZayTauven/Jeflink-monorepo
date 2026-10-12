@@ -36,6 +36,8 @@ La boule blanche animée de Crafto est une vidéo non livrée avec le template. 
 - **Visuels d'ambiance** (abstraits sombres ou clairs) : gardés quand ils servent le récit.
 - **Photos de personnes et de métiers** : remplacées par les images Jeflink (`references/assets-originaux`), produites par `apps/web/scripts/build-images.py` dans `apps/web/public/images/` (WebP aux tailles du template, provenance ligne par ligne dans `PLAN`). Les photos phares reçoivent le traitement « anneaux orange » du template (fonction `anneaux`).
 - Exception voulue par Zay : la page Contact garde pour l'instant ses photos Crafto.
+- **Cartes empilées de l'accueil** : rendus Gemini générés d'après nos prompts (objet unique, studio sombre, accent orange), recomposés par `carte()` dans `build-images.py` (sujet à droite, fondu et voile à gauche pour le texte blanc). Les shootings photo réels et la DA définitive les remplaceront.
+- **Cartes métier claires** : dégradé sombre en bas (`bas()`) pour la lisibilité du titre blanc.
 
 ## Mobile et poids
 

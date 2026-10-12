@@ -26,19 +26,19 @@ const PROMISES = [
     tags: ["Vérifié", "Noté", "Proche"],
     title: "Le bon pro, près de chez vous.",
     text: "Chaque pro est contrôlé par l'équipe Jeflink avant sa première mission, puis noté par ses clients après chacune.",
-    image: opt(`${IMG}-03.jpg`),
+    image: "/images/accueil/carte-1.webp",
   },
   {
     tags: ["Devis", "F CFA", "Sans surprise"],
     title: "Au bon prix, fixé avant de commencer.",
     text: "Jusqu'à trois devis par demande, en francs CFA, à comparer tranquillement. Le prix ne change pas sur place.",
-    image: opt(`${IMG}-04.jpg`),
+    image: "/images/accueil/carte-2.webp",
   },
   {
     tags: ["Suivi", "Avis", "Recours"],
     title: "Travail garanti, du devis à l'avis.",
     text: "Chaque étape est tracée dans votre espace. Un souci après l'intervention ? L'équipe Jeflink fait le lien avec le pro.",
-    image: opt(`${IMG}-05.jpg`),
+    image: "/images/accueil/carte-3.webp",
   },
 ];
 
@@ -152,7 +152,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div
-            className="row align-items-center justify-content-center justify-content-md-between g-0 position-relative z-index-1 border-top border-color-dark-gray jf-hero-split pt-60px sm-pt-40px"
+            className="row align-items-center justify-content-center justify-content-md-between g-0 position-relative z-index-1 jf-hero-split pt-60px sm-pt-40px"
             data-anime={fadeUp(1800)}
           >
             <div className="col-sm-8 col-md-7 col-lg-6 col-xl-5 col-xxl-4 sm-mb-30px">

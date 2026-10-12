@@ -8,7 +8,7 @@ template Crafto pour ne rien changer à la mise en page.
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 ROOT = Path(__file__).resolve().parents[3]
 SRC = ROOT / "references" / "assets-originaux"
@@ -61,10 +61,10 @@ PLAN = [
     ("metiers/titre.webp", ji(93), (1163, 700), (0.5, 0.5), None),
     ("metiers/plomberie.webp", ji(68), (865, 800), (0.5, 0.5), None),
     ("metiers/electricite.webp", ji(53), (865, 800), (0.45, 0.5), None),
-    ("metiers/climatisation.webp", ji(66), (865, 800), (0.6, 0.35), None),
-    ("metiers/electromenager.webp", ji(91), (865, 800), (0.5, 0.5), None),
-    ("metiers/menage.webp", ji(69), (865, 800), (0.45, 0.55), None),
-    ("metiers/petits-travaux.webp", ji(58), (865, 800), (0.5, 0.5), None),
+    ("metiers/climatisation.webp", ji(66), (865, 800), (0.6, 0.35), "bas"),
+    ("metiers/electromenager.webp", SRC / "Modern Laundry Room.png", (865, 800), (0.5, 0.5), "bas"),
+    ("metiers/menage.webp", SRC / "Cleaning in Action.png", (865, 800), (0.62, 0.5), "bas"),
+    ("metiers/petits-travaux.webp", ji(58), (865, 800), (0.5, 0.5), "bas"),
 ]
 
 
@@ -118,6 +118,63 @@ def anneaux(img: Image.Image) -> Image.Image:
     return img.convert("RGB")
 
 
+def bas(img: Image.Image) -> Image.Image:
+    """Dégradé sombre en bas de l'image, sous le titre et le texte blancs des cartes métier."""
+    w, h = img.size
+    ramp = Image.linear_gradient("L").resize((w, h)).point(
+        lambda v: int(max(0.0, (v / 255 - 0.35) / 0.65) ** 1.3 * 200)
+    )
+    return Image.composite(Image.new("RGB", img.size, (18, 18, 18)), img, ramp)
+
+
+def voile(img: Image.Image, strong: bool = False) -> Image.Image:
+    """Voile sombre à gauche et en bas, là où le site pose le titre et le texte blancs. En mode
+    fort, la photo est aussi assombrie et vignettée pour rejoindre l'ambiance studio des rendus."""
+    w, h = img.size
+    if strong:
+        img = ImageEnhance.Brightness(img).enhance(0.72)
+        img = ImageEnhance.Contrast(img).enhance(1.08)
+    base = Image.new("RGB", img.size, (18, 18, 18))
+    # Gauche → droite : opaque au bord, transparent vers 65 % de la largeur (0 à gauche).
+    horizontal = Image.linear_gradient("L").rotate(90, expand=True).resize((w, h))
+    horizontal = horizontal.point(lambda v: int(max(0.0, 1 - (v / 255) / 0.65) * 215))
+    # Bas → haut : léger, pour le paragraphe sous le titre.
+    vertical = Image.linear_gradient("L").resize((w, h))
+    vertical = vertical.point(lambda v: int(max(0.0, (v / 255 - 0.45) / 0.55) * 150))
+    mask = ImageChops.lighter(horizontal, vertical)
+    if strong:
+        vignette = Image.new("L", img.size, 0)
+        ImageDraw.Draw(vignette).ellipse((-w * 0.15, -h * 0.4, w * 1.15, h * 1.4), fill=255)
+        vignette = ImageOps.invert(vignette.filter(ImageFilter.GaussianBlur(w * 0.08))).point(lambda v: int(v * 0.55))
+        mask = ImageChops.lighter(mask, vignette)
+    return Image.composite(base, img, mask)
+
+
+# Cartes empilées de l'accueil : rendus Gemini d'après nos prompts (docs/DESIGN.md › Images).
+# (sortie, source, décalage vers la droite en px, voile renforcé)
+CARTES = [
+    ("accueil/carte-1.webp", "Gemini_Generated_Image_buij0pbuij0pbuij.jpg", 360, True),
+    ("accueil/carte-2.webp", "Gemini_Generated_Image_fkzs6cfkzs6cfkzs.jpg", 60, False),
+    ("accueil/carte-3.webp", "Gemini_Generated_Image_4o49df4o49df4o49.jpg", 110, True),
+]
+
+
+def carte(src: Path, shift: int, strong: bool) -> Image.Image:
+    """Recompose le visuel au format des cartes (1760 × 800) : fond sombre, sujet poussé vers la
+    droite (comme les images du template), fondu vers la gauche, puis voile pour le texte."""
+    w, h = 1760, 800
+    img = ImageOps.exif_transpose(Image.open(src)).convert("RGB")
+    img = img.resize((round(img.width * h / img.height), h), Image.LANCZOS)
+    x = w - img.width + shift
+    canvas = Image.new("RGB", (w, h), (18, 18, 18))
+    fade = Image.new("L", img.size, 255)
+    # Fondu sur 420 px : transparent au bord gauche de l'image, opaque ensuite.
+    ramp = Image.linear_gradient("L").rotate(90, expand=True).resize((420, h))
+    fade.paste(ramp, (0, 0))
+    canvas.paste(img, (x, 0), fade)
+    return voile(canvas, strong)
+
+
 def avatars() -> None:
     """Groupe de trois visages ronds qui se chevauchent (remplace l'image d'avatars du template)."""
     names = ["Face (5).jpeg", "Face (17).jpeg", "Face (8).jpeg"]
@@ -157,10 +214,18 @@ def main() -> None:
         img = cover(Image.open(src), size, focus)
         if treatment == "anneaux":
             img = anneaux(img)
+        elif treatment == "bas":
+            img = bas(img)
+        elif treatment in ("voile", "voile-fort"):
+            img = voile(img, strong=treatment == "voile-fort")
         target = OUT / out
         target.parent.mkdir(parents=True, exist_ok=True)
         img.save(target, "WEBP", quality=80, method=6)
         print(f"{out:34} <- {src.name}")
+    for out, name, shift, strong in CARTES:
+        target = OUT / out
+        carte(SRC / name, shift, strong).save(target, "WEBP", quality=80, method=6)
+        print(f"{out:34} <- {name}")
     avatars()
     laurel()
 
