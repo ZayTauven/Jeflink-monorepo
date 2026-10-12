@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Site et console ont chacun leur layout racine : 404 globale dans app/global-not-found.tsx.
+  experimental: { globalNotFound: true },
   headers: async () => [
     {
       source: "/:path*",

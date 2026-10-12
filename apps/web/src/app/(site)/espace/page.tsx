@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import { AccountHero, RequestCard } from "@/components/account";
 import { SwitchLink } from "@/components/crafto";
@@ -8,8 +9,6 @@ import type { ServiceRequest } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Mon espace" };
 
-const ADMIN_URL = `${process.env.API_PUBLIC_URL ?? "http://localhost:8000"}/admin/`;
-
 async function list(path: string, token: string) {
   const res = await api<ServiceRequest[]>(path, { token });
   return res.ok ? res.data : [];
@@ -17,6 +16,7 @@ async function list(path: string, token: string) {
 
 export default async function DashboardPage() {
   const { me, token } = await requireMe("/espace");
+  if (me.is_staff) redirect("/console"); // L'équipe Jeflink travaille dans la console.
   const isPro = me.role === "pro";
   const [open, mine] = isPro
     ? await Promise.all([
@@ -53,9 +53,13 @@ export default async function DashboardPage() {
                       <i className="bi bi-hourglass-split" /> Vérification en cours
                     </span>
                     <p className="mb-0">
-                      Vous voyez déjà les demandes de vos métiers. Vous pourrez envoyer des devis dès
-                      que l&apos;équipe Jeflink aura vérifié votre profil
-                      <span className="opacity-7"> (démo : cochez « vérifié » dans l&apos;admin)</span>.
+                      Vous voyez déjà les demandes de vos métiers. Vous pourrez envoyer des devis
+                      dès que l&apos;équipe Jeflink aura vérifié votre profil
+                      <span className="opacity-7">
+                        {" "}
+                        (démo : cochez « vérifié » dans l&apos;admin)
+                      </span>
+                      .
                     </p>
                   </div>
                 )}
@@ -127,13 +131,6 @@ export default async function DashboardPage() {
             <li>
               <i className="feather icon-feather-phone me-10px" />
               {me.phone}
-            </li>
-          )}
-          {me.is_staff && (
-            <li className="mt-10px">
-              <a href={ADMIN_URL} className="fw-500 text-decoration-line-bottom">
-                Back-office (admin Django)
-              </a>
             </li>
           )}
         </ul>

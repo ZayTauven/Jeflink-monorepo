@@ -20,3 +20,6 @@ apps/api/db.sqlite3
 
 # Copie locale du template Crafto (licence Envato) : générée par `pnpm --filter web crafto`
 apps/web/public/crafto/
+
+# Copie locale du template vireo (licence Envato) : générée par `pnpm --filter web vireo`
+apps/web/src/vireo/

@@ -5,21 +5,25 @@
   "type": "module",
   "scripts": {
     "crafto": "node scripts/sync-crafto.mjs",
-    "dev": "node scripts/sync-crafto.mjs && next dev",
-    "build": "node scripts/sync-crafto.mjs && next build",
+    "vireo": "node scripts/sync-vireo.mjs",
+    "dev": "node scripts/sync-crafto.mjs && node scripts/sync-vireo.mjs && next dev",
+    "build": "node scripts/sync-crafto.mjs && node scripts/sync-vireo.mjs && next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "node scripts/sync-vireo.mjs && tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "apexcharts": "4.7.0",
     "next": "16.3.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "4.3.2",
     "@types/node": "^22.13.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "tailwindcss": "4.3.2",
     "typescript": "~6.0.3"
   }
 }

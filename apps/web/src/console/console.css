@@ -1,0 +1,402 @@
+/*
+ * Console Jeflink : template vireo (src/vireo, copié par scripts/sync-vireo.mjs, jamais versionné)
+ * habillé avec la grammaire du site Crafto « Marketing strategy ».
+ *
+ * vireo garde sa structure, ses composants et ses comportements. Crafto lui donne son allure :
+ * orange #f55608, Funnel Display pour les titres et les chiffres, Inter pour le texte, fond
+ * « narvik » #edece3, cartes blanches mates à 20 px, boutons pilules. On retire tout l'effet
+ * « Aurora » : halos, verre dépoli, dégradés et lueurs.
+ *
+ * Ces règles ne sont dans aucune @layer : elles passent devant les composants de vireo.
+ */
+@import "../vireo/styles/app.css";
+
+/* Tailwind n'a pas à lire les pages du site Crafto. */
+@source not "../app/(site)";
+@source not "../components";
+
+/* ── Jetons : clair ─────────────────────────────────────────────────────────────── */
+:root {
+  --ax-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ax-font-display: "Funnel Display", "Inter", ui-sans-serif, sans-serif;
+  --ax-font-mono: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --ax-canvas: #edece3;
+  --ax-surface: #ffffff;
+  --ax-surface-solid: #ffffff;
+  --ax-surface-subtle: #f6f5f0;
+  --ax-surface-raised: #ffffff;
+  --ax-surface-overlay: #ffffff;
+  --ax-fill-hover: rgba(18, 18, 18, 0.05);
+  --ax-fill-active: rgba(18, 18, 18, 0.08);
+  --ax-border: rgba(18, 18, 18, 0.08);
+  --ax-border-strong: rgba(18, 18, 18, 0.16);
+
+  --ax-text-strong: #121212;
+  --ax-text: #2b2b2b;
+  --ax-text-muted: #5a5a5a;
+  --ax-text-subtle: #626262;
+
+  --ax-accent-50: #fef0e8;
+  --ax-accent-100: #fdd9c5;
+  --ax-accent-200: #fbb48c;
+  --ax-accent-300: #f88b52;
+  --ax-accent-400: #f76f2b;
+  --ax-accent-500: #f55608;
+  --ax-accent-600: #d94a06;
+  --ax-accent-700: #b03c05;
+  --ax-accent-800: #872e04;
+  --ax-accent-900: #5e2003;
+  --ax-accent: #f55608;
+  --ax-accent-hover: #d94a06;
+  --ax-accent-wash: #fef0e8;
+  --ax-on-accent: #ffffff;
+  --ax-accent-rgb: 245, 86, 8;
+  --ax-link: #b03c05;
+  --ax-focus-ring: #f55608;
+
+  /* Ni halos, ni verre, ni lueurs. */
+  --ax-glow-1: transparent;
+  --ax-glow-2: transparent;
+  --ax-glow-3: transparent;
+  --ax-glass-hi: transparent;
+  --ax-glow-accent: none;
+  --ax-gradient-accent: var(--ax-accent);
+  --ax-shadow-card: none;
+
+  /* Rayons Crafto : cartes 20 px. */
+  --ax-radius-xl: 20px;
+  --ax-radius-lg: 16px;
+
+  /* Séries de graphiques (validées daltonisme, skill dataviz) : orange Jeflink, bleu, vert d'eau. */
+  --ax-chart-1: #f55608;
+  --ax-chart-2: #2a78d6;
+  --ax-chart-3: #1baf7a;
+
+  /* Hausse / baisse lisibles sur fond blanc (texte >= 4,5:1). */
+  --ax-delta-up: #137a4f;
+  --ax-delta-down: #b42318;
+}
+
+/* ── Jetons : sombre (fond « dark-gray » de Crafto) ──────────────────────────────── */
+[data-ax-theme="dark"] {
+  --ax-canvas: #121212;
+  --ax-surface: #1c1c1c;
+  --ax-surface-solid: #1c1c1c;
+  --ax-surface-subtle: #242424;
+  --ax-surface-raised: #181818;
+  --ax-surface-overlay: #222222;
+  --ax-fill-hover: rgba(255, 255, 255, 0.05);
+  --ax-fill-active: rgba(255, 255, 255, 0.09);
+  --ax-border: rgba(255, 255, 255, 0.08);
+  --ax-border-strong: rgba(255, 255, 255, 0.15);
+
+  --ax-text-strong: #f5f3ed;
+  --ax-text: #dedbd2;
+  --ax-text-muted: #aaa79d;
+  --ax-text-subtle: #8f8c83;
+
+  --ax-accent: #f55608;
+  --ax-accent-hover: #f76f2b;
+  --ax-accent-wash: rgba(245, 86, 8, 0.14);
+  --ax-on-accent: #ffffff;
+  --ax-accent-rgb: 245, 86, 8;
+  --ax-link: #f88b52;
+  --ax-focus-ring: #f88b52;
+
+  --ax-glow-1: transparent;
+  --ax-glow-2: transparent;
+  --ax-glow-3: transparent;
+  --ax-glass-hi: transparent;
+  --ax-glow-accent: none;
+  --ax-shadow-card: none;
+
+  --ax-chart-1: #e85a17;
+  --ax-chart-2: #3987e5;
+  --ax-chart-3: #199e70;
+
+  --ax-delta-up: #4fc28f;
+  --ax-delta-down: #f97066;
+}
+
+/* ── Surfaces mates ─────────────────────────────────────────────────────────────── */
+.ax-ambient {
+  display: none;
+}
+.ax-card,
+.ax-sidebar,
+.ax-header {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.ax-card {
+  border-color: transparent;
+}
+[data-ax-theme="dark"] .ax-card {
+  border-color: var(--ax-border);
+}
+.ax-header {
+  background: var(--ax-canvas);
+  border-block-end-color: transparent;
+}
+
+/* ── Typographie Crafto : titres et chiffres en Funnel Display, serrés ─────────── */
+.ax-page-head__title,
+.ax-card__title,
+.ax-kpi__value,
+.ax-display,
+.ax-sidebar__wordmark {
+  font-family: var(--ax-font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.ax-page-head__title {
+  font-size: clamp(2rem, 1.4rem + 1.6vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+.ax-kpi__value {
+  font-size: 2.125rem;
+  letter-spacing: -0.03em;
+}
+.ax-num,
+.ax-mono {
+  font-variant-numeric: tabular-nums;
+}
+.ax-card__eyebrow,
+.ax-sidebar__section {
+  letter-spacing: 0.06em;
+}
+
+/* ── Boutons pilules, à plat ────────────────────────────────────────────────────── */
+.ax-btn--primary,
+.ax-btn--solid {
+  background: var(--ax-accent-600, #d94a06);
+  box-shadow: none;
+}
+.ax-btn--primary:hover,
+.ax-btn--solid:hover {
+  background: #b03c05;
+  box-shadow: none;
+  filter: none;
+}
+.ax-btn {
+  border-radius: var(--ax-radius-pill);
+}
+
+/* ── Menu : rubrique active = pilule sombre, comme les boutons Crafto ───────────── */
+.ax-nav__item.is-active {
+  color: #ffffff;
+  background: #121212;
+  box-shadow: none;
+}
+.ax-nav__item.is-active::before {
+  display: none;
+}
+.ax-nav__item.is-active .ax-nav__icon {
+  color: var(--ax-accent);
+  opacity: 1;
+}
+[data-ax-theme="dark"] .ax-nav__item.is-active {
+  color: #121212;
+  background: #f5f3ed;
+}
+.ax-nav__icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+.ax-nav__badge.jf-nav-soon {
+  background: transparent;
+  color: var(--ax-text-subtle);
+  border: 1px solid var(--ax-border-strong);
+  font-weight: 500;
+}
+.ax-nav__item.is-active .jf-nav-soon {
+  color: inherit;
+  border-color: currentColor;
+  opacity: 0.7;
+}
+
+/* ── Marque ─────────────────────────────────────────────────────────────────────── */
+.jf-console-mark {
+  display: inline-flex;
+  inline-size: 34px;
+  color: var(--ax-text-strong);
+  background: none;
+  box-shadow: none;
+}
+.jf-console-mark svg {
+  inline-size: 100%;
+  block-size: auto;
+}
+.ax-sidebar__wordmark {
+  font-size: 1.375rem;
+  text-transform: none;
+}
+.ax-sidebar__wordmark small {
+  font-family: var(--ax-font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ax-link);
+  margin-inline-start: 4px;
+}
+
+/* ── Icônes Bootstrap (police Crafto) dans les emplacements d'icônes vireo ───────── */
+.ax-icon-btn .bi,
+.ax-search .bi {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.ax-notif__chip .bi {
+  font-size: 1rem;
+}
+.ax-avatar.jf-initials,
+.jf-initials {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 34px;
+  block-size: 34px;
+  border-radius: 50%;
+  background: #d94a06;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* ── Composants Jeflink de la console ───────────────────────────────────────────── */
+.jf-kpi-icon {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 44px;
+  block-size: 44px;
+  border-radius: 50%;
+  background: var(--ax-accent-wash);
+  color: var(--ax-accent-700);
+  font-size: 1.2rem;
+}
+[data-ax-theme="dark"] .jf-kpi-icon {
+  color: var(--ax-link);
+}
+.jf-kpi-icon--dark {
+  background: #121212;
+  color: #ffffff;
+}
+[data-ax-theme="dark"] .jf-kpi-icon--dark {
+  background: #f5f3ed;
+  color: #121212;
+}
+.jf-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 0.8125rem;
+  color: var(--ax-text-muted);
+}
+.jf-legend i {
+  display: inline-block;
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: 3px;
+  margin-inline-end: 6px;
+  vertical-align: -1px;
+}
+.jf-bar {
+  block-size: 8px;
+  border-radius: 4px;
+  background: var(--ax-surface-subtle);
+  overflow: hidden;
+}
+.jf-bar > span {
+  display: block;
+  block-size: 100%;
+  border-radius: 4px;
+  background: var(--ax-chart-1);
+}
+.jf-status {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--ax-surface-subtle);
+  color: var(--ax-text);
+}
+.jf-status::before {
+  content: "";
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.jf-status--open {
+  background: #fff1e8;
+  color: #b33c00;
+}
+.jf-status--booked {
+  background: #e7f0ff;
+  color: #1f4fa8;
+}
+.jf-status--done {
+  background: #e6f5ec;
+  color: #1d6b3a;
+}
+.jf-status--cancelled {
+  background: #eeeeee;
+  color: #5a5a5a;
+}
+[data-ax-theme="dark"] .jf-status--cancelled {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ax-text-muted);
+}
+[data-ax-theme="dark"] .jf-status--open {
+  background: rgba(237, 161, 0, 0.14);
+  color: #f5c060;
+}
+[data-ax-theme="dark"] .jf-status--booked {
+  background: rgba(57, 135, 229, 0.16);
+  color: #86b6ef;
+}
+[data-ax-theme="dark"] .jf-status--done {
+  background: rgba(27, 175, 122, 0.16);
+  color: #6fd3a8;
+}
+.jf-segmented a {
+  text-decoration: none;
+}
+.jf-soon-hero {
+  max-inline-size: 640px;
+}
+.jf-kpi-unit {
+  margin-inline-start: 6px;
+  font-family: var(--ax-font-sans);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--ax-text-muted);
+}
+/* Tablette : ces cartes prennent toute la largeur plutôt qu'une demi-ligne isolée. */
+@media (max-width: 992px) {
+  .jf-col-md-full {
+    grid-column: span 12;
+  }
+}
+.jf-skip {
+  position: absolute;
+  inset-inline-start: 16px;
+  inset-block-start: -60px;
+  z-index: 1000;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: #121212;
+  color: #ffffff;
+  font-weight: 600;
+}
+.jf-skip:focus {
+  inset-block-start: 12px;
+}

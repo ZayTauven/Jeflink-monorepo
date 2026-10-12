@@ -78,6 +78,13 @@ export async function requireMe(here: string): Promise<{ me: Me; token: string }
   return { me, token };
 }
 
+/** Console : réservée à l'équipe Jeflink (comptes `is_staff`). Les autres retournent à leur espace. */
+export async function requireStaff(here: string): Promise<{ me: Me; token: string }> {
+  const session = await requireMe(here);
+  if (!session.me.is_staff) redirect("/espace");
+  return session;
+}
+
 // --- Lecture publique (vitrine) : une API arrêtée donne une page vide, pas une erreur ---------
 
 async function publicList<T>(path: string): Promise<T[]> {

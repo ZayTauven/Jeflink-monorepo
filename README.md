@@ -34,14 +34,17 @@ make web
 ```
 
 - Site : http://localhost:3000
+- Console d'administration : http://localhost:3000/console (compte équipe)
 - API (documentation interactive) : http://localhost:8000/api/docs/
-- Back-office (admin Django) : http://localhost:8000/admin/
+- Admin Django (maintenance) : http://localhost:8000/admin/
 
 Sans `make` : `uv run --directory apps/api python manage.py migrate`, `… seed_demo`, `… runserver 8000`, puis `pnpm install` et `pnpm dev`.
 
+Le site et la console ont besoin des templates sous licence Envato, à placer localement (jamais versionnés) : `references/crafto` et `references/vireo`. `pnpm dev` en copie les fichiers utiles.
+
 ## Démo
 
-`make demo` crée 6 métiers, 22 quartiers de Dakar, des comptes et des demandes à chaque étape (ouverte avec devis, réservée, terminée et notée). **Tous les comptes de démo ont le mot de passe `jeflink-demo`** (valeur locale de test, définie dans `apps/api/jeflink/jobs/management/commands/seed_demo.py`).
+`make demo` crée 6 métiers, 22 quartiers de Dakar, des comptes et des demandes à chaque étape (ouverte avec devis, réservée, terminée et notée), plus 90 jours d'historique inventé (clients en `@clients.jeflink.local`, 3 pros à vérifier en `@pros.jeflink.local`) pour les graphiques de la console. **Tous les comptes de démo ont le mot de passe `jeflink-demo`** (valeur locale de test, définie dans `apps/api/jeflink/jobs/management/commands/seed_demo.py`).
 
 | Compte                    | Rôle                                                               |
 | ------------------------- | ------------------------------------------------------------------ |
@@ -49,7 +52,7 @@ Sans `make` : `uv run --directory apps/api python manage.py migrate`, `… seed_
 | `moussa@demo.jeflink.sn`  | client : une demande d'électricité sans devis                      |
 | `ibou@demo.jeflink.sn`    | électricien vérifié : peut chiffrer la demande de Moussa           |
 | `mamadou@demo.jeflink.sn` | plombier vérifié (aussi `ousmane`, `cheikh`, `fatou`, `aliou`)     |
-| `admin@jeflink.local`     | équipe Jeflink : admin Django (vérifier un pro, lire les messages) |
+| `admin@jeflink.local`     | équipe Jeflink : console `/console` (et admin Django)               |
 
 Un pro qui s'inscrit sur le site doit être **vérifié** dans l'admin (Profils pros → case « vérifié ») avant de pouvoir envoyer un devis.
 

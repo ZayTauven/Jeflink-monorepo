@@ -1,19 +1,6 @@
-import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
-import { CraftoScripts } from "@/components/crafto-scripts";
-
-export const metadata: Metadata = {
-  title: {
-    default: "Jeflink — le bon pro, au bon prix, travail garanti",
-    template: "%s · Jeflink",
-  },
-  description:
-    "Plombiers, électriciens, frigoristes, équipes de ménage : des pros vérifiés à Dakar, avec un devis clair avant chaque intervention.",
-  icons: { icon: "/icon.svg" },
-};
-
-export const viewport: Viewport = { width: "device-width", initialScale: 1 };
+import { CraftoScripts } from "./crafto-scripts";
 
 // Feuilles de style du template Crafto (copiées par scripts/sync-crafto.mjs), puis nos ajouts.
 const STYLESHEETS = [
@@ -25,7 +12,8 @@ const STYLESHEETS = [
   "/jeflink.css",
 ];
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+/** Document HTML du site public (layout du groupe `(site)` et page 404 globale). */
+export function SiteDocument({ children }: { children: ReactNode }) {
   return (
     <html lang="fr" className="no-js">
       <head>

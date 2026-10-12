@@ -47,6 +47,16 @@ La boule blanche animée de Crafto est une vidéo non livrée avec le template. 
 - **Images Crafto** : servies en WebP par l'optimiseur de Next via `opt()` (`components/crafto.tsx`). Accueil 1,2 Mo → 0,3 Mo d'images.
 - **JS Crafto** (~260 Ko gzippés) : gardé tel quel. Retirer les plugins inutiles du `vendors.min.js` minifié ne fait gagner que ~8 % pour une chirurgie fragile ; le vrai allègement passera par une reconstruction des plugins avant la production.
 
+## Console d'administration (décision Zay, 2026-10-12)
+
+La console (`/console`) part du template **vireo** (`references/vireo`, licence Envato) : structure, composants `.ax-*`, menu latéral, recherche Ctrl K, graphiques ApexCharts. Son style d'origine, « Aurora » (halos, verre dépoli, dégradés, Space Grotesk / JetBrains Mono), fait « vibe coding » : il est remplacé par la grammaire Crafto du site.
+
+- **Fichiers** : `scripts/sync-vireo.mjs` copie les styles et les graphiques de vireo dans `apps/web/src/vireo/` (jamais versionné, jamais modifié à la main). L'habillage Jeflink vit dans `apps/web/src/console/console.css` : des jetons `--ax-*` redéfinis et quelques règles hors `@layer`, qui passent donc devant vireo.
+- **Allure Crafto** : orange `#f55608`, Funnel Display pour les titres et les chiffres, Inter pour le texte, fond narvik `#edece3`, cartes blanches mates à 20 px, boutons pilules à plat, rubrique active en pilule sombre. Mode sombre sur le fond `#121212` de Crafto ; clair ou sombre suit le système, puis le choix de l'utilisateur.
+- **Icônes** : Bootstrap Icons, la police d'icônes du site (`/crafto/css/icon.min.css`).
+- **Graphiques** (skill `dataviz`) : un seul axe, légende toujours visible, séries orange Jeflink → bleu `#2a78d6` → vert d'eau `#1baf7a` (validées pour le daltonisme en clair et en sombre), regroupement par semaine au-delà de 31 jours.
+- **Navigation** : `next/link` est permis dans la console, qui ne charge pas les scripts Crafto.
+
 ## À peaufiner (incohérences connues)
 
 1. **Logos de marques** (bandeaux de l'accueil et de l'À propos) : gardés pour l'instant, à remplacer par les vrais partenaires de Jeflink.

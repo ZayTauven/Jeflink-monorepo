@@ -1,4 +1,6 @@
-# apps/web — site public + espace client/pro
+# apps/web — site public, espace client/pro et console
+
+Deux groupes de routes, chacun avec son layout racine : `src/app/(site)` (Crafto, règles ci-dessous) et `src/app/(console)` (console d'administration, voir la fin de ce fichier). URL inconnue : `src/app/global-not-found.tsx`.
 
 Next.js (App Router), **template Crafto « Marketing strategy » pris tel quel** : mêmes balisages, classes, CSS, JS jQuery et images ; seul le récit est adapté. Lire `docs/DESIGN.md`.
 
@@ -12,6 +14,13 @@ Next.js (App Router), **template Crafto « Marketing strategy » pris tel quel**
 - Formulaires : `<ActionForm action="/act/…">` (client) → route handler dans `src/app/act/` → API Django → JSON (avec JS) ou redirection 303 (sans JS).
 - Pages : `/`, `/a-propos`, `/services` (comment ça marche), `/metiers`, `/metiers/[slug]`, `/contact`, `/connexion`, `/inscription`, `/espace`, `/espace/demandes/nouvelle`, `/espace/demandes/[id]`.
 - Montants via `formatXOF`, dates via `formatDate` (heure de Dakar).
+
+## Console (`/console`)
+
+- Template **vireo** habillé Crafto (`docs/DESIGN.md › Console d'administration`). `src/vireo/` est copié depuis `references/vireo` par `scripts/sync-vireo.mjs` (lancé par `pnpm dev`/`build`/`typecheck`) : jamais versionné, jamais modifié. Nos fichiers : `src/console/` (`console.css`, `shell.tsx`, `ui.tsx`, `charts.tsx`, `nav.ts`, `types.ts`).
+- Tailwind v4 n'est chargé que par `console.css` (le site garde ses feuilles Crafto). Navigation par `next/link`.
+- Accès : `requireStaff()` (`lib/api.ts`) dans `(console)/console/layout.tsx` ; données via `/api/console/…` (DRF `IsAdminUser`).
+- Menu = `src/console/nav.ts` : une rubrique avec `lot` affiche une page « bientôt » (`[...section]/page.tsx`) tant qu'elle n'est pas construite.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

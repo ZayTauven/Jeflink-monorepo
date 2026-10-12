@@ -8,12 +8,12 @@ flowchart LR
   B -->|formulaires POST /act/…| W
   W -->|fetch serveur + jeton DRF| A[Django REST :8000]
   A --> D[(SQLite)]
-  O[Équipe Jeflink] -->|admin Django| A
+  O[Équipe Jeflink] -->|/console, vireo| W
 ```
 
-- **Web (Next.js)** : pages rendues côté serveur. Le jeton DRF est stocké dans un cookie httpOnly posé par les route handlers `src/app/act/*` ; le navigateur ne parle jamais directement à Django.
-- **API (Django + DRF)** : trois apps, `accounts`, `catalog`, `jobs`. Règles métier dans `jobs/services.py`. Documentation OpenAPI sur `/api/docs/`.
-- **Back-office** : l'admin Django (vérifier un pro, gérer métiers et quartiers, lire les messages de contact). Métiers et quartiers sont des données, jamais des listes en dur dans le code.
+- **Web (Next.js)** : deux groupes de routes, chacun avec son layout racine. `(site)` = site public et espace client/pro (Crafto) ; `(console)` = console d'administration (vireo habillé Crafto). Pages rendues côté serveur. Le jeton DRF est stocké dans un cookie httpOnly posé par les route handlers `src/app/act/*` ; le navigateur ne parle jamais directement à Django.
+- **API (Django + DRF)** : quatre apps, `accounts`, `catalog`, `jobs`, `console`. Règles métier dans `jobs/services.py`. Documentation OpenAPI sur `/api/docs/`.
+- **Console** (`/console`, comptes `is_staff`) : pilotage de la plateforme, construite par lots (voir plus bas). L'admin Django reste disponible pour la maintenance. Métiers et quartiers sont des données, jamais des listes en dur dans le code.
 
 ## Parcours
 
@@ -26,14 +26,29 @@ Chaque étape est journalisée (`RequestEvent`) et affichée comme historique.
 
 ## Endpoints
 
-| Méthode  | Chemin                                                                                             | Accès              |
-| -------- | -------------------------------------------------------------------------------------------------- | ------------------ |
-| POST     | `/api/auth/register/`, `/api/auth/login/`                                                          | public             |
-| POST     | `/api/auth/logout/` · GET `/api/auth/me/`                                                          | connecté           |
-| POST     | `/api/auth/contact/`                                                                               | public             |
-| GET      | `/api/trades/`, `/api/trades/{slug}/`, `/api/zones/`, `/api/pros/`, `/api/reviews/`, `/api/stats/` | public             |
-| GET/POST | `/api/requests/` (`?scope=open                                                                     | mine` pour un pro) | connecté |
-| POST     | `/api/requests/{id}/quotes                                                                         | accept             | complete | cancel | review/` | selon le rôle |
+| Méthode  | Chemin                                                                                             | Accès               |
+| -------- | -------------------------------------------------------------------------------------------------- | ------------------- |
+| POST     | `/api/auth/register/`, `/api/auth/login/`                                                          | public              |
+| POST     | `/api/auth/logout/` · GET `/api/auth/me/`                                                          | connecté            |
+| POST     | `/api/auth/contact/`                                                                               | public              |
+| GET      | `/api/trades/`, `/api/trades/{slug}/`, `/api/zones/`, `/api/pros/`, `/api/reviews/`, `/api/stats/` | public              |
+| GET/POST | `/api/requests/` (`?scope=open` ou `?scope=mine` pour un pro)                                      | connecté            |
+| POST     | `/api/requests/{id}/` + `quotes/`, `accept/`, `complete/`, `cancel/`, `review/`                    | selon le rôle       |
+| GET      | `/api/console/overview/?days=7·30·90`, `/api/console/badges/`                                      | équipe (`is_staff`) |
+
+## Console d'administration
+
+Décidée le 2026-10-12. Le front de la console fait grandir l'API : chaque rubrique arrive avec ses endpoints `/api/console/…`, réservés à l'équipe.
+
+| Lot | Contenu                                                                                                                                                | État    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| 0   | Fondations (vireo habillé Crafto, accès équipe, recherche Ctrl K, clair/sombre), tableau de bord branché sur les vraies données                        | fait    |
+| 1   | Demandes, litiges, pros (file de vérification, suspension), clients, avis (modération), messages de contact, journal d'audit                           | à faire |
+| 2   | Métiers, quartiers, réglages de la plateforme, équipe et rôles (Opérations, Marketing, Finance)                                                        | à faire |
+| 3   | Finances (commission par métier, transactions, soldes des pros) et marketing (codes promo financés par Jeflink, campagnes), rapports                   | à faire |
+| 4   | « Jef », l'IA d'assistance à la réservation : aide le client à décrire son souci, transmet une fiche claire au pro ; réglages et suivi dans la console | à faire |
+
+Les rubriques pas encore construites figurent déjà dans le menu (`src/console/nav.ts`) avec leur numéro de lot.
 
 ## Après la démo
 
@@ -44,3 +59,5 @@ Chaque étape est journalisée (`RequestEvent`) et affichée comme historique.
 - Connexion OTP par téléphone (app mobile), notifications (SMS / WhatsApp) quand un devis arrive.
 - Paiement (mobile money) et commission ; photos avant/après ; litiges.
 - Wolof ; pagination des listes ; images optimisées et JS allégé (voir `docs/DESIGN.md › À peaufiner`).
+- `seed_demo` refuse de tourner si `DJANGO_DEBUG=0` : le compte `admin@jeflink.local` (superuser, mot de passe de démo public) ouvre toute la console. Les numéros du seed (`+22177…`) ont un format réel : aucun SMS ni WhatsApp vers eux.
+- Polices de la console servies en local plutôt que par Google Fonts.
