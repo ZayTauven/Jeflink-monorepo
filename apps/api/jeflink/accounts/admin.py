@@ -8,6 +8,7 @@ class ProProfileInline(admin.StackedInline):
     model = ProProfile
     can_delete = False
     filter_horizontal = ["trades", "zones"]
+    readonly_fields = ["is_verified", "verified_at", "verification_note"]
 
 
 @admin.register(User)
@@ -16,10 +17,15 @@ class UserAdmin(BaseUserAdmin):
     list_display = ["email", "first_name", "last_name", "role", "phone", "is_staff"]
     list_filter = ["role", "is_staff", "is_active"]
     search_fields = ["email", "first_name", "last_name", "phone"]
+    # Vérification, suspension, masquage et traitement se font dans la console (journalisée).
+    readonly_fields = ["is_active", "suspension_reason", "last_login", "date_joined"]
     fieldsets = [
         (None, {"fields": ["email", "password"]}),
         ("Identité", {"fields": ["first_name", "last_name", "phone", "role"]}),
-        ("Droits", {"fields": ["is_active", "is_staff", "is_superuser", "groups"]}),
+        (
+            "Droits",
+            {"fields": ["is_active", "suspension_reason", "is_staff", "is_superuser", "groups"]},
+        ),
         ("Dates", {"fields": ["last_login", "date_joined"]}),
     ]
     add_fieldsets = [
@@ -33,7 +39,7 @@ class UserAdmin(BaseUserAdmin):
 @admin.register(ProProfile)
 class ProProfileAdmin(admin.ModelAdmin):
     list_display = ["user", "headline", "years_experience", "is_verified"]
-    list_editable = ["is_verified"]
+    readonly_fields = ["is_verified", "verified_at", "verification_note"]
     list_filter = ["is_verified", "trades"]
     filter_horizontal = ["trades", "zones"]
     search_fields = ["user__email", "user__first_name", "user__last_name"]
@@ -42,6 +48,13 @@ class ProProfileAdmin(admin.ModelAdmin):
 @admin.register(ContactMessage)
 class ContactMessageAdmin(admin.ModelAdmin):
     list_display = ["name", "email", "created_at", "is_handled"]
-    list_editable = ["is_handled"]
     list_filter = ["is_handled"]
-    readonly_fields = ["name", "email", "message", "created_at"]
+    readonly_fields = [
+        "name",
+        "email",
+        "message",
+        "created_at",
+        "is_handled",
+        "handled_at",
+        "handled_by",
+    ]

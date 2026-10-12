@@ -3,7 +3,7 @@ from rest_framework import serializers
 from jeflink.catalog.models import Trade, Zone
 
 from . import services
-from .models import Quote, RequestEvent, Review, ServiceRequest
+from .models import Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 S = ServiceRequest.Status
 
@@ -51,6 +51,27 @@ class EventSerializer(serializers.ModelSerializer):
         fields = ["status", "status_label", "note", "created_at"]
 
 
+class DisputeSerializer(serializers.ModelSerializer):
+    """Litige vu par le client et le pro de la mission (sans les échanges internes)."""
+
+    reason_label = serializers.CharField(source="get_reason_display", read_only=True)
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = Dispute
+        fields = [
+            "id",
+            "reason",
+            "reason_label",
+            "description",
+            "status",
+            "status_label",
+            "resolution",
+            "created_at",
+            "closed_at",
+        ]
+
+
 class RequestSerializer(serializers.ModelSerializer):
     trade = serializers.SerializerMethodField()
     zone = serializers.SerializerMethodField()
@@ -62,6 +83,7 @@ class RequestSerializer(serializers.ModelSerializer):
     quotes_count = serializers.IntegerField(source="quotes.count", read_only=True)
     review = ReviewSerializer(read_only=True, allow_null=True)
     events = EventSerializer(many=True, read_only=True)
+    dispute = serializers.SerializerMethodField()
     actions = serializers.SerializerMethodField()
 
     class Meta:
@@ -84,6 +106,7 @@ class RequestSerializer(serializers.ModelSerializer):
             "quotes_count",
             "review",
             "events",
+            "dispute",
             "actions",
             "created_at",
         ]
@@ -116,9 +139,24 @@ class RequestSerializer(serializers.ModelSerializer):
             quotes = quotes.filter(pro=user)
         return QuoteSerializer(quotes, many=True, context=self.context).data
 
+    def _dispute(self, req):
+        return req.disputes.order_by("-created_at").first()
+
+    def get_dispute(self, req) -> dict | None:
+        """Le dernier litige de la mission, pour le client et le pro concernés."""
+        user = self._viewer
+        if user.pk not in (req.client_id, req.pro_id) and not user.is_staff:
+            return None
+        dispute = self._dispute(req)
+        return None if dispute is None else DisputeSerializer(dispute).data
+
     def get_actions(self, req) -> list[str]:
         user = self._viewer
         actions = []
+        if user.pk in (req.client_id, req.pro_id) and req.status in (S.BOOKED, S.DONE):
+            dispute = self._dispute(req)
+            if dispute is None or dispute.is_closed:
+                actions.append("report")
         if user.pk == req.client_id:
             if req.status == S.OPEN and req.quotes.exists():
                 actions.append("accept")
@@ -166,6 +204,11 @@ class QuoteCreateSerializer(serializers.Serializer):
 
 class AcceptSerializer(serializers.Serializer):
     quote_id = serializers.IntegerField()
+
+
+class DisputeCreateSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=Dispute.Reason.choices)
+    description = serializers.CharField(max_length=2000)
 
 
 class ReviewCreateSerializer(serializers.Serializer):

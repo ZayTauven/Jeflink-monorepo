@@ -31,7 +31,7 @@ class TradeSerializer(serializers.ModelSerializer):
         ]
 
     def get_pros_count(self, trade) -> int:
-        return trade.pros.filter(is_verified=True).count()
+        return trade.pros.filter(is_verified=True, user__is_active=True).count()
 
 
 class TradeRefSerializer(serializers.ModelSerializer):
@@ -94,6 +94,7 @@ class ReviewList(generics.ListAPIView):
     serializer_class = PublicReviewSerializer
     queryset = (
         Review.objects.exclude(comment="")
+        .exclude(is_hidden=True)
         .select_related("request__client", "request__pro", "request__trade")
         .order_by("-created_at")[:6]
     )
@@ -165,10 +166,10 @@ class ProDetail(generics.RetrieveAPIView):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def stats(request):
-    avg = Review.objects.aggregate(avg=Avg("rating"))["avg"]
+    avg = Review.objects.filter(is_hidden=False).aggregate(avg=Avg("rating"))["avg"]
     return Response(
         {
-            "pros": ProProfile.objects.filter(is_verified=True).count(),
+            "pros": ProProfile.objects.filter(is_verified=True, user__is_active=True).count(),
             "trades": Trade.objects.filter(is_active=True).count(),
             "zones": Zone.objects.filter(is_active=True).count(),
             "missions_done": ServiceRequest.objects.filter(status="done").count(),

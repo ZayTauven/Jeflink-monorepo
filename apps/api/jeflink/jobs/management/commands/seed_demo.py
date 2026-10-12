@@ -13,8 +13,9 @@ from django.utils import timezone
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
 from jeflink.catalog.models import Trade, Zone
+from jeflink.console.models import AuditLog
 from jeflink.jobs import services
-from jeflink.jobs.models import Quote, RequestEvent, Review, ServiceRequest
+from jeflink.jobs.models import Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 DEMO_PASSWORD = "jeflink-demo"
 IMG = "/images/{}.webp"
@@ -384,12 +385,17 @@ class Command(BaseCommand):
     help = "Crée les données de démo (métiers, quartiers, comptes, demandes)."
 
     def add_arguments(self, parser):
-        parser.add_argument("--reset", action="store_true", help="Supprime d'abord les demandes.")
+        parser.add_argument(
+            "--reset",
+            action="store_true",
+            help="Supprime d'abord les demandes et le journal de la console.",
+        )
 
     @transaction.atomic
     def handle(self, *args, reset=False, **options):
         if reset:
             ServiceRequest.objects.all().delete()
+            AuditLog.objects.all().delete()  # il pointerait vers des demandes disparues
 
         for position, data in enumerate(TRADES):
             Trade.objects.update_or_create(
@@ -408,6 +414,7 @@ class Command(BaseCommand):
             self._requests(clients, pros)
             self._spread_showcase()
             self._history(pros)
+            self._disputes()
         self._pending_pros()
         if not ContactMessage.objects.exists():
             for name, email, message in CONTACT_MESSAGES:
@@ -579,6 +586,21 @@ class Command(BaseCommand):
             services.accept_quote(clients[client], req, quote.pk)
             services.complete(pros[pro], req)
             services.leave_review(clients[client], req, rating, comment)
+
+    def _disputes(self):
+        """Deux litiges sur les missions notées 2/5 ou moins : un ouvert, un en cours."""
+        low = Review.objects.filter(rating__lte=2).select_related("request__client")[:2]
+        details = [
+            ("quality", "Le problème est revenu trois jours après l'intervention."),
+            ("price", "Le pro a demandé 5 000 F CFA de plus que le devis sur place."),
+        ]
+        for review, (reason, text) in zip(low, details, strict=False):
+            req = review.request
+            dispute = services.open_dispute(req.client, req, reason, text)
+            Dispute.objects.filter(pk=dispute.pk).update(created_at=review.created_at)
+        first = Dispute.objects.order_by("pk").first()
+        if first:
+            Dispute.objects.filter(pk=first.pk).update(status=Dispute.Status.INVESTIGATING)
 
     def _spread_showcase(self):
         """Étale les missions terminées de la vitrine sur les trois dernières semaines.

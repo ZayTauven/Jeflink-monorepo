@@ -5,9 +5,10 @@ Cycle : open → booked → done, avec annulation possible avant la fin.
 
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from .models import Quote, RequestEvent, Review, ServiceRequest
+from .models import Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 S = ServiceRequest.Status
 MAX_QUOTES = 3  # évite la course au moins-disant
@@ -46,7 +47,9 @@ def open_requests_for_pro(pro):
     profile = getattr(pro, "pro_profile", None)
     if profile is None:
         return ServiceRequest.objects.none()
-    qs = ServiceRequest.objects.filter(status=S.OPEN, trade__in=profile.trades.all())
+    qs = ServiceRequest.objects.filter(
+        status=S.OPEN, trade__in=profile.trades.all(), client__is_active=True
+    )
     if profile.zones.exists():
         qs = qs.filter(zone__in=profile.zones.all())
     return qs
@@ -92,7 +95,7 @@ def submit_quote(pro, req: ServiceRequest, amount: int, message: str = "") -> Qu
             "Votre profil doit être vérifié par Jeflink avant d'envoyer un devis."
         )
     req = _locked(req)
-    if req.status != S.OPEN:
+    if req.status != S.OPEN or not req.client.is_active:
         raise ValidationError("Cette demande ne reçoit plus de devis.")
     if not profile.trades.filter(pk=req.trade_id).exists():
         raise PermissionDenied("Cette demande ne correspond pas à vos métiers.")
@@ -110,9 +113,14 @@ def accept_quote(client, req: ServiceRequest, quote_id: int) -> ServiceRequest:
     req = _locked(req)
     if req.client_id != client.pk:
         raise PermissionDenied("Seul l'auteur de la demande peut choisir un devis.")
-    quote = req.quotes.filter(pk=quote_id).first()
-    if quote is None:
+    quote = req.quotes.select_related("pro__pro_profile").filter(pk=quote_id).first()
+    if quote is None or quote.status != Quote.Status.PENDING:
         raise ValidationError("Devis introuvable pour cette demande.")
+    if not quote.pro.is_active or not quote.pro.pro_profile.is_verified:
+        # Pro suspendu ou dont la vérification a été retirée : on ne le réserve plus.
+        raise ValidationError(
+            "Ce pro n'est plus disponible sur Jeflink. Choisissez un autre devis."
+        )
     req.pro = quote.pro
     transition(req, S.BOOKED, client, f"Devis de {quote.pro.public_name} accepté")
     quote.status = Quote.Status.ACCEPTED
@@ -147,3 +155,62 @@ def leave_review(client, req: ServiceRequest, rating: int, comment: str = "") ->
     if hasattr(req, "review"):
         raise ValidationError("Vous avez déjà laissé un avis pour cette mission.")
     return Review.objects.create(request=req, rating=rating, comment=comment)
+
+
+# --- Équipe Jeflink et litiges ---------------------------------------------------------------
+
+
+@transaction.atomic
+def staff_cancel(staff, req: ServiceRequest, reason: str) -> ServiceRequest:
+    """L'équipe annule une demande (doublon, abus, client injoignable…). Le motif est journalisé."""
+    if not staff.is_staff:
+        raise PermissionDenied("Réservé à l'équipe Jeflink.")
+    reason = reason.strip()
+    if not reason:
+        raise ValidationError("Indiquez le motif de l'annulation.")
+    req = _locked(req)
+    return transition(req, S.CANCELLED, staff, f"Annulée par l'équipe : {reason}"[:200])
+
+
+@transaction.atomic
+def open_dispute(user, req: ServiceRequest, reason: str, description: str) -> Dispute:
+    """Le client, le pro de la mission ou l'équipe signale un problème sur une mission."""
+    req = _locked(req)
+    if not user.is_staff and user.pk not in (req.client_id, req.pro_id):
+        raise PermissionDenied(
+            "Seuls le client et le pro de la mission peuvent signaler un problème."
+        )
+    if req.status not in (S.BOOKED, S.DONE):
+        raise ValidationError("On signale un problème sur une mission réservée ou terminée.")
+    if reason not in Dispute.Reason.values:
+        raise ValidationError("Motif inconnu.")
+    if not description.strip():
+        raise ValidationError("Décrivez le problème en quelques mots.")
+    if req.disputes.exclude(
+        status__in=[Dispute.Status.RESOLVED, Dispute.Status.DISMISSED]
+    ).exists():
+        raise ValidationError("Un litige est déjà en cours sur cette mission.")
+    return Dispute.objects.create(
+        request=req, opened_by=user, reason=reason, description=description.strip()
+    )
+
+
+@transaction.atomic
+def update_dispute(staff, dispute: Dispute, status: str, resolution: str = "") -> Dispute:
+    """L'équipe fait avancer un litige. Clore (résolu, sans suite) exige une décision écrite."""
+    if not staff.is_staff:
+        raise PermissionDenied("Réservé à l'équipe Jeflink.")
+    dispute = Dispute.objects.select_for_update().get(pk=dispute.pk)
+    if dispute.is_closed:
+        raise ValidationError("Ce litige est clos.")
+    if status not in Dispute.Status.values or status == Dispute.Status.OPEN:
+        raise ValidationError("Statut de litige invalide.")
+    closing = status in (Dispute.Status.RESOLVED, Dispute.Status.DISMISSED)
+    if closing and not resolution.strip():
+        raise ValidationError("Écrivez la décision avant de clore le litige.")
+    dispute.status = status
+    dispute.resolution = resolution.strip() or dispute.resolution
+    dispute.handled_by = staff
+    dispute.closed_at = timezone.now() if closing else None
+    dispute.save()
+    return dispute

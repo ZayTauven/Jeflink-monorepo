@@ -7,10 +7,12 @@ Django 5.2 + DRF + drf-spectacular, base SQLite (`db.sqlite3`, ignorée par git)
 | `accounts` | `User` (connexion par email, rôle client/pro, téléphone E.164), `ProProfile`, `ContactMessage` ; `/api/auth/…` |
 | `catalog`  | `Trade` (métier), `Zone` (quartier) ; lecture publique : métiers, quartiers, pros vérifiés, avis, chiffres |
 | `jobs`     | `ServiceRequest`, `Quote`, `Review`, `RequestEvent` ; `/api/requests/…` ; commande `seed_demo` |
-| `console`  | API de la console d'administration, réservée à l'équipe (`IsAdminUser`) : `/api/console/…` ; chiffres dans `stats.py` |
+| `console`  | API de la console d'administration, réservée à l'équipe (`IsAdminUser`) : `/api/console/…` ; chiffres dans `stats.py`, actions dans `services.py`, `AuditLog` (journal) |
 
 - Règles métier dans `jobs/services.py` uniquement (qui voit quoi, devis, choix, fin, annulation, avis). Les vues valident l'entrée et appellent le service.
-- Cycle d'une demande : `open → booked → done`, annulation possible avant la fin. 3 devis au plus. Seul un pro **vérifié** (case cochée dans l'admin) peut chiffrer.
+- Cycle d'une demande : `open → booked → done`, annulation possible avant la fin (client, ou équipe avec motif). 3 devis au plus. Seul un pro **vérifié** (console → Pros) peut chiffrer.
+- Litiges (`Dispute`) : ouverts par le client, le pro de la mission ou l'équipe sur une mission réservée ou terminée, un seul actif à la fois ; clore exige une décision écrite. Règles dans `jobs/services.py`.
+- Console : toute action de l'équipe passe par `console/services.py` et écrit une ligne `AuditLog` (lecture seule dans l'admin Django). Avis masqué = hors du site, de la note du pro et des chiffres publics.
 - Argent : `PositiveIntegerField` en F CFA.
 - Documentation interactive : http://localhost:8000/api/docs/ · back-office : http://localhost:8000/admin/
 - Tests : `tests/test_flow.py` (parcours complet + règles de confiance), `tests/test_console.py` (accès équipe, chiffres). Chaque nouvelle règle a son test.

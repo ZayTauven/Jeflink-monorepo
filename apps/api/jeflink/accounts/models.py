@@ -60,6 +60,12 @@ class User(AbstractUser):
     photo = models.CharField(
         "photo", max_length=200, blank=True, help_text="Chemin d'image servi par le site web."
     )
+    suspension_reason = models.CharField(
+        "motif de suspension",
+        max_length=200,
+        blank=True,
+        help_text="Renseigné quand l'équipe suspend le compte (is_active = faux).",
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -97,6 +103,13 @@ class ProProfile(models.Model):
         default=False,
         help_text="Seuls les pros vérifiés par l'équipe Jeflink peuvent envoyer des devis.",
     )
+    verified_at = models.DateTimeField("vérifié le", null=True, blank=True)
+    verification_note = models.CharField(
+        "motif du refus",
+        max_length=300,
+        blank=True,
+        help_text="Ce qui manque pour être vérifié ; affiché au pro dans son espace.",
+    )
     photo = models.CharField(
         "photo", max_length=200, blank=True, help_text="Chemin d'image servi par le site web."
     )
@@ -115,7 +128,7 @@ class ProProfile(models.Model):
     def rating(self) -> dict:
         from jeflink.jobs.models import Review
 
-        agg = Review.objects.filter(request__pro=self.user).aggregate(
+        agg = Review.objects.filter(request__pro=self.user, is_hidden=False).aggregate(
             avg=Avg("rating"), n=Count("id")
         )
         return {"average": round(agg["avg"], 1) if agg["avg"] else None, "count": agg["n"]}
@@ -128,6 +141,10 @@ class ContactMessage(models.Model):
     email = models.EmailField()
     message = models.TextField()
     is_handled = models.BooleanField("traité", default=False)
+    handled_at = models.DateTimeField("traité le", null=True, blank=True)
+    handled_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

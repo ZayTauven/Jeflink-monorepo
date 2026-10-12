@@ -14,7 +14,16 @@ class ProProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProProfile
-        fields = ["headline", "bio", "trades", "zones", "years_experience", "is_verified", "photo"]
+        fields = [
+            "headline",
+            "bio",
+            "trades",
+            "zones",
+            "years_experience",
+            "is_verified",
+            "verification_note",
+            "photo",
+        ]
 
 
 class MeSerializer(serializers.ModelSerializer):

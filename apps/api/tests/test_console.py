@@ -70,7 +70,12 @@ def test_tableau_de_bord(staff, mission):
 
 def test_pastilles_du_menu(staff, mission):
     res = as_user(staff).get("/api/console/badges/")
-    assert res.data == {"pros_pending": 1, "stale_requests": 0, "contact_unhandled": 0}
+    assert res.data == {
+        "pros_pending": 1,
+        "stale_requests": 0,
+        "contact_unhandled": 0,
+        "disputes_active": 0,
+    }
 
 
 def test_periode_inconnue_revient_a_30_jours(staff):

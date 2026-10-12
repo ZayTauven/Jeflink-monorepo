@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Quote, RequestEvent, Review, ServiceRequest
+from .models import Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 
 class QuoteInline(admin.TabularInline):
@@ -30,5 +30,14 @@ class ServiceRequestAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ["request", "rating", "created_at"]
-    list_filter = ["rating"]
+    list_display = ["request", "rating", "is_hidden", "created_at"]
+    list_filter = ["rating", "is_hidden"]
+    readonly_fields = ["is_hidden", "hidden_reason"]  # modération : console (journalisée)
+
+
+@admin.register(Dispute)
+class DisputeAdmin(admin.ModelAdmin):
+    list_display = ["id", "request", "reason", "status", "opened_by", "created_at"]
+    list_filter = ["status", "reason"]
+    # Les litiges se traitent dans la console (journalisée) ; ici, consultation seulement.
+    readonly_fields = [f.name for f in Dispute._meta.fields]

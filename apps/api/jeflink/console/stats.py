@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
 from jeflink.catalog.models import Trade, Zone
-from jeflink.jobs.models import Quote, RequestEvent, Review, ServiceRequest
+from jeflink.jobs.models import Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 S = ServiceRequest.Status
 STALE_AFTER = timedelta(hours=24)
@@ -244,4 +244,7 @@ def badges() -> dict:
         "pros_pending": _pending_pros().count(),
         "stale_requests": _stale_requests(timezone.now()).count(),
         "contact_unhandled": ContactMessage.objects.filter(is_handled=False).count(),
+        "disputes_active": Dispute.objects.filter(
+            status__in=[Dispute.Status.OPEN, Dispute.Status.INVESTIGATING]
+        ).count(),
     }
