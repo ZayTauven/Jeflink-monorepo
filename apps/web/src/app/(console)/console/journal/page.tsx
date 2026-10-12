@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { targetHref } from "@/console/audit";
+import { AuditCard, CardGrid } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { Pager } from "@/console/kit";
 import type { AuditRow, Page } from "@/console/types";
-import { Empty, PageHead } from "@/console/ui";
-import { formatDate } from "@/lib/format";
+import { PageHead } from "@/console/ui";
 
 export const metadata: Metadata = { title: "Journal des actions" };
 
@@ -102,55 +101,12 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           </Link>
         </div>
       </form>
-      <section className="ax-card" aria-label="Journal">
-        <div className="ax-card__body">
-          {data.results.length === 0 ? (
-            <Empty>Aucune action enregistrée pour ces filtres.</Empty>
-          ) : (
-            <div
-              className="ax-table-wrap"
-              role="region"
-              aria-label="Tableau du journal (défile horizontalement)"
-              tabIndex={0}
-            >
-              <table className="ax-table ax-table--compact">
-                <thead>
-                  <tr>
-                    <th scope="col">Quand</th>
-                    <th scope="col">Qui</th>
-                    <th scope="col">Action</th>
-                    <th scope="col">Concerne</th>
-                    <th scope="col">Précisions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.results.map((row) => {
-                    const href = targetHref(row);
-                    return (
-                      <tr key={row.id}>
-                        <td className="jf-nowrap">{formatDate(row.created_at, true)}</td>
-                        <td>{row.actor?.name ?? "—"}</td>
-                        <td className="jf-strong">{row.action_label}</td>
-                        <td>
-                          {href ? (
-                            <Link href={href} className="jf-link">
-                              {row.target_label}
-                            </Link>
-                          ) : (
-                            row.target_label
-                          )}
-                        </td>
-                        <td>{row.details || "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <Pager count={data.count} base={BASE} params={params} />
-        </div>
-      </section>
+      <CardGrid empty="Aucune action enregistrée pour ces filtres.">
+        {data.results.map((row) => (
+          <AuditCard key={row.id} row={row} />
+        ))}
+      </CardGrid>
+      <Pager count={data.count} base={BASE} params={params} />
     </>
   );
 }

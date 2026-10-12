@@ -7,9 +7,10 @@ import type { ReactNode } from "react";
 
 import { ActionButton, Avatar, ReasonAction, Stars } from "./kit";
 import { ago, plural } from "./text";
-import type { ClientRow, ContactRow, ProRow, RequestRow, ReviewRow } from "./types";
+import { targetHref } from "./audit";
+import type { AuditRow, ClientRow, ContactRow, ProRow, RequestRow, ReviewRow } from "./types";
 import { Status } from "./ui";
-import { formatRating, formatXOF } from "@/lib/format";
+import { formatDate, formatRating, formatXOF } from "@/lib/format";
 
 const NBSP = " ";
 
@@ -337,6 +338,34 @@ export function MessageCard({ m, back }: { m: ContactRow; back: string }) {
       }
     >
       <p className="jf-prose">{m.message}</p>
+    </ItemCard>
+  );
+}
+
+export function AuditCard({ row }: { row: AuditRow }) {
+  const href = targetHref(row);
+  return (
+    <ItemCard
+      label={row.action_label}
+      eyebrow={`${formatDate(row.created_at, true)} · ${row.actor?.name ?? "Équipe"}`}
+      title={row.action_label}
+    >
+      <p className="jf-prose">
+        <span className="jf-sub">Concerne</span>
+        {href ? (
+          <Link href={href} className="jf-link jf-strong">
+            {row.target_label}
+          </Link>
+        ) : (
+          <span className="jf-strong">{row.target_label}</span>
+        )}
+      </p>
+      {row.details && (
+        <p className="jf-prose">
+          <span className="jf-sub">Précisions</span>
+          {row.details}
+        </p>
+      )}
     </ItemCard>
   );
 }

@@ -111,7 +111,7 @@ def test_desactiver_un_metier_le_retire_du_site(team, catalog):
     res = api.post(url, {"name": "Plomberie", "is_active": "0"})
     assert res.status_code == 200 and res.data["is_active"] is False
     assert APIClient().get("/api/trades/").data == []
-    assert AuditLog.objects.get().details == "is_active"
+    assert AuditLog.objects.get().details == "actif"
     assert (
         api.post(url, {"name": "Plomberie", "is_active": "0"}).status_code == 400
     )  # rien à changer

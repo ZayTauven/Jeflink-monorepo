@@ -225,7 +225,7 @@ def _unique_slug(model, name: str, exclude_pk=None) -> str:
 def _changes(obj, data: dict) -> str:
     """Liste lisible des champs modifiés, pour le journal."""
     changed = [k for k, v in data.items() if getattr(obj, k) != v]
-    return ", ".join(changed)
+    return ", ".join(str(obj._meta.get_field(k).verbose_name) for k in changed)
 
 
 @transaction.atomic
