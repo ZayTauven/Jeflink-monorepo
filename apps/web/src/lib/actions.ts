@@ -19,7 +19,12 @@ export function wantsJson(req: NextRequest): boolean {
 /** Refuse un POST venu d'un autre site (le cookie SameSite=Lax protège déjà, ceci double). */
 export function sameOrigin(req: NextRequest): boolean {
   const origin = req.headers.get("origin");
-  return !origin || new URL(origin).host === req.headers.get("host");
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === req.headers.get("host");
+  } catch {
+    return false; // « Origin: null » (iframe sandbox, fichier local…) : refusé
+  }
 }
 
 export function forbidden() {
@@ -55,10 +60,16 @@ export function failure(req: NextRequest, err: ApiError, back: string) {
   return NextResponse.redirect(url, 303);
 }
 
-/** Chemin de retour interne uniquement (jamais vers un autre site). */
+const INTERNAL = "http://jeflink.invalid";
+
+/**
+ * Chemin de retour interne uniquement (jamais vers un autre site). On laisse le parseur d'URL
+ * trancher : « //x », « /\x » ou « /<tab>/x » mènent tous vers un autre hôte et sont refusés.
+ */
 export function safeNext(value: FormDataEntryValue | null, fallback: string): string {
-  const v = typeof value === "string" ? value : "";
-  return v.startsWith("/") && !v.startsWith("//") && !v.startsWith("/\\") ? v : fallback;
+  if (typeof value !== "string" || !value.startsWith("/")) return fallback;
+  const url = new URL(value, INTERNAL);
+  return url.origin === INTERNAL ? url.pathname + url.search + url.hash : fallback;
 }
 
 export function text(form: FormData, key: string): string {
