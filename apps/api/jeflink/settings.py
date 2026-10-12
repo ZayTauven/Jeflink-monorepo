@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "jeflink.accounts",
     "jeflink.catalog",
     "jeflink.jobs",
+    "jeflink.console",
 ]
 
 MIDDLEWARE = [

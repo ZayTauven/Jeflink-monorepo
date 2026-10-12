@@ -4,15 +4,17 @@ Idempotent : relançable. ``--reset`` vide d'abord les demandes, devis et avis.
 Les comptes de démo partagent le mot de passe DEMO_PASSWORD (valeur de test, locale uniquement).
 """
 
+import random
 from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
-from jeflink.accounts.models import ProProfile, User
+from jeflink.accounts.models import ContactMessage, ProProfile, User
 from jeflink.catalog.models import Trade, Zone
 from jeflink.jobs import services
-from jeflink.jobs.models import ServiceRequest
+from jeflink.jobs.models import Quote, RequestEvent, Review, ServiceRequest
 
 DEMO_PASSWORD = "jeflink-demo"
 IMG = "/images/{}.webp"
@@ -275,6 +277,102 @@ PROS = [
 
 ADMIN = {"email": "admin@jeflink.local", "first_name": "Équipe", "last_name": "Jeflink"}
 
+# --- Historique de la console : 90 jours d'activité inventée, reproductible (graine fixe) -------
+
+HISTORY_DAYS = 90
+HISTORY_SIZE = 70
+HISTORY_CLIENTS = [
+    ("Khady", "Sow"),
+    ("Mame", "Diop"),
+    ("Serigne", "Mbacké"),
+    ("Coumba", "Ndour"),
+    ("Abdou", "Thiam"),
+    ("Ndèye", "Seck"),
+    ("Modou", "Cissé"),
+    ("Astou", "Diagne"),
+    ("Lamine", "Camara"),
+    ("Binta", "Sy"),
+    ("Ousseynou", "Lo"),
+    ("Rokhaya", "Niang"),
+]
+# Inscriptions de pros que l'équipe n'a pas encore vérifiées (file « À vérifier »).
+PENDING_PROS = [
+    ("Saliou", "Diouf", "plomberie", "Plombier, 4 ans d'expérience à Pikine"),
+    ("Adama", "Touré", "electricite", "Électricien, installations neuves et dépannage"),
+    ("Yacine", "Kébé", "menage", "Équipe de ménage (3 personnes), Parcelles Assainies"),
+]
+CONTACT_MESSAGES = [
+    (
+        "Société Teranga Bureaux",
+        "contact@teranga-bureaux.example",
+        "Bonjour, nous cherchons un contrat d'entretien des clims pour 12 bureaux au Plateau.",
+    ),
+    (
+        "Mbaye Diagne",
+        "mbaye.diagne@example.com",
+        "Je suis plombier à Rufisque, comment rejoindre Jeflink ?",
+    ),
+]
+# (titre, description, prix de base en F CFA) par métier ; poids = part des demandes.
+HISTORY_JOBS = {
+    "plomberie": (
+        30,
+        [
+            ("Fuite au robinet de la cuisine", "Le robinet goutte en continu.", 7500),
+            ("WC bouché", "La chasse d'eau ne descend plus.", 10000),
+            ("Chauffe-eau en panne", "Plus d'eau chaude depuis deux jours.", 25000),
+            ("Pompe qui ne démarre plus", "Le surpresseur fait du bruit sans pomper.", 20000),
+            ("Pose d'un lavabo", "Lavabo et mitigeur achetés.", 15000),
+        ],
+    ),
+    "electricite": (
+        22,
+        [
+            ("Disjoncteur qui saute", "Le courant coupe quand on allume la clim.", 10000),
+            ("Ajouter des prises", "Trois prises dans le salon.", 12000),
+            ("Lustre à installer", "Plafond à 3 m, le lustre est acheté.", 8000),
+            ("Tableau électrique à refaire", "Vieux tableau, fusibles à remplacer.", 45000),
+        ],
+    ),
+    "climatisation": (
+        18,
+        [
+            ("Entretien de clim", "Deux splits à nettoyer avant l'été.", 15000),
+            ("Clim qui coule", "De l'eau coule du split de la chambre.", 12000),
+            ("Pose d'un split", "Split 12 000 BTU neuf à installer.", 35000),
+        ],
+    ),
+    "menage": (
+        15,
+        [
+            ("Ménage complet d'un F3", "Appartement au 2e étage.", 25000),
+            ("Nettoyage de canapé", "Canapé d'angle en tissu.", 15000),
+            ("Grand nettoyage après travaux", "Poussière de peinture partout.", 40000),
+        ],
+    ),
+    "electromenager": (
+        8,
+        [
+            ("Frigo qui ne refroidit plus", "Le congélateur marche, pas le frigo.", 15000),
+            ("Machine à laver en panne", "Elle ne vidange plus.", 12000),
+        ],
+    ),
+    "petits-travaux": (
+        7,
+        [
+            ("Monter une armoire", "Armoire 3 portes en kit.", 10000),
+            ("Repeindre un salon", "Murs et plafond, peinture fournie.", 50000),
+        ],
+    ),
+}
+COMMENTS = {
+    5: ["Travail propre et rapide.", "Très professionnel, je recommande.", ""],
+    4: ["Bon travail, un peu de retard.", "Satisfait, prix respecté.", ""],
+    3: ["Correct, mais il a fallu rappeler deux fois.", ""],
+    2: ["Le problème est revenu au bout de trois jours."],
+    1: ["Pas venu au premier rendez-vous, travail bâclé."],
+}
+
 
 def slugify_zone(name: str) -> str:
     from django.utils.text import slugify
@@ -308,6 +406,12 @@ class Command(BaseCommand):
 
         if not ServiceRequest.objects.exists():
             self._requests(clients, pros)
+            self._spread_showcase()
+            self._history(pros)
+        self._pending_pros()
+        if not ContactMessage.objects.exists():
+            for name, email, message in CONTACT_MESSAGES:
+                ContactMessage.objects.create(name=name, email=email, message=message)
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -475,3 +579,135 @@ class Command(BaseCommand):
             services.accept_quote(clients[client], req, quote.pk)
             services.complete(pros[pro], req)
             services.leave_review(clients[client], req, rating, comment)
+
+    def _spread_showcase(self):
+        """Étale les missions terminées de la vitrine sur les trois dernières semaines.
+
+        Leurs avis gardent la date du jour : ce sont eux que le site montre en premier.
+        """
+        now = timezone.now()
+        done = ServiceRequest.objects.filter(status=ServiceRequest.Status.DONE).order_by("pk")
+        for i, req in enumerate(done):
+            t0 = now - timedelta(days=4 + 3 * i, hours=5)
+            ServiceRequest.objects.filter(pk=req.pk).update(
+                created_at=t0, updated_at=t0 + timedelta(hours=30)
+            )
+            for status, hours in (("open", 0), ("booked", 6), ("done", 30)):
+                RequestEvent.objects.filter(request=req, status=status).update(
+                    created_at=t0 + timedelta(hours=hours)
+                )
+            req.quotes.update(created_at=t0 + timedelta(hours=2))
+
+    def _pending_pros(self):
+        joined = timezone.now() - timedelta(days=1)
+        for i, (first, last, trade, headline) in enumerate(PENDING_PROS):
+            user, created = User.objects.get_or_create(
+                email=f"{first.lower()}.{slugify_zone(last)}@pros.jeflink.local",
+                defaults={"first_name": first, "last_name": last, "role": User.Role.PRO},
+            )
+            if created:
+                user.set_password(DEMO_PASSWORD)
+                user.date_joined = joined - timedelta(days=i * 2, hours=i * 5)
+                user.save()
+            profile, _ = ProProfile.objects.get_or_create(
+                user=user, defaults={"headline": headline, "years_experience": 2 + i}
+            )
+            profile.trades.set(Trade.objects.filter(slug=trade))
+
+    def _history(self, pros):
+        """~70 demandes sur 90 jours, à toutes les étapes, pour les graphiques de la console.
+
+        Les règles passent par ``services`` ; seules les dates sont ensuite antidatées.
+        """
+        rng = random.Random(2026)
+        now = timezone.now()
+        clients = [
+            self._user(
+                {
+                    "email": f"{first.lower()}.{slugify_zone(last)}@clients.jeflink.local",
+                    "first_name": first,
+                    "last_name": last,
+                    "phone": f"+22177600{i:04d}",
+                }
+            )
+            for i, (first, last) in enumerate(HISTORY_CLIENTS)
+        ]
+        for client in clients:
+            if client.date_joined > now - timedelta(days=HISTORY_DAYS):
+                User.objects.filter(pk=client.pk).update(
+                    date_joined=now - timedelta(days=HISTORY_DAYS + rng.randint(1, 60))
+                )
+        trades = {t.slug: t for t in Trade.objects.all()}
+        zones = list(Zone.objects.all())
+        busy = [z for z in zones if z.slug in {"ouakam", "mermoz", "yoff", "liberte", "plateau"}]
+        by_trade = {
+            "plomberie": [pros["Mamadou"], pros["Ousmane"]],
+            "electricite": [pros["Ibrahima"]],
+            "climatisation": [pros["Cheikh"]],
+            "electromenager": [pros["Cheikh"]],
+            "menage": [pros["Fatou"]],
+            "petits-travaux": [pros["Aliou"]],
+        }
+        slugs = list(HISTORY_JOBS)
+        weights = [HISTORY_JOBS[s][0] for s in slugs]
+        hour = timedelta(hours=1)
+
+        for _ in range(HISTORY_SIZE):
+            # Plus de demandes récentes que d'anciennes : la plateforme grandit.
+            age = timedelta(days=HISTORY_DAYS * rng.random() ** 1.5, hours=rng.randint(0, 23))
+            t0 = now - age - hour
+            slug = rng.choices(slugs, weights)[0]
+            title, description, base = rng.choice(HISTORY_JOBS[slug][1])
+            client = rng.choice(clients)
+            req = services.create_request(
+                client,
+                trade=trades[slug],
+                zone=rng.choice(busy if rng.random() < 0.5 else zones),
+                title=title,
+                description=description,
+                is_urgent=rng.random() < 0.15,
+            )
+            ServiceRequest.objects.filter(pk=req.pk).update(created_at=t0, updated_at=t0)
+            RequestEvent.objects.filter(request=req).update(created_at=t0)
+
+            roll = rng.random()
+            if timedelta(days=1) < age < timedelta(days=8) and roll > 0.8:
+                continue  # Restée sans devis : alerte « demande sans réponse ».
+            if roll > 0.88:
+                at = t0 + timedelta(hours=rng.uniform(2, 30))
+                services.cancel(client, req)
+                RequestEvent.objects.filter(request=req, status="cancelled").update(created_at=at)
+                ServiceRequest.objects.filter(pk=req.pk).update(updated_at=at)
+                continue
+
+            quotes = []
+            t = t0
+            for pro in rng.sample(by_trade[slug], k=len(by_trade[slug])):
+                t += timedelta(hours=rng.uniform(0.3, 9))
+                if t > now:
+                    break
+                amount = max(2000, round(base * rng.uniform(0.8, 1.35) / 500) * 500)
+                quote = services.submit_quote(pro, req, amount, "Devis tout compris.")
+                Quote.objects.filter(pk=quote.pk).update(created_at=t)
+                quotes.append(quote)
+            booked_at = t + timedelta(hours=rng.uniform(1, 20))
+            if not quotes or booked_at > now or roll > 0.82:
+                continue  # Devis reçus, client pas encore décidé.
+
+            quote = min(quotes, key=lambda q: q.amount) if rng.random() < 0.6 else quotes[0]
+            services.accept_quote(client, req, quote.pk)
+            RequestEvent.objects.filter(request=req, status="booked").update(created_at=booked_at)
+            done_at = booked_at + timedelta(days=rng.uniform(0.5, 4))
+            if done_at > now - hour:
+                ServiceRequest.objects.filter(pk=req.pk).update(updated_at=booked_at)
+                continue  # Mission en cours.
+
+            services.complete(rng.choice([client, quote.pro]), req)
+            RequestEvent.objects.filter(request=req, status="done").update(created_at=done_at)
+            ServiceRequest.objects.filter(pk=req.pk).update(updated_at=done_at)
+            reviewed_at = done_at + timedelta(hours=rng.uniform(2, 30))
+            if reviewed_at > now or rng.random() < 0.25:
+                continue
+            rating = rng.choices([5, 4, 3, 2, 1], [55, 30, 8, 5, 2])[0]
+            review = services.leave_review(client, req, rating, rng.choice(COMMENTS[rating]))
+            Review.objects.filter(pk=review.pk).update(created_at=reviewed_at)
