@@ -760,3 +760,106 @@
 .jf-inline--end {
   justify-content: flex-end;
 }
+
+/* ── Formulaires (catalogue, réglages, équipe) ─────────────────────────────────── */
+.jf-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 14px 18px;
+  align-items: start;
+}
+.jf-form .ax-field {
+  margin: 0;
+}
+.jf-form__wide {
+  grid-column: 1 / -1;
+}
+.jf-form .ax-field__hint {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  color: var(--ax-text-muted);
+}
+.jf-check label {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px; /* cible tactile confortable */
+  gap: 8px;
+  font-weight: 500;
+  color: var(--ax-text-strong);
+  cursor: pointer;
+}
+.jf-check input[type="checkbox"] {
+  accent-color: var(--ax-accent-600);
+  inline-size: 18px;
+  block-size: 18px;
+}
+.jf-check .ax-field__hint {
+  margin: 4px 0 0 26px;
+}
+
+/* Bouton « Nouveau… » de l'en-tête : le formulaire s'ouvre en panneau sous le bouton. */
+.jf-new {
+  position: relative;
+}
+.jf-new__panel {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: calc(100% + 8px);
+  z-index: 30;
+  inline-size: min(640px, calc(100vw - 32px));
+  border: 1px solid var(--ax-border-strong);
+  box-shadow: var(--ax-shadow-lg);
+}
+.ax-page-head:has(.jf-new[open]) {
+  position: relative;
+  z-index: 30;
+}
+@media (max-width: 576px) {
+  .jf-new {
+    inline-size: 100%;
+  }
+  .jf-new__panel {
+    position: static;
+    inline-size: 100%;
+    margin-block-start: 8px;
+  }
+}
+
+/* Prestations d'un métier (pastilles) */
+.jf-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jf-chips li {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--ax-surface-subtle);
+  font-size: 0.8125rem;
+  color: var(--ax-text);
+}
+.jf-item--compact .jf-item__title {
+  font-size: 1.125rem;
+}
+
+/* Changer le rôle d'un membre */
+.jf-role-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Bouton d'enregistrement des réglages, toujours à portée */
+.jf-sticky-save {
+  position: sticky;
+  inset-block-end: 16px;
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: var(--ax-space-5);
+}
+.jf-sticky-save .ax-btn {
+  box-shadow: var(--ax-shadow-md);
+}

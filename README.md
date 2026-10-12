@@ -52,7 +52,8 @@ Le site et la console ont besoin des templates sous licence Envato, à placer lo
 | `moussa@demo.jeflink.sn`  | client : une demande d'électricité sans devis                  |
 | `ibou@demo.jeflink.sn`    | électricien vérifié : peut chiffrer la demande de Moussa       |
 | `mamadou@demo.jeflink.sn` | plombier vérifié (aussi `ousmane`, `cheikh`, `fatou`, `aliou`) |
-| `admin@jeflink.local`     | équipe Jeflink : console `/console` (et admin Django)          |
+| `admin@jeflink.local`     | équipe Jeflink, super admin : toute la console `/console`      |
+| `ops@jeflink.local`       | équipe, rôle Opérations (aussi `marketing@`, `finance@`)       |
 
 Un pro qui s'inscrit sur le site doit être **vérifié** par l'équipe (console → Pros → « Vérifier ») avant de pouvoir envoyer un devis.
 

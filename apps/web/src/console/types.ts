@@ -94,6 +94,7 @@ export type RequestRow = {
   client: Ref;
   pro: Ref | null;
   quotes_count: number;
+  quotes_max: number;
   amount: number | null;
   open_disputes: number;
   created_at: string;
@@ -228,4 +229,59 @@ export type AuditRow = {
   target_label: string;
   details: string;
   created_at: string;
+};
+
+// --- Lot 2 : catalogue, réglages, équipe ------------------------------------------------------
+
+export type TradeAdmin = {
+  id: number;
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  services: string[];
+  starting_price: number | null;
+  icon: string;
+  image: string;
+  position: number;
+  is_active: boolean;
+  pros_verified: number;
+  requests_30d: number;
+  requests_total: number;
+};
+
+export type ZoneAdmin = {
+  id: number;
+  slug: string;
+  name: string;
+  city: string;
+  position: number;
+  is_active: boolean;
+  pros_count: number;
+  requests_30d: number;
+};
+
+export type PlatformSettings = {
+  max_quotes: number;
+  stale_after_hours: number;
+  accepting_requests: boolean;
+  closed_message: string;
+  support_whatsapp: string;
+  support_email: string;
+  updated_at: string;
+  updated_by: Ref | null;
+};
+
+export type StaffRole = "super" | "ops" | "marketing" | "finance";
+
+export type Member = {
+  id: number;
+  name: string;
+  email: string;
+  role: StaffRole;
+  role_label: string;
+  is_active: boolean;
+  is_superuser: boolean;
+  last_login: string | null;
+  date_joined: string;
 };

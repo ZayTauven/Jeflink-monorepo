@@ -16,7 +16,12 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
   const badges = await api<Badges>("/api/console/badges/", { token });
   return (
     <ConsoleShell
-      me={{ first_name: me.first_name, last_name: me.last_name, email: me.email }}
+      me={{
+        first_name: me.first_name,
+        last_name: me.last_name,
+        email: me.email,
+        console_sections: me.console_sections,
+      }}
       badges={badges.ok ? badges.data : NO_BADGES}
     >
       {children}

@@ -174,7 +174,7 @@ function Quotes({
   return (
     <div className="mb-30px">
       <h2 className="h5 alt-font fw-500 mb-20px">
-        {isClient ? `Devis reçus (${req.quotes.length}/3)` : "Votre devis"}
+        {isClient ? `Devis reçus (${req.quotes.length}/${req.quotes_max})` : "Votre devis"}
       </h2>
       {req.quotes.map((q) => (
         <div

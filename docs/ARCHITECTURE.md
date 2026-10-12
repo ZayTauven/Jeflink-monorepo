@@ -27,17 +27,18 @@ Chaque étape est journalisée (`RequestEvent`) et affichée comme historique.
 
 ## Endpoints
 
-| Méthode  | Chemin                                                                                                                                                                                           | Accès                                     |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| POST     | `/api/auth/register/`, `/api/auth/login/`                                                                                                                                                        | public                                    |
-| POST     | `/api/auth/logout/` · GET `/api/auth/me/`                                                                                                                                                        | connecté                                  |
-| POST     | `/api/auth/contact/`                                                                                                                                                                             | public                                    |
-| GET      | `/api/trades/`, `/api/trades/{slug}/`, `/api/zones/`, `/api/pros/`, `/api/reviews/`, `/api/stats/`                                                                                               | public                                    |
-| GET/POST | `/api/requests/` (`?scope=open` ou `?scope=mine` pour un pro)                                                                                                                                    | connecté                                  |
-| POST     | `/api/requests/{id}/` + `quotes/`, `accept/`, `complete/`, `cancel/`, `review/`                                                                                                                  | selon le rôle                             |
-| POST     | `/api/requests/{id}/report/` (signaler un problème)                                                                                                                                              | client ou pro de la mission               |
-| GET      | `/api/console/overview/?days=7·30·90`, `/api/console/badges/`                                                                                                                                    | équipe (`is_staff`)                       |
-| GET/POST | `/api/console/{requests,disputes,pros,clients,reviews,messages,audit}/` + actions (`cancel`, `note`, `verify`, `reject`, `suspend`, `reactivate`, `hide`, `show`, `handle`, `reopen`, `status`…) | équipe (`is_staff`), actions journalisées |
+| Méthode  | Chemin                                                                                                                                                                                           | Accès                                                    |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| POST     | `/api/auth/register/`, `/api/auth/login/`                                                                                                                                                        | public                                                   |
+| POST     | `/api/auth/logout/` · GET `/api/auth/me/`                                                                                                                                                        | connecté                                                 |
+| POST     | `/api/auth/contact/`                                                                                                                                                                             | public                                                   |
+| GET      | `/api/trades/`, `/api/trades/{slug}/`, `/api/zones/`, `/api/pros/`, `/api/reviews/`, `/api/stats/`, `/api/site/` (réglages publics)                                                              | public                                                   |
+| GET/POST | `/api/requests/` (`?scope=open` ou `?scope=mine` pour un pro)                                                                                                                                    | connecté                                                 |
+| POST     | `/api/requests/{id}/` + `quotes/`, `accept/`, `complete/`, `cancel/`, `review/`                                                                                                                  | selon le rôle                                            |
+| POST     | `/api/requests/{id}/report/` (signaler un problème)                                                                                                                                              | client ou pro de la mission                              |
+| GET      | `/api/console/overview/?days=7·30·90`, `/api/console/badges/`                                                                                                                                    | équipe (`is_staff`)                                      |
+| GET/POST | `/api/console/{requests,disputes,pros,clients,reviews,messages,audit}/` + actions (`cancel`, `note`, `verify`, `reject`, `suspend`, `reactivate`, `hide`, `show`, `handle`, `reopen`, `status`…) | équipe (`is_staff`), selon le rôle, actions journalisées |
+| GET/POST | `/api/console/{trades,zones,team}/` (+ `{id}/update/`, `role`, `deactivate`…), `/api/console/settings/`                                                                                          | équipe, selon le rôle                                    |
 
 ## Console d'administration
 
@@ -47,9 +48,13 @@ Décidée le 2026-10-12. Le front de la console fait grandir l'API : chaque rubr
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
 | 0   | Fondations (vireo habillé Crafto, accès équipe, recherche Ctrl K, clair/sombre), tableau de bord branché sur les vraies données                        | fait    |
 | 1   | Demandes, litiges, pros (file de vérification, suspension), clients, avis (modération), messages de contact, journal d'audit                           | fait    |
-| 2   | Métiers, quartiers, réglages de la plateforme, équipe et rôles (Opérations, Marketing, Finance)                                                        | à faire |
+| 2   | Métiers, quartiers, réglages de la plateforme, équipe et rôles (Opérations, Marketing, Finance)                                                        | fait    |
 | 3   | Finances (commission par métier, transactions, soldes des pros) et marketing (codes promo financés par Jeflink, campagnes), rapports                   | à faire |
 | 4   | « Jef », l'IA d'assistance à la réservation : aide le client à décrire son souci, transmet une fiche claire au pro ; réglages et suivi dans la console | à faire |
+
+**Rôles de l'équipe** (`console/permissions.py`, contrôlés par l'API, menu filtré côté web) : Super admin = tout ; Opérations = demandes, litiges, pros, clients, avis, messages, journal, catalogue ; Marketing = catalogue et marketing ; Finance = finances. Le tableau de bord est ouvert à tous.
+
+**Réglages** (`PlatformSettings`, super admin) : devis maximum par demande, délai de l'alerte « sans devis », pause des nouvelles demandes avec message, WhatsApp et email du support (lus par le site via `/api/site/`).
 
 Les rubriques pas encore construites figurent déjà dans le menu (`src/console/nav.ts`) avec leur numéro de lot.
 
@@ -64,6 +69,6 @@ Les rubriques pas encore construites figurent déjà dans le menu (`src/console/
 - Wolof ; pagination des listes ; images optimisées et JS allégé (voir `docs/DESIGN.md › À peaufiner`).
 - `seed_demo` refuse de tourner si `DJANGO_DEBUG=0` : le compte `admin@jeflink.local` (superuser, mot de passe de démo public) ouvre toute la console. Les numéros du seed (`+22177…`) ont un format réel : aucun SMS ni WhatsApp vers eux.
 - Polices de la console servies en local plutôt que par Google Fonts.
-- Comptes de l'équipe : double authentification et sessions courtes ; rôles distincts (lot 2). Journal d'audit en ajout seul au niveau de la base, avec une durée de conservation (il contient des noms).
+- Comptes de l'équipe : double authentification, sessions courtes, changement obligatoire du mot de passe provisoire à la première connexion ; rôles distincts (lot 2). Journal d'audit en ajout seul au niveau de la base, avec une durée de conservation (il contient des noms).
 - Limites de débit sur « signaler un problème » et sur les actions de la console ; recherche de la console (téléphone, email) hors des URL journalisées.
 - Messages de retour de la console (`?ok=`, `?erreur=`) passés par des codes plutôt qu'en texte libre.

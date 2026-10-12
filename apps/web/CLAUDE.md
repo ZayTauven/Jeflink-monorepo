@@ -19,8 +19,9 @@ Next.js (App Router), **template Crafto « Marketing strategy » pris tel quel**
 
 - Template **vireo** habillé Crafto (`docs/DESIGN.md › Console d'administration`). `src/vireo/` est copié depuis `references/vireo` par `scripts/sync-vireo.mjs` (lancé par `pnpm dev`/`build`/`typecheck`) : jamais versionné, jamais modifié. Nos fichiers : `src/console/` (`console.css`, `shell.tsx`, `ui.tsx`, `charts.tsx`, `nav.ts`, `types.ts`).
 - Tailwind v4 n'est chargé que par `console.css` (le site garde ses feuilles Crafto). Navigation par `next/link`.
-- Accès : `requireStaff()` (`lib/api.ts`) dans `(console)/console/layout.tsx` ; données via `/api/console/…` (DRF `IsAdminUser`).
-- Menu = `src/console/nav.ts` : une rubrique avec `lot` affiche une page « bientôt » (`[...section]/page.tsx`) tant qu'elle n'est pas construite.
+- Accès : `requireStaff()` (`lib/api.ts`) dans `(console)/console/layout.tsx` ; données via `/api/console/…` (permissions par rubrique : `ConsoleSection` / `section()` dans `console/permissions.py`).
+- Menu = `src/console/nav.ts` : chaque section déclare sa rubrique (`section`), le menu et la recherche sont filtrés par `me.console_sections` ; une page refusée par l'API renvoie au tableau de bord avec un message. Une rubrique avec `lot` affiche une page « bientôt » (`[...section]/page.tsx`) tant qu'elle n'est pas construite.
+- Listes = cartes (`src/console/cards.tsx`, `CardGrid`), comme les litiges ; formulaires = `src/console/forms.tsx` (`Field`, `Check` qui envoie « 0 » décochée).
 - Lecture : `consoleGet()` (`src/console/data.ts`) dans chaque page (revérifie l'accès). Filtres = formulaires GET, onglets = liens (`kit.tsx`).
 - Écriture : Server Actions permises ici (pas de Crafto). Une seule action, `consoleAction` (`src/console/actions.ts`) : `<ActionForm endpoint back ok>` poste vers une action de l'API console (liste blanche), puis revient sur la page avec `?ok=` ou `?erreur=` (`<Flash>`). Action risquée = `<ReasonAction>` : motif obligatoire.
 

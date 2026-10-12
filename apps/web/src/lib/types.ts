@@ -43,6 +43,8 @@ export type Me = {
   phone: string;
   role: "client" | "pro";
   is_staff: boolean;
+  console_role: "" | "super" | "ops" | "marketing" | "finance";
+  console_sections: ConsoleSection[];
   pro_profile: {
     headline: string;
     bio: string;
@@ -56,6 +58,17 @@ export type Me = {
 };
 
 export type RequestStatus = "open" | "booked" | "done" | "cancelled";
+export type ConsoleSection =
+  "dashboard" | "operations" | "catalog" | "marketing" | "finance" | "admin";
+
+export type SiteSettings = {
+  accepting_requests: boolean;
+  closed_message: string;
+  support_whatsapp: string;
+  support_email: string;
+  max_quotes: number;
+};
+
 export type RequestAction = "accept" | "cancel" | "complete" | "review" | "quote" | "report";
 
 export type DisputeStatus = "open" | "investigating" | "resolved" | "dismissed";
@@ -101,6 +114,7 @@ export type ServiceRequest = {
   contact_phone: string | null;
   quotes: Quote[];
   quotes_count: number;
+  quotes_max: number;
   review: { rating: number; comment: string; created_at: string } | null;
   events: { status: RequestStatus; status_label: string; note: string; created_at: string }[];
   dispute: Dispute | null;

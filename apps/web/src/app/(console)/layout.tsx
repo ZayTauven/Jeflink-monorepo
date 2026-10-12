@@ -24,7 +24,7 @@ export const viewport: Viewport = {
 export default function ConsoleRootLayout({ children }: { children: ReactNode }) {
   return (
     // Le script de thème modifie <html> avant l'hydratation : écart voulu.
-    <html lang="fr" suppressHydrationWarning>
+    <html lang="fr" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <Script id="jf-console-theme" strategy="beforeInteractive">
           {THEME_SCRIPT}

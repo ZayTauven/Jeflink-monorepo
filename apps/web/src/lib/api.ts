@@ -3,7 +3,16 @@ import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import type { Me, Pro, PublicReview, ServiceRequest, Stats, Trade, Zone } from "./types";
+import type {
+  Me,
+  Pro,
+  PublicReview,
+  ServiceRequest,
+  SiteSettings,
+  Stats,
+  Trade,
+  Zone,
+} from "./types";
 
 export const API_URL = process.env.API_URL ?? "http://127.0.0.1:8000";
 export const TOKEN_COOKIE = "jeflink_token";
@@ -100,6 +109,19 @@ export const getReviews = () => publicList<PublicReview>("/api/reviews/");
 export async function getTrade(slug: string): Promise<Trade | null> {
   const res = await api<Trade>(`/api/trades/${encodeURIComponent(slug)}/`);
   return res.ok ? res.data : null;
+}
+
+/** Réglages publics (console › Réglages) ; API arrêtée → valeurs par défaut, le site reste lisible. */
+export async function getSite(): Promise<SiteSettings> {
+  const res = await api<SiteSettings>("/api/site/");
+  if (res.ok) return res.data;
+  return {
+    accepting_requests: true,
+    closed_message: "",
+    support_whatsapp: "",
+    support_email: "",
+    max_quotes: 3,
+  };
 }
 
 export async function getStats(): Promise<Stats | null> {

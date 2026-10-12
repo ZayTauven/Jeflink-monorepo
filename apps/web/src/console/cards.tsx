@@ -116,7 +116,7 @@ export function RequestCard({ r }: { r: RequestRow }) {
             "—"
           ),
         ],
-        ["Devis", `${r.quotes_count}/3`],
+        ["Devis", `${r.quotes_count}/${r.quotes_max}`],
         ["Montant", r.amount === null ? "—" : formatXOF(r.amount)],
         ["Publiée", ago(r.created_at)],
       ]}

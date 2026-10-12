@@ -1,6 +1,6 @@
 import "server-only";
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { api, requireStaff } from "@/lib/api";
 
@@ -25,5 +25,10 @@ export async function consoleGet<T>(here: string, path: string, params: Query = 
   const res = await api<T>(`/api/console/${path}${qs(params)}`, { token });
   if (res.ok) return res.data;
   if (res.status === 404) notFound();
+  if (res.status === 403) {
+    redirect(
+      `/console?erreur=${encodeURIComponent("Cette rubrique n'est pas ouverte à votre rôle.")}`,
+    );
+  }
   throw new Error(res.error || "La console ne répond pas.");
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ActivityChart } from "@/console/charts";
 import type { Overview } from "@/console/types";
 import { ago, plural } from "@/console/text";
+import { Flash } from "@/console/kit";
 import { Card, Delta, Empty, Kpi, PageHead, PeriodSwitch, Status } from "@/console/ui";
 import { api, requireStaff } from "@/lib/api";
 import { formatRating, formatXOF } from "@/lib/format";
@@ -15,11 +16,12 @@ const PERIODS = [7, 30, 90];
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ jours?: string }>;
+  searchParams: Promise<{ jours?: string; erreur?: string }>;
 }) {
-  const { jours } = await searchParams;
+  const { jours, erreur } = await searchParams;
   const days = PERIODS.includes(Number(jours)) ? Number(jours) : 30;
-  const { token } = await requireStaff("/console");
+  const { me, token } = await requireStaff("/console");
+  const ops = me.console_sections.includes("operations");
   const res = await api<Overview>(`/api/console/overview/?days=${days}`, { token });
 
   if (!res.ok) {
@@ -46,6 +48,7 @@ export default async function DashboardPage({
         subtitle={`Activité de la plateforme sur les ${days} derniers jours, comparée aux ${days} jours d'avant.`}
         actions={<PeriodSwitch days={days} base="/console" />}
       />
+      <Flash erreur={erreur} />
 
       <div className="ax-dash-grid">
         <Kpi
@@ -82,7 +85,7 @@ export default async function DashboardPage({
         />
 
         <Card
-          className="ax-col--8"
+          className={ops ? "ax-col--8" : "ax-col--12"}
           eyebrow="Activité"
           title="Demandes et réservations"
           subtitle={days > 31 ? "Par semaine, heure de Dakar" : "Par jour, heure de Dakar"}
@@ -90,88 +93,92 @@ export default async function DashboardPage({
           <ActivityChart daily={o.daily} />
         </Card>
 
-        <Card
-          className="ax-col--4 jf-col-md-full"
-          eyebrow="À traiter"
-          title="Ce qui attend l'équipe"
-        >
-          <ul className="ax-list ax-list--compact">
-            {alerts.pending_pros.map((p) => (
-              <li key={`pro-${p.id}`} className="ax-list__row">
-                <span className="ax-list__leading">
-                  <span className="jf-kpi-icon" aria-hidden="true">
-                    <i className="bi bi-person-badge" />
+        {ops && (
+          <Card
+            className="ax-col--4 jf-col-md-full"
+            eyebrow="À traiter"
+            title="Ce qui attend l'équipe"
+          >
+            <ul className="ax-list ax-list--compact">
+              {alerts.pending_pros.map((p) => (
+                <li key={`pro-${p.id}`} className="ax-list__row">
+                  <span className="ax-list__leading">
+                    <span className="jf-kpi-icon" aria-hidden="true">
+                      <i className="bi bi-person-badge" />
+                    </span>
                   </span>
-                </span>
-                <span className="ax-list__content">
-                  <Link className="ax-list__title" href={`/console/pros/${p.id}`}>
-                    {p.name} attend sa vérification
-                  </Link>
-                  <span className="ax-list__meta">
-                    {p.trades.join(", ") || "Métier non renseigné"} · inscrit {ago(p.joined_at)}
+                  <span className="ax-list__content">
+                    <Link className="ax-list__title" href={`/console/pros/${p.id}`}>
+                      {p.name} attend sa vérification
+                    </Link>
+                    <span className="ax-list__meta">
+                      {p.trades.join(", ") || "Métier non renseigné"} · inscrit {ago(p.joined_at)}
+                    </span>
                   </span>
-                </span>
-              </li>
-            ))}
-            {alerts.stale_requests.map((r) => (
-              <li key={`req-${r.id}`} className="ax-list__row">
-                <span className="ax-list__leading">
-                  <span className="jf-kpi-icon" aria-hidden="true">
-                    <i className="bi bi-hourglass-split" />
+                </li>
+              ))}
+              {alerts.stale_requests.map((r) => (
+                <li key={`req-${r.id}`} className="ax-list__row">
+                  <span className="ax-list__leading">
+                    <span className="jf-kpi-icon" aria-hidden="true">
+                      <i className="bi bi-hourglass-split" />
+                    </span>
                   </span>
-                </span>
-                <span className="ax-list__content">
-                  <Link className="ax-list__title" href={`/console/demandes/${r.id}`}>
-                    {r.title} : aucun devis
-                  </Link>
-                  <span className="ax-list__meta">
-                    {r.trade} · {r.zone} · publiée {ago(r.created_at)}
+                  <span className="ax-list__content">
+                    <Link className="ax-list__title" href={`/console/demandes/${r.id}`}>
+                      {r.title} : aucun devis
+                    </Link>
+                    <span className="ax-list__meta">
+                      {r.trade} · {r.zone} · publiée {ago(r.created_at)}
+                    </span>
                   </span>
-                </span>
-              </li>
-            ))}
-            {alerts.low_reviews.map((r) => (
-              <li key={`rev-${r.request_id}`} className="ax-list__row">
-                <span className="ax-list__leading">
-                  <span className="jf-kpi-icon" aria-hidden="true">
-                    <i className="bi bi-star-half" />
+                </li>
+              ))}
+              {alerts.low_reviews.map((r) => (
+                <li key={`rev-${r.request_id}`} className="ax-list__row">
+                  <span className="ax-list__leading">
+                    <span className="jf-kpi-icon" aria-hidden="true">
+                      <i className="bi bi-star-half" />
+                    </span>
                   </span>
-                </span>
-                <span className="ax-list__content">
-                  <Link className="ax-list__title" href="/console/avis?vue=basses">
-                    Avis {r.rating}/5 pour {r.pro?.name ?? "un pro"}
-                  </Link>
-                  <span className="ax-list__meta">
-                    {r.comment ? `« ${r.comment} »` : "Sans commentaire"} · {ago(r.created_at)}
+                  <span className="ax-list__content">
+                    <Link className="ax-list__title" href="/console/avis?vue=basses">
+                      Avis {r.rating}/5 pour {r.pro?.name ?? "un pro"}
+                    </Link>
+                    <span className="ax-list__meta">
+                      {r.comment ? `« ${r.comment} »` : "Sans commentaire"} · {ago(r.created_at)}
+                    </span>
                   </span>
-                </span>
-              </li>
-            ))}
-            {counts.contact_unhandled > 0 && (
-              <li className="ax-list__row">
-                <span className="ax-list__leading">
-                  <span className="jf-kpi-icon" aria-hidden="true">
-                    <i className="bi bi-chat-left-text" />
+                </li>
+              ))}
+              {counts.contact_unhandled > 0 && (
+                <li className="ax-list__row">
+                  <span className="ax-list__leading">
+                    <span className="jf-kpi-icon" aria-hidden="true">
+                      <i className="bi bi-chat-left-text" />
+                    </span>
                   </span>
-                </span>
-                <span className="ax-list__content">
-                  <Link className="ax-list__title" href="/console/messages">
-                    {plural(
-                      counts.contact_unhandled,
-                      "message de contact à lire",
-                      "messages de contact à lire",
-                    )}
-                  </Link>
-                </span>
-              </li>
+                  <span className="ax-list__content">
+                    <Link className="ax-list__title" href="/console/messages">
+                      {plural(
+                        counts.contact_unhandled,
+                        "message de contact à lire",
+                        "messages de contact à lire",
+                      )}
+                    </Link>
+                  </span>
+                </li>
+              )}
+            </ul>
+            {alerts.pending_pros.length +
+              alerts.stale_requests.length +
+              alerts.low_reviews.length +
+              counts.contact_unhandled ===
+              0 && (
+              <Empty>Rien en attente : aucun pro à vérifier, aucune demande sans devis.</Empty>
             )}
-          </ul>
-          {alerts.pending_pros.length +
-            alerts.stale_requests.length +
-            alerts.low_reviews.length +
-            counts.contact_unhandled ===
-            0 && <Empty>Rien en attente : aucun pro à vérifier, aucune demande sans devis.</Empty>}
-        </Card>
+          </Card>
+        )}
 
         <Card
           className="ax-col--7"

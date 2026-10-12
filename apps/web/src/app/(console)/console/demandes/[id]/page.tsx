@@ -69,7 +69,7 @@ export default async function RequestDetailPage({ params, searchParams }: Props)
             />
           </Card>
 
-          <Card title={`Devis (${r.quotes.length}/3)`} eyebrow="Prix">
+          <Card title={`Devis (${r.quotes.length}/${r.quotes_max})`} eyebrow="Prix">
             {r.quotes.length === 0 ? (
               <p className="jf-muted">Aucun devis reçu.</p>
             ) : (
@@ -192,7 +192,7 @@ export default async function RequestDetailPage({ params, searchParams }: Props)
             <Card title="Actions" eyebrow="Équipe">
               <div className="jf-stack jf-stack--tight">
                 {r.can_open_dispute && (
-                  <details className="jf-reason">
+                  <details className="jf-reason" suppressHydrationWarning>
                     <summary className="ax-btn ax-btn--sm ax-btn--secondary">
                       Ouvrir un litige…
                     </summary>

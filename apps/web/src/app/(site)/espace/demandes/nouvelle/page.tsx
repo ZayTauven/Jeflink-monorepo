@@ -4,7 +4,7 @@ import { AccountHero, ErrorAlert } from "@/components/account";
 import { ActionForm } from "@/components/action-form";
 import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
-import { getTrades, getZones, requireMe } from "@/lib/api";
+import { getSite, getTrades, getZones, requireMe } from "@/lib/api";
 
 export const metadata: Metadata = { title: "Nouvelle demande" };
 
@@ -25,7 +25,7 @@ export default async function NewRequestPage({
   const { metier, erreur } = await searchParams;
   const here = `/espace/demandes/nouvelle${metier ? `?metier=${encodeURIComponent(metier)}` : ""}`;
   const { me } = await requireMe(here);
-  const [trades, zones] = await Promise.all([getTrades(), getZones()]);
+  const [trades, zones, site] = await Promise.all([getTrades(), getZones(), getSite()]);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -40,6 +40,20 @@ export default async function NewRequestPage({
                 Vous êtes connecté avec un compte pro. Pour publier une demande, utilisez un compte
                 client.
               </p>
+            ) : !site.accepting_requests ? (
+              <div role="status">
+                <span className="status-pill status-cancelled mb-20px d-inline-block">
+                  Demandes en pause
+                </span>
+                <p className="fs-18 mb-15px">
+                  {site.closed_message ||
+                    "Jeflink ne prend pas de nouvelles demandes pour le moment."}
+                </p>
+                <p className="mb-25px">Les demandes déjà publiées continuent normalement.</p>
+                <a href="/espace" className="fw-500 text-decoration-line-bottom">
+                  Voir mes demandes
+                </a>
+              </div>
             ) : (
               <ActionForm action="/act/requests" className="jf-form" labels={LABELS}>
                 <ErrorAlert message={erreur} />

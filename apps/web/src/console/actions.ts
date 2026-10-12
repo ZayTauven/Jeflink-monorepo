@@ -11,8 +11,9 @@ import { redirect } from "next/navigation";
 
 import { api, requireStaff } from "@/lib/api";
 
+// Actions autorisées : action sur un élément, création (métier, quartier, membre), réglages.
 const ENDPOINT =
-  /^\/api\/console\/(requests|disputes|pros|clients|reviews|messages)\/\d+\/[a-z]+\/$/;
+  /^\/api\/console\/(?:(?:requests|disputes|pros|clients|reviews|messages|trades|zones|team)\/\d+\/[a-z]+\/|(?:trades|zones|team)\/|settings\/)$/;
 const BASE = "http://console.invalid";
 
 function backTo(value: FormDataEntryValue | null): URL {

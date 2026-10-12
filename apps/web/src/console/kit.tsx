@@ -224,7 +224,7 @@ export function ReasonAction({
   danger?: boolean;
 }) {
   return (
-    <details className="jf-reason">
+    <details className="jf-reason" suppressHydrationWarning>
       <summary
         className={`ax-btn ax-btn--sm ${danger ? "ax-btn--soft-danger" : "ax-btn--secondary"}`}
       >

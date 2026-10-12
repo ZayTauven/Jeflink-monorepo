@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { findNavItem } from "@/console/nav";
+import { findNavItem, NAV } from "@/console/nav";
 import { PageHead } from "@/console/ui";
+import { redirect } from "next/navigation";
+
 import { requireStaff } from "@/lib/api";
 
 type Props = { params: Promise<{ section: string[] }> };
@@ -15,9 +17,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PlannedSection({ params }: Props) {
-  await requireStaff("/console"); // chaque page de la console vérifie l'accès, pas seulement le layout
+  // Chaque page de la console vérifie l'accès, pas seulement le layout.
+  const { me } = await requireStaff("/console");
   const item = findNavItem(`/console/${(await params).section[0]}`);
   if (!item?.lot) notFound();
+  const section = item.section ?? NAV.find((s) => s.items.includes(item))?.section;
+  if (section && !me.console_sections.includes(section)) {
+    redirect(
+      `/console?erreur=${encodeURIComponent("Cette rubrique n'est pas ouverte à votre rôle.")}`,
+    );
+  }
 
   return (
     <>

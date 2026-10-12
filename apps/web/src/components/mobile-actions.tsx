@@ -1,10 +1,16 @@
 /**
  * Barre d'actions fixée en bas de l'écran sur mobile : « Faire une demande » et WhatsApp.
- * Le numéro WhatsApp vient de SUPPORT_WHATSAPP_NUMBER (serveur) ; sans lui, seul le premier
- * bouton s'affiche.
+ * Le numéro WhatsApp vient des réglages de la console (SUPPORT_WHATSAPP_NUMBER en secours) ;
+ * sans numéro, seul le premier bouton s'affiche.
  */
-export function MobileActions() {
-  const digits = (process.env.SUPPORT_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
+import { getSite } from "@/lib/api";
+
+export async function MobileActions() {
+  const site = await getSite();
+  const digits = (site.support_whatsapp || process.env.SUPPORT_WHATSAPP_NUMBER || "").replace(
+    /\D/g,
+    "",
+  );
   const whatsapp = digits
     ? `https://wa.me/${digits}?text=${encodeURIComponent("Bonjour Jeflink, j'ai besoin d'un pro.")}`
     : null;

@@ -115,7 +115,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
               value="1"
               defaultChecked={params.sans_devis === "1"}
             />{" "}
-            Sans devis depuis 24&nbsp;h
+            Sans devis, à relancer
           </label>
           <label>
             <input type="checkbox" name="litige" value="1" defaultChecked={params.litige === "1"} />{" "}

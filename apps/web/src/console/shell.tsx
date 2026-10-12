@@ -12,7 +12,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "rea
 import { LogoMark } from "@/components/logo";
 import type { Me } from "@/lib/types";
 
-import { NAV, NAV_ITEMS, type NavItem } from "./nav";
+import { navFor, type NavItem } from "./nav";
 import { COLLAPSED_KEY, THEME_KEY } from "./theme";
 import type { Badges } from "./types";
 import { plural } from "./text";
@@ -36,7 +36,8 @@ export function ConsoleShell({
   badges,
   children,
 }: {
-  me: Pick<Me, "first_name" | "last_name" | "email">; // le strict nécessaire côté navigateur
+  // Le strict nécessaire côté navigateur : identité affichée et rubriques ouvertes au rôle.
+  me: Pick<Me, "first_name" | "last_name" | "email" | "console_sections">;
   badges: Badges;
   children: ReactNode;
 }) {
@@ -105,6 +106,8 @@ export function ConsoleShell({
     document.dispatchEvent(new Event("ax:change")); // les graphiques vireo relisent leurs couleurs
   };
 
+  const nav = navFor(me.console_sections);
+  const ops = me.console_sections.includes("operations");
   const pending =
     badges.pros_pending + badges.stale_requests + badges.contact_unhandled + badges.disputes_active;
   const fullName = `${me.first_name} ${me.last_name}`.trim();
@@ -138,7 +141,7 @@ export function ConsoleShell({
             </Link>
           </div>
           <nav className="ax-sidebar__nav" aria-label="Menu de la console">
-            {NAV.map((section) => (
+            {nav.map((section) => (
               <div key={section.title}>
                 <p className="ax-sidebar__section">{section.title}</p>
                 {section.items.map((item) => (
@@ -200,48 +203,50 @@ export function ConsoleShell({
             >
               <i className={`bi ${dark ? "bi-sun" : "bi-moon-stars"}`} aria-hidden="true" />
             </button>
-            <Dropdown
-              className="ax-notif"
-              panelClassName="ax-dropdown ax-notif__menu"
-              label={`À traiter : ${pending}`}
-              buttonClassName="ax-icon-btn ax-notif__trigger"
-              button={
-                <>
-                  <i className="bi bi-bell" aria-hidden="true" />
-                  {pending > 0 && (
-                    <span className="ax-badge-count" aria-hidden="true">
-                      {pending}
-                    </span>
-                  )}
-                </>
-              }
-            >
-              <div className="ax-dropdown__head">
-                <span>À traiter</span>
-              </div>
-              <ul className="ax-notif__list">
-                <Todo href="/console/pros" icon="bi-person-badge">
-                  {plural(badges.pros_pending, "pro à vérifier", "pros à vérifier")}
-                </Todo>
-                <Todo href="/console/demandes?sans_devis=1" icon="bi-hourglass-split">
-                  {plural(
-                    badges.stale_requests,
-                    "demande sans devis depuis plus de 24 h",
-                    "demandes sans devis depuis plus de 24 h",
-                  )}
-                </Todo>
-                <Todo href="/console/litiges" icon="bi-exclamation-triangle">
-                  {plural(badges.disputes_active, "litige en cours", "litiges en cours")}
-                </Todo>
-                <Todo href="/console/messages" icon="bi-chat-left-text">
-                  {plural(
-                    badges.contact_unhandled,
-                    "message de contact à lire",
-                    "messages de contact à lire",
-                  )}
-                </Todo>
-              </ul>
-            </Dropdown>
+            {ops && (
+              <Dropdown
+                className="ax-notif"
+                panelClassName="ax-dropdown ax-notif__menu"
+                label={`À traiter : ${pending}`}
+                buttonClassName="ax-icon-btn ax-notif__trigger"
+                button={
+                  <>
+                    <i className="bi bi-bell" aria-hidden="true" />
+                    {pending > 0 && (
+                      <span className="ax-badge-count" aria-hidden="true">
+                        {pending}
+                      </span>
+                    )}
+                  </>
+                }
+              >
+                <div className="ax-dropdown__head">
+                  <span>À traiter</span>
+                </div>
+                <ul className="ax-notif__list">
+                  <Todo href="/console/pros" icon="bi-person-badge">
+                    {plural(badges.pros_pending, "pro à vérifier", "pros à vérifier")}
+                  </Todo>
+                  <Todo href="/console/demandes?sans_devis=1" icon="bi-hourglass-split">
+                    {plural(
+                      badges.stale_requests,
+                      "demande sans devis à relancer",
+                      "demandes sans devis à relancer",
+                    )}
+                  </Todo>
+                  <Todo href="/console/litiges" icon="bi-exclamation-triangle">
+                    {plural(badges.disputes_active, "litige en cours", "litiges en cours")}
+                  </Todo>
+                  <Todo href="/console/messages" icon="bi-chat-left-text">
+                    {plural(
+                      badges.contact_unhandled,
+                      "message de contact à lire",
+                      "messages de contact à lire",
+                    )}
+                  </Todo>
+                </ul>
+              </Dropdown>
+            )}
             <Dropdown
               menu
               className="ax-profile"
@@ -287,7 +292,12 @@ export function ConsoleShell({
           </footer>
         </div>
       </div>
-      {search && <SearchDialog onClose={() => setSearch(false)} />}
+      {search && (
+        <SearchDialog
+          items={nav.flatMap((section) => section.items)}
+          onClose={() => setSearch(false)}
+        />
+      )}
     </>
   );
 }
@@ -409,7 +419,7 @@ function Dropdown({
 }
 
 /** Recherche des rubriques (Ctrl K) : filtre le menu par nom et mots-clés. Motif combobox. */
-function SearchDialog({ onClose }: { onClose: () => void }) {
+function SearchDialog({ items, onClose }: { items: NavItem[]; onClose: () => void }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
@@ -417,13 +427,13 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
   const listId = useId();
   const results = useMemo(() => {
     const query = q.trim().toLowerCase();
-    if (!query) return NAV_ITEMS;
-    return NAV_ITEMS.filter(
+    if (!query) return items;
+    return items.filter(
       (i) =>
         i.label.toLowerCase().includes(query) ||
         (i.keywords ?? []).some((k) => k.toLowerCase().includes(query)),
     );
-  }, [q]);
+  }, [q, items]);
 
   // Focus dans le champ à l'ouverture, rendu à l'élément d'origine à la fermeture.
   useEffect(() => {

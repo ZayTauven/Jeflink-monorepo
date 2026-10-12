@@ -2,6 +2,8 @@
  * Menu de la console : une seule source pour la barre latérale, la recherche (Ctrl K) et les
  * pages « bientôt ». `lot` = lot de livraison d'une rubrique pas encore construite.
  */
+import type { ConsoleSection } from "@/lib/types";
+
 import type { Badges } from "./types";
 
 export type NavItem = {
@@ -12,13 +14,15 @@ export type NavItem = {
   lot?: number;
   summary?: string;
   keywords?: string[];
+  section?: ConsoleSection; // remplace celle de la section du menu
 };
 
-export type NavSection = { title: string; items: NavItem[] };
+export type NavSection = { title: string; section: ConsoleSection; items: NavItem[] };
 
 export const NAV: NavSection[] = [
   {
     title: "Pilotage",
+    section: "dashboard",
     items: [
       {
         href: "/console",
@@ -38,6 +42,7 @@ export const NAV: NavSection[] = [
   },
   {
     title: "Opérations",
+    section: "operations",
     items: [
       {
         href: "/console/demandes",
@@ -60,6 +65,7 @@ export const NAV: NavSection[] = [
   },
   {
     title: "Communauté",
+    section: "operations",
     items: [
       {
         href: "/console/pros",
@@ -96,12 +102,12 @@ export const NAV: NavSection[] = [
   },
   {
     title: "Catalogue",
+    section: "catalog",
     items: [
       {
         href: "/console/metiers",
         label: "Métiers",
         icon: "bi-grid-3x3-gap",
-        lot: 2,
         summary:
           "Métiers, prestations courantes, prix « à partir de », image et ordre d'affichage.",
         keywords: ["services", "catégories"],
@@ -110,7 +116,6 @@ export const NAV: NavSection[] = [
         href: "/console/quartiers",
         label: "Quartiers",
         icon: "bi-geo-alt",
-        lot: 2,
         summary: "Quartiers et communes desservis, ouverture d'une nouvelle zone.",
         keywords: ["zones", "villes"],
       },
@@ -118,6 +123,7 @@ export const NAV: NavSection[] = [
   },
   {
     title: "Marketing",
+    section: "marketing",
     items: [
       {
         href: "/console/promos",
@@ -140,6 +146,7 @@ export const NAV: NavSection[] = [
   },
   {
     title: "Finances",
+    section: "finance",
     items: [
       {
         href: "/console/transactions",
@@ -169,6 +176,7 @@ export const NAV: NavSection[] = [
   },
   {
     title: "Jef · IA",
+    section: "operations",
     items: [
       {
         href: "/console/jef",
@@ -183,12 +191,12 @@ export const NAV: NavSection[] = [
   },
   {
     title: "Administration",
+    section: "admin",
     items: [
       {
         href: "/console/equipe",
         label: "Équipe et rôles",
         icon: "bi-shield-lock",
-        lot: 2,
         summary: "Comptes de l'équipe et rôles : Opérations, Marketing, Finance, Super admin.",
         keywords: ["staff", "permissions", "accès"],
       },
@@ -196,12 +204,12 @@ export const NAV: NavSection[] = [
         href: "/console/reglages",
         label: "Réglages",
         icon: "bi-sliders",
-        lot: 2,
         summary: "Nombre de devis par demande, numéro WhatsApp du support, commission par défaut.",
         keywords: ["paramètres", "configuration"],
       },
       {
         href: "/console/journal",
+        section: "operations",
         label: "Journal des actions",
         icon: "bi-journal-text",
         summary: "Qui a fait quoi dans la console, et quand.",
@@ -211,7 +219,17 @@ export const NAV: NavSection[] = [
   },
 ];
 
-export const NAV_ITEMS = NAV.flatMap((s) => s.items);
+export const NAV_ITEMS = NAV.flatMap((s) =>
+  s.items.map((i) => ({ ...i, section: i.section ?? s.section })),
+);
+
+/** Le menu limité aux rubriques ouvertes au rôle de la personne connectée. */
+export function navFor(sections: ConsoleSection[]): NavSection[] {
+  return NAV.map((s) => ({
+    ...s,
+    items: s.items.filter((i) => sections.includes(i.section ?? s.section)),
+  })).filter((s) => s.items.length > 0);
+}
 
 export function findNavItem(href: string): NavItem | undefined {
   return NAV_ITEMS.find((i) => i.href === href);
