@@ -10,7 +10,9 @@ import {
   lines,
   PERSPECTIVE,
   Pill,
-  SECTION_X, opt } from "@/components/crafto";
+  SECTION_X,
+  opt,
+} from "@/components/crafto";
 import { MarqueePause } from "@/components/marquee-pause";
 import { PageShell } from "@/components/page-shell";
 import { RotatingText } from "@/components/rotating-text";
@@ -271,7 +273,7 @@ export default async function AboutPage() {
         </div>
         <div className="container-fluid absolute-middle-left">
           <div className="row position-relative">
-              <MarqueePause />
+            <MarqueePause />
             <div
               className="col swiper swiper-width-auto text-center"
               data-slider-options='{ "slidesPerView": "auto", "spaceBetween":40, "centeredSlides": true, "speed": 8000, "loop": true, "allowTouchMove": false, "autoplay": { "delay":1, "disableOnInteraction": false }, "keyboard": { "enabled": true, "onlyInViewport": true }, "breakpoints": { "1400": { "spaceBetween":120 }, "1200": { "spaceBetween":80 }, "768": { "spaceBetween":60 } }, "effect": "slide" }'
@@ -431,7 +433,12 @@ export default async function AboutPage() {
                 notre équipe, vous recevez les demandes qui vous correspondent.
               </p>
               <div className="bg-white w-370px sm-w-300px ps-5px border-radius-50px d-flex align-items-center mx-auto box-shadow-medium-bottom">
-                <img className="me-5px sm-w-140px" src="/images/a-propos/avatars.webp" width={171} alt="" />{" "}
+                <img
+                  className="me-5px sm-w-140px"
+                  src="/images/a-propos/avatars.webp"
+                  width={171}
+                  alt=""
+                />{" "}
                 <a
                   href="/inscription?role=pro"
                   className="fs-22 sm-fs-18 fw-500 ls-minus-05px d-inline-block text-dark-gray-hover"

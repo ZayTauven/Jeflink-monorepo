@@ -7,7 +7,11 @@ import { getPros, getTrade, getTrades } from "@/lib/api";
 import { formatRating, formatXOF } from "@/lib/format";
 
 const IMG = "/crafto/images/demo-marketing-strategy";
-const FALLBACK_PHOTOS = [opt(`${IMG}-01.jpg`), opt(`${IMG}-about-03.jpg`), "/images/services/pros.webp"];
+const FALLBACK_PHOTOS = [
+  opt(`${IMG}-01.jpg`),
+  opt(`${IMG}-about-03.jpg`),
+  "/images/services/pros.webp",
+];
 
 type Props = { params: Promise<{ slug: string }> };
 

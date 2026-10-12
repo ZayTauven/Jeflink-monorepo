@@ -10,7 +10,9 @@ import {
   PERSPECTIVE,
   Pill,
   SECTION_X,
-  SwitchSubmit, opt } from "@/components/crafto";
+  SwitchSubmit,
+  opt,
+} from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { CONTACT_EMAIL } from "@/components/site-footer";
 import { getReviews, getStats } from "@/lib/api";
@@ -155,18 +157,32 @@ export default async function ContactPage({
           <div className="row">
             <div className="col-xl-4 lg-mb-30px">
               <div className="bg-white border-radius-20px p-11 lg-p-6 h-100 d-inline-flex flex-column w-100">
-                <Pill className="align-self-start text-white bg-base-color mb-30px" anime={fadeUp()}>
+                <Pill
+                  className="align-self-start text-white bg-base-color mb-30px"
+                  anime={fadeUp()}
+                >
                   Avis de clients
                 </Pill>{" "}
                 {reviewers.length > 0 && (
-                  <div className="d-flex align-items-center mb-auto lg-mb-50px sm-mb-30px" data-anime={fadeUp(100)}>
+                  <div
+                    className="d-flex align-items-center mb-auto lg-mb-50px sm-mb-30px"
+                    data-anime={fadeUp(100)}
+                  >
                     <div className="jf-faces">
                       {reviewers.map((r) => (
-                        <img key={r.author} src={r.author_photo} alt={r.author} width={56} height={56} />
+                        <img
+                          key={r.author}
+                          src={r.author_photo}
+                          alt={r.author}
+                          width={56}
+                          height={56}
+                        />
                       ))}
                     </div>
                     <span className="fs-15 lh-20 ms-15px">
-                      <span className="fw-600 text-dark-gray d-block">{stats?.missions_done ?? reviews.length} missions notées</span>
+                      <span className="fw-600 text-dark-gray d-block">
+                        {stats?.missions_done ?? reviews.length} missions notées
+                      </span>
                       après intervention, par les clients eux-mêmes.
                     </span>
                   </div>

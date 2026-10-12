@@ -9,7 +9,9 @@ import {
   PERSPECTIVE,
   Pill,
   SECTION_X,
-  SwitchLink, opt } from "@/components/crafto";
+  SwitchLink,
+  opt,
+} from "@/components/crafto";
 import { MarqueePause } from "@/components/marquee-pause";
 import { PageShell } from "@/components/page-shell";
 import { getTrades } from "@/lib/api";
@@ -414,7 +416,7 @@ export default async function ServicesPage() {
         </div>
         <div className="container-fluid absolute-middle-left">
           <div className="row position-relative">
-              <MarqueePause />
+            <MarqueePause />
             <div
               className="col swiper swiper-width-auto text-center"
               data-slider-options='{ "slidesPerView": "auto", "spaceBetween":40, "centeredSlides": true, "speed": 8000, "loop": true, "allowTouchMove": false, "autoplay": { "delay":1, "disableOnInteraction": false }, "keyboard": { "enabled": true, "onlyInViewport": true }, "breakpoints": { "1400": { "spaceBetween":120 }, "1200": { "spaceBetween":80 }, "768": { "spaceBetween":60 } }, "effect": "slide" }'
