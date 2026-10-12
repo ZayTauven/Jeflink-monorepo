@@ -34,7 +34,7 @@ const STEPS = [
         "Annulable à tout moment",
       ],
     ],
-    image: `${IMG}-services-03.jpg`,
+    image: "/images/services/etape-1.webp",
     badge: ["2 min", "Pour publier"],
   },
   {
@@ -46,7 +46,7 @@ const STEPS = [
       ["Montant en F CFA", "Ce qui est compris", "Note des clients", "Années d'expérience"],
       ["Trois devis au plus", "Pas de surenchère", "Choix libre", "Les autres pros sont prévenus"],
     ],
-    image: `${IMG}-services-04.jpg`,
+    image: "/images/services/etape-2.webp",
     badge: ["3", "Devis au plus"],
   },
   {
@@ -58,7 +58,7 @@ const STEPS = [
       ["Pro réservé", "Numéro partagé", "Historique daté", "Clôture de mission"],
       ["Note de 1 à 5", "Commentaire libre", "Avis vérifiés", "Recours auprès de Jeflink"],
     ],
-    image: `${IMG}-services-05.jpg`,
+    image: "/images/services/etape-3.webp",
     badge: ["100%", "Avis vérifiés"],
   },
 ];
@@ -110,7 +110,7 @@ export default async function ServicesPage() {
             <div className="col-md-7 col-xl-8" data-anime={fadeIn(300)}>
               <img
                 className="border-radius-20px object-fit-cover h-100"
-                src={`${IMG}-services-title.jpg`}
+                src="/images/services/titre.webp"
                 alt=""
               />
             </div>
@@ -338,7 +338,7 @@ export default async function ServicesPage() {
             <div className="col-lg-5 col-xl-4 md-mb-30px">
               <div
                 className="cover-background p-15 xl-p-12 md-p-8 border-radius-20px overflow-hidden d-flex flex-column align-items-start h-100 md-h-700px sm-h-500px"
-                style={{ backgroundImage: `url('${IMG}-services-06.jpg')` }}
+                style={{ backgroundImage: "url('/images/services/pros.webp')" }}
               >
                 <Pill className="text-white bg-base-color mb-auto" anime={fadeUp()}>
                   Pour les pros
@@ -398,7 +398,7 @@ export default async function ServicesPage() {
                   data-top-bottom="transform: translate3d(-180px, 0px, 0px);"
                 >
                   <div className="alt-font fs-170 lg-fs-140 xs-fs-110 fw-700 opacity-8 text-white-space-nowrap">
-                    confiance
+                    savoir-faire
                   </div>
                 </div>
               </div>

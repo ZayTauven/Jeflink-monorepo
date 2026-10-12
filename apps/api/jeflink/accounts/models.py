@@ -57,6 +57,9 @@ class User(AbstractUser):
     email = models.EmailField("email", unique=True)
     phone = models.CharField("téléphone", max_length=13, blank=True, validators=[PHONE_E164_SN])
     role = models.CharField("rôle", max_length=10, choices=Role.choices, default=Role.CLIENT)
+    photo = models.CharField(
+        "photo", max_length=200, blank=True, help_text="Chemin d'image servi par le site web."
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

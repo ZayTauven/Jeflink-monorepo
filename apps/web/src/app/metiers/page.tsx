@@ -33,7 +33,7 @@ export default async function TradesPage() {
             <div className="col-md-7 col-xl-8" data-anime={fadeIn()}>
               <img
                 className="border-radius-20px object-fit-cover h-100"
-                src="/crafto/images/demo-marketing-strategy-contact-02.jpg"
+                src="/images/metiers/titre.webp"
                 alt=""
               />
             </div>

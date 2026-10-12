@@ -12,6 +12,8 @@ import {
   slideX,
   SwitchLink,
 } from "@/components/crafto";
+import { HeroShow } from "@/components/hero-show";
+import { LaurelBadge } from "@/components/laurel-badge";
 import { PageShell } from "@/components/page-shell";
 import { getPros, getStats, getTrades } from "@/lib/api";
 import { formatRating } from "@/lib/format";
@@ -110,11 +112,7 @@ export default async function HomePage() {
               className="absolute-top-center top-0 h-100 z-index-0 d-flex align-items-center justify-content-center p-0"
               data-anime={fadeIn()}
             >
-              <img
-                className="html-video z-index-1 h-100"
-                src={`${IMG}-hero-video-bg.jpg`}
-                alt=""
-              />
+              <HeroShow className="hero-show z-index-1" />
             </div>
             <div className="col-md-7 col-xl-8 position-relative z-index-1 sm-mb-30px">
               <h1
@@ -131,12 +129,14 @@ export default async function HomePage() {
             >
               <div className="d-flex align-items-center mb-20px pb-20px border-bottom border-color-dark-gray">
                 <img className="me-15px md-w-50px" src={`${IMG}-hero-02.png`} alt="" />
-                <h2 className="alt-font fw-600 ls-minus-2px mb-0 flex-shrink-0 me-15px">
-                  {stats?.average_rating ? `${formatRating(stats.average_rating)}/5` : "3 devis"}
-                </h2>
-                <span className="fs-18 lh-22 alt-font">
-                  {stats?.average_rating ? "Note moyenne des clients" : "au plus par demande"}
-                </span>
+                <div>
+                  <h2 className="alt-font fw-600 ls-minus-2px mb-5px">
+                    {stats?.average_rating ? `${formatRating(stats.average_rating)}/5` : "3 devis"}
+                  </h2>
+                  <span className="d-block fs-18 lh-22 alt-font">
+                    {stats?.average_rating ? "Note moyenne des clients" : "au plus par demande"}
+                  </span>
+                </div>
               </div>
               <p>
                 Plombiers, électriciens, frigoristes, équipes de ménage : des pros vérifiés à Dakar,
@@ -167,8 +167,8 @@ export default async function HomePage() {
               </div>
             </div>
             <div className="col-md-5 col-xl-4 col-xxl-3 d-flex justify-content-center">
-              <img className="me-15px ms-15px md-w-110px" src={`${IMG}-rating-01.png`} alt="" />
-              <img className="me-15px ms-15px md-w-110px" src={`${IMG}-rating-02.png`} alt="" />
+              <LaurelBadge value="100 %" icon="bi-patch-check-fill" label={["Pros", "contrôlés"]} />
+              <LaurelBadge value="6j/7" icon="bi-headset" label={["Assistance", "proactive"]} />
             </div>
           </div>
         </div>
@@ -241,7 +241,7 @@ export default async function HomePage() {
                 style={PERSPECTIVE}
                 data-anime={lines()}
               >
-                Des pros de confiance pour la maison, à Dakar.
+                Des pros vérifiés pour vos maisons, à Dakar.
               </h2>
             </div>
             <div className="col-lg-7 col-xl-6 offset-xl-1" data-anime={childsUp()}>
@@ -377,7 +377,7 @@ export default async function HomePage() {
           <div className="row mt-minus-300px lg-mt-0">
             <div className="col-md-6 sm-pb-40px" data-anime={fadeIn()}>
               <div className="position-sticky top-0 h-100vh lg-h-auto pt-12 pb-12 lg-pb-0 sm-pt-40px d-flex align-items-center">
-                <img className="border-radius-20px" src={`${IMG}-07.jpg`} alt="" />
+                <img className="border-radius-20px" src="/images/accueil/etapes.webp" alt="Une cliente décrit son besoin au téléphone" />
               </div>
             </div>
             <div className="col-md-6 col-xxl-5 ps-9 md-ps-15px xxl-ps-5 lg-pt-6 sm-pt-0 position-relative text-center text-md-start">
@@ -510,7 +510,7 @@ export default async function HomePage() {
                   Nos pros
                 </Pill>
                 <h3 className="alt-font ls-minus-2px fw-500 mb-35px lg-mb-25px">
-                  Des artisans de confiance, près de chez vous.
+                  Des artisans vérifiés, près de chez vous.
                 </h3>
                 <SwitchLink
                   href="/inscription?role=pro"

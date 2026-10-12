@@ -41,14 +41,22 @@ export default async function DashboardPage() {
         pill={isPro ? "Espace pro" : "Mon espace"}
         title={`Bonjour ${me.first_name || ""}.`}
         aside={
-          <div className="bg-white-transparent-medium border-radius-20px p-0">
+          <div className="jf-dashboard">
             {isPro ? (
               <>
                 {!verified && (
-                  <div className="alert alert-warning mb-30px" role="status">
-                    <strong>Profil en attente de vérification.</strong> Vous voyez déjà les demandes
-                    de vos métiers ; vous pourrez envoyer des devis dès que l&apos;équipe Jeflink
-                    aura validé votre profil (démo : cochez « vérifié » dans l&apos;admin).
+                  <div
+                    className="bg-white border-radius-20px p-30px sm-p-25px mb-40px d-flex flex-column flex-md-row align-items-md-center gap-3"
+                    role="status"
+                  >
+                    <span className="status-pill status-open align-self-start align-self-md-center">
+                      <i className="bi bi-hourglass-split" /> Vérification en cours
+                    </span>
+                    <p className="mb-0">
+                      Vous voyez déjà les demandes de vos métiers. Vous pourrez envoyer des devis dès
+                      que l&apos;équipe Jeflink aura vérifié votre profil
+                      <span className="opacity-7"> (démo : cochez « vérifié » dans l&apos;admin)</span>.
+                    </p>
                   </div>
                 )}
                 <h2 className="h5 alt-font fw-500 mb-20px">Demandes ouvertes dans vos métiers</h2>

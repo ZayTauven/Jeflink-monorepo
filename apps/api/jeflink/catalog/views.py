@@ -78,12 +78,13 @@ class PublicProSerializer(serializers.ModelSerializer):
 
 class PublicReviewSerializer(serializers.ModelSerializer):
     author = serializers.CharField(source="request.client.public_name")
+    author_photo = serializers.CharField(source="request.client.photo")
     pro = serializers.CharField(source="request.pro.public_name")
     trade = serializers.CharField(source="request.trade.name")
 
     class Meta:
         model = Review
-        fields = ["rating", "comment", "author", "pro", "trade", "created_at"]
+        fields = ["rating", "comment", "author", "author_photo", "pro", "trade", "created_at"]
 
 
 class ReviewList(generics.ListAPIView):

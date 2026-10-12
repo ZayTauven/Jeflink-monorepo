@@ -69,7 +69,7 @@ export default async function AboutPage() {
                   style={PERSPECTIVE}
                   data-anime={lines()}
                 >
-                  Votre maison, nos pros de confiance.
+                  Votre maison, des pros vérifiés.
                 </h1>
               </div>
             </div>
@@ -77,7 +77,7 @@ export default async function AboutPage() {
               <div className="h-100 d-flex">
                 <img
                   className="border-radius-20px object-fit-cover"
-                  src={`${IMG}-about-title.jpg`}
+                  src="/images/a-propos/titre.webp"
                   alt=""
                 />
               </div>
@@ -178,7 +178,7 @@ export default async function AboutPage() {
             >
               <div
                 className="cover-background border-radius-20px h-700px sm-h-400px lg-h-500px"
-                style={{ backgroundImage: `url('${IMG}-about-02.jpg')` }}
+                style={{ backgroundImage: "url('/images/a-propos/pros.webp')" }}
               />
             </div>
             <div className="col-md-12 col-lg-4 md-order-minus-1 md-mb-30px">
@@ -310,9 +310,9 @@ export default async function AboutPage() {
                   Ce qui fait la différence.
                 </h2>
                 <p className="w-80 xl-w-100" data-anime={fadeUp(1200)}>
-                  À Dakar, la confiance est le premier frein : le pro qui ne vient pas, le prix qui
-                  change sur place, le travail bâclé. Jeflink est construit pour lever ces freins un
-                  par un.
+                  Le pro qui ne vient pas, le prix qui change sur place, le travail bâclé : à Dakar,
+                  ce sont les trois raisons d&apos;hésiter. Jeflink répond à chacune par une règle
+                  appliquée, pas par une promesse.
                 </p>
               </div>
             </div>
@@ -366,10 +366,10 @@ export default async function AboutPage() {
                   data-slider-options='{ "slidesPerView": "auto", "spaceBetween": 20, "loop": true, "autoplay": { "delay": 3000, "disableOnInteraction": false }, "keyboard": { "enabled": true, "onlyInViewport": true }, "effect": "slide" }'
                 >
                   <div className="swiper-wrapper">
-                    {["05", "06", "07", "05", "06", "07"].map((n, i) => (
+                    {[1, 2, 3, 4, 5, 6].map((n, i) => (
                       <div key={i} className="swiper-slide">
                         <img
-                          src={`${IMG}-about-${n}.jpg`}
+                          src={`/images/a-propos/galerie-${n}.webp`}
                           className="border-radius-10px md-h-400px sm-h-250px"
                           alt=""
                         />
@@ -429,7 +429,7 @@ export default async function AboutPage() {
                 notre équipe, vous recevez les demandes qui vous correspondent.
               </p>
               <div className="bg-white w-370px sm-w-300px ps-5px border-radius-50px d-flex align-items-center mx-auto box-shadow-medium-bottom">
-                <img className="me-5px sm-w-140px" src={`${IMG}-about-08.png`} alt="" />{" "}
+                <img className="me-5px sm-w-140px" src="/images/a-propos/avatars.webp" width={171} alt="" />{" "}
                 <a
                   href="/inscription?role=pro"
                   className="fs-22 sm-fs-18 fw-500 ls-minus-05px d-inline-block text-dark-gray-hover"

@@ -20,20 +20,30 @@ Le site reprend **tel quel** le template Crafto « Marketing strategy » (`refer
 - Couleurs, typographies, rayons : ceux du template (`--base-color: #f55608`, Funnel Display + Inter, rayons 20 px). On ne crée pas de nouveau système de tokens.
 - Ce qui manque au template (logo, statuts de demande, cases à cocher, étoiles) va dans `apps/web/public/jeflink.css`, dans l'esprit Crafto.
 - Copie : ton direct, chaleureux, concret ; montants `15 000 F CFA` ; espace insécable avant `? ! : ;`.
+- **On prouve, on ne réclame pas** : jamais « faites-nous confiance » ni « pros de confiance ». On montre la preuve : « pros vérifiés », « prix écrit dans le devis », « avis après mission ».
 
 ## Logo
 
 Logo **provisoire** dessiné d'après `references/assets-originaux/concept logo jeflink.jpg` : un toit dont l'avancée devient une étincelle à quatre branches, avec une petite étincelle évidée au centre. Composant `apps/web/src/components/logo.tsx` (SVG, prend la couleur du texte), favicon `apps/web/public/icon.svg`. À remplacer par le logo définitif quand il existera. Aucun logo tiers (Orange Money, Wave…) ne représente Jeflink.
 
-## À peaufiner (incohérences connues, par priorité)
+## Hero : le « main show » Jeflink
 
-1. **Logos de vraies marques** présentés comme clients (bandeaux de l'accueil et de l'À propos : Thumbtack, Nextdoor, Eventbrite…) et **badges de notes Trustpilot / Clutch** (4,9 et 4,8) dans l'accroche : à retirer ou remplacer avant toute diffusion, ce sont de faux partenariats et de fausses notes.
-2. **Photos** : scènes de bureau occidentales et objets 3D abstraits du template. À remplacer par des artisans et intérieurs au Sénégal (banque d'images ci-dessous ; l'ancienne version avait déjà des visuels métier optimisés au tag `archive/avant-simplification`, `apps/web/public/images/site/`).
-3. **Pastille tournante** (`demo-marketing-strategy-08.png`) et vignette « avatars » (`…-about-08.png`) : textes et visages du template.
-4. **Vidéo de l'accueil** : le template n'est livré qu'avec l'image d'attente ; les boutons « lecture » mènent vers `/services` ou l'inscription pro.
-5. **Mobile** : barre d'actions « Faire une demande » + WhatsApp, bandeaux défilants avec pause (WCAG 2.2.2), animations réduites si `prefers-reduced-motion`.
-6. **Poids** : le JS Crafto (~0,6 Mo de plugins) et les JPG non optimisés ne conviennent pas à un réseau faible ; à alléger avant la production.
+La boule blanche animée de Crafto est une vidéo non livrée avec le template. Jeflink a la sienne, `apps/web/src/components/hero-show.tsx` : une sphère de disques blancs empilés dont les bords ondulent et tournent lentement (l'esprit de la boule Crafto), posée sur la lueur orange du concept de logo, avec l'étincelle Jeflink en orbite. Canvas 2D, aucune dépendance, image fixe si `prefers-reduced-motion`, pause hors écran. Idées puisées sur 21st.dev (sphères en lignes de latitude, isolignes).
+
+## Images
+
+- **Décors du template** (objets 3D, pastilles tournantes, laurier) : gardés tels quels.
+- **Visuels d'ambiance** (abstraits sombres ou clairs) : gardés quand ils servent le récit.
+- **Photos de personnes et de métiers** : remplacées par les images Jeflink (`references/assets-originaux`), produites par `apps/web/scripts/build-images.py` dans `apps/web/public/images/` (WebP aux tailles du template, provenance ligne par ligne dans `PLAN`). Les photos phares reçoivent le traitement « anneaux orange » du template (fonction `anneaux`).
+- Exception voulue par Zay : la page Contact garde pour l'instant ses photos Crafto.
+
+## À peaufiner (incohérences connues)
+
+1. **Logos de marques** (bandeaux de l'accueil et de l'À propos) : gardés pour l'instant, à remplacer par les vrais partenaires de Jeflink.
+2. **Pastille tournante** (`demo-marketing-strategy-08.png`) : texte du template.
+3. **Mobile** : barre d'actions « Faire une demande » + WhatsApp, bandeaux défilants avec pause (WCAG 2.2.2).
+4. **Poids** : le JS Crafto (~0,6 Mo de plugins) est lourd pour un réseau faible ; à alléger avant la production.
 
 ## Banque d'images
 
-Banque locale de Zay : `C:\Users\moham\Pictures\Banque` (lire son `CLAUDE.md`, chercher dans `_catalogue/INDEX.tsv`, regarder les planches). Scènes réelles au Sénégal d'abord (`photos/metiers-services`, `photos/personnes`, `photos/immobilier`…). Copier l'image retenue dans `apps/web/public/images/`, convertie en WebP aux tailles affichées. Interdits : `photos/equipes-projets/`, un portrait présenté comme un vrai client ou un vrai pro, un logo qui suggère un partenariat inexistant.
+Banque locale de Zay : `C:\Users\moham\Pictures\Banque` (lire son `CLAUDE.md`, chercher dans `_catalogue/INDEX.tsv`, regarder les planches). Scènes réelles au Sénégal d'abord (`photos/metiers-services`, `photos/personnes`, `photos/immobilier`…). Copier l'image retenue dans `apps/web/public/images/`, convertie en WebP aux tailles affichées. Interdits : `photos/equipes-projets/`, un logo qui suggère un partenariat inexistant. Les visages de `assets-originaux/Faces` servent d'avatars aux **comptes de démo** uniquement ; avant toute mise en ligne, seuls de vrais clients et pros, avec leur accord, apparaissent.

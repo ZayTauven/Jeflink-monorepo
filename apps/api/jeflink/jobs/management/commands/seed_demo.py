@@ -15,7 +15,7 @@ from jeflink.jobs import services
 from jeflink.jobs.models import ServiceRequest
 
 DEMO_PASSWORD = "jeflink-demo"
-IMG = "/crafto/images/demo-marketing-strategy-{}.jpg"
+IMG = "/images/{}.webp"
 
 TRADES = [
     {
@@ -37,7 +37,7 @@ TRADES = [
         ],
         "starting_price": 5000,
         "icon": "bi-droplet",
-        "image": IMG.format("portfolio-01"),
+        "image": IMG.format("metiers/plomberie"),
     },
     {
         "slug": "electricite",
@@ -57,7 +57,7 @@ TRADES = [
         ],
         "starting_price": 5000,
         "icon": "bi-lightning-charge",
-        "image": IMG.format("portfolio-02"),
+        "image": IMG.format("metiers/electricite"),
     },
     {
         "slug": "climatisation",
@@ -76,7 +76,7 @@ TRADES = [
         ],
         "starting_price": 10000,
         "icon": "bi-snow",
-        "image": IMG.format("portfolio-03"),
+        "image": IMG.format("metiers/climatisation"),
     },
     {
         "slug": "electromenager",
@@ -94,7 +94,7 @@ TRADES = [
         ],
         "starting_price": 7500,
         "icon": "bi-plug",
-        "image": IMG.format("portfolio-04"),
+        "image": IMG.format("metiers/electromenager"),
     },
     {
         "slug": "menage",
@@ -111,7 +111,7 @@ TRADES = [
         ],
         "starting_price": 8000,
         "icon": "bi-stars",
-        "image": IMG.format("portfolio-05"),
+        "image": IMG.format("metiers/menage"),
     },
     {
         "slug": "petits-travaux",
@@ -130,7 +130,7 @@ TRADES = [
         ],
         "starting_price": 10000,
         "icon": "bi-hammer",
-        "image": IMG.format("portfolio-06"),
+        "image": IMG.format("metiers/petits-travaux"),
     },
 ]
 
@@ -172,6 +172,30 @@ CLIENTS = [
         "last_name": "Diop",
         "phone": "+221781234502",
     },
+    {
+        "email": "aminata@demo.jeflink.sn",
+        "first_name": "Aminata",
+        "last_name": "Sy",
+        "phone": "+221771234503",
+    },
+    {
+        "email": "mariama@demo.jeflink.sn",
+        "first_name": "Mariama",
+        "last_name": "Faye",
+        "phone": "+221771234504",
+    },
+    {
+        "email": "babacar@demo.jeflink.sn",
+        "first_name": "Babacar",
+        "last_name": "Gueye",
+        "phone": "+221771234505",
+    },
+    {
+        "email": "pape@demo.jeflink.sn",
+        "first_name": "Pape",
+        "last_name": "Kane",
+        "phone": "+221771234506",
+    },
 ]
 
 PROS = [
@@ -185,7 +209,7 @@ PROS = [
         "trades": ["plomberie"],
         "zones": ["ouakam", "mermoz", "ngor", "almadies", "yoff"],
         "years": 12,
-        "photo": IMG.format("team-01"),
+        "photo": IMG.format("pros/mamadou"),
     },
     {
         "email": "ousmane@demo.jeflink.sn",
@@ -197,7 +221,7 @@ PROS = [
         "trades": ["plomberie"],
         "zones": [],
         "years": 6,
-        "photo": "",
+        "photo": IMG.format("pros/ousmane"),
     },
     {
         "email": "ibou@demo.jeflink.sn",
@@ -209,7 +233,7 @@ PROS = [
         "trades": ["electricite"],
         "zones": [],
         "years": 9,
-        "photo": IMG.format("about-02"),
+        "photo": IMG.format("pros/ibrahima"),
     },
     {
         "email": "cheikh@demo.jeflink.sn",
@@ -221,7 +245,7 @@ PROS = [
         "trades": ["climatisation", "electromenager"],
         "zones": [],
         "years": 8,
-        "photo": "",
+        "photo": IMG.format("pros/cheikh"),
     },
     {
         "email": "fatou@demo.jeflink.sn",
@@ -233,7 +257,7 @@ PROS = [
         "trades": ["menage"],
         "zones": [],
         "years": 7,
-        "photo": IMG.format("team-02"),
+        "photo": IMG.format("pros/fatou"),
     },
     {
         "email": "aliou@demo.jeflink.sn",
@@ -245,7 +269,7 @@ PROS = [
         "trades": ["petits-travaux"],
         "zones": [],
         "years": 5,
-        "photo": "",
+        "photo": IMG.format("pros/aliou"),
     },
 ]
 
@@ -298,6 +322,11 @@ class Command(BaseCommand):
         user, created = User.objects.get_or_create(
             email=data["email"], defaults={**fields, **extra}
         )
+        # Photo de démo : celle du pro, sinon l'avatar client du même prénom.
+        photo = data.get("photo") or IMG.format(f"clients/{data['first_name'].lower()}")
+        if "@demo." in user.email and user.photo != photo:
+            user.photo = photo
+            user.save(update_fields=["photo"])
         if created:
             user.set_password(DEMO_PASSWORD)
             user.save()
@@ -394,3 +423,55 @@ class Command(BaseCommand):
         services.accept_quote(moussa, clean, quote.pk)
         services.complete(moussa, clean)
         services.leave_review(moussa, clean, 4, "Très bon travail, un peu de retard le matin.")
+
+        # Missions terminées et notées par d'autres clients (avis de la page Contact).
+        past = [
+            (
+                "Aminata",
+                "menage",
+                "liberte",
+                "Fatou",
+                "Ménage complet d'un F3",
+                30000,
+                5,
+                "Équipe à l'heure, appartement impeccable. Je les rappelle le mois prochain.",
+            ),
+            (
+                "Mariama",
+                "plomberie",
+                "ouakam",
+                "Mamadou",
+                "Chauffe-eau qui ne chauffe plus",
+                25000,
+                5,
+                "Le chauffe-eau remarche, et le prix est resté celui du devis.",
+            ),
+            (
+                "Babacar",
+                "climatisation",
+                "mermoz",
+                "Cheikh",
+                "Entretien de deux clims",
+                20000,
+                4,
+                "Bon entretien des deux clims, il a pris le temps de tout expliquer.",
+            ),
+            (
+                "Pape",
+                "petits-travaux",
+                "grand-yoff",
+                "Aliou",
+                "Repeindre une chambre",
+                45000,
+                5,
+                "Chambre repeinte en une journée, propre et sans traces.",
+            ),
+        ]
+        for client, t, z, pro, title, amount, rating, comment in past:
+            req = services.create_request(
+                clients[client], trade=trade[t], zone=zone[z], title=title, description=title + "."
+            )
+            quote = services.submit_quote(pros[pro], req, amount, "Devis tout compris.")
+            services.accept_quote(clients[client], req, quote.pk)
+            services.complete(pros[pro], req)
+            services.leave_review(clients[client], req, rating, comment)

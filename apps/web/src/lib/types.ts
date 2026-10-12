@@ -95,6 +95,7 @@ export type PublicReview = {
   rating: number;
   comment: string;
   author: string;
+  author_photo: string;
   pro: string;
   trade: string;
   created_at: string;

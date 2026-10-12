@@ -22,6 +22,8 @@ Source de vérité : `docs/DESIGN.md`. Ce skill en est le mode d'emploi.
 - Montants `15 000 F CFA` (`formatXOF`), dates en français à l'heure de Dakar (`formatDate`).
 - Espace insécable avant `? ! : ;`.
 - Aucune promesse que le produit ne tient pas encore (notifications, paiement en ligne, garantie de reprise).
+- On prouve, on ne réclame pas : jamais « confiance » (« pros de confiance », « faites-nous confiance ») ; on écrit la preuve (« pros vérifiés », « prix écrit dans le devis »).
+- Photos de personnes : uniquement les images Jeflink (`scripts/build-images.py`), jamais les visages du template.
 
 ## Checklist de sortie
 

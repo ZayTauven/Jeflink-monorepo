@@ -200,3 +200,94 @@
   width: 1px;
   background: rgba(0, 0, 0, 0.15);
 }
+
+/* « Main show » du hero d'accueil (components/hero-show.tsx) */
+.hero-show {
+  display: block;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 100vw;
+}
+
+/* Badges en couronne de laurier (laurier du template, texte Jeflink) */
+.jf-laurel {
+  position: relative;
+  width: 130px;
+  margin: 0 15px;
+  flex-shrink: 0;
+}
+.jf-laurel img {
+  display: block;
+  width: 100%;
+}
+.jf-laurel-text {
+  position: absolute;
+  inset: 0 17%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--dark-gray);
+}
+.jf-laurel-value {
+  font-family: var(--alt-font);
+  font-size: 22px;
+  line-height: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+.jf-laurel-text i {
+  color: var(--base-color);
+  font-size: 13px;
+  line-height: 1;
+  margin: 4px 0 3px;
+}
+.jf-laurel-label {
+  font-size: 8px;
+  line-height: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+@media (max-width: 991px) {
+  .jf-laurel {
+    width: 110px;
+  }
+  .jf-laurel-value {
+    font-size: 19px;
+    line-height: 19px;
+  }
+  .jf-laurel-label {
+    font-size: 7px;
+    line-height: 9px;
+  }
+}
+
+/* Visages des clients qui ont laissé un avis (page Contact) */
+.jf-faces {
+  display: flex;
+  flex-shrink: 0;
+}
+.jf-faces img {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+.jf-faces img + img {
+  margin-left: -16px;
+}
+
+/* Tableau de bord : titres de liste alignés sur les cartes */
+.jf-dashboard h2 {
+  padding-left: 4px;
+}
+.jf-dashboard > p,
+.jf-dashboard > div > p {
+  margin-bottom: 40px;
+}

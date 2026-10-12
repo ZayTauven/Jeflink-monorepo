@@ -104,7 +104,7 @@ export default async function SignupPage({
                     inputMode="tel"
                     required={pro}
                   />
-                  <div className="hint">Partagé avec le pro seulement après réservation.</div>
+                  <div className="hint">Partagé seulement après réservation.</div>
                 </div>
                 <div className="col-12 mb-20px">
                   <label htmlFor="password">Mot de passe</label>

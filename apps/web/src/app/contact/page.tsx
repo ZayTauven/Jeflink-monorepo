@@ -36,6 +36,7 @@ export default async function ContactPage({
     getReviews(),
     getStats(),
   ]);
+  const reviewers = reviews.filter((r) => r.author_photo).slice(0, 5);
 
   return (
     <PageShell>
@@ -155,12 +156,22 @@ export default async function ContactPage({
           <div className="row">
             <div className="col-xl-4 lg-mb-30px">
               <div className="bg-white border-radius-20px p-11 lg-p-6 h-100 d-inline-flex flex-column w-100">
-                <Pill
-                  className="align-self-start text-white bg-base-color mb-auto lg-mb-50px sm-mb-30px"
-                  anime={fadeUp()}
-                >
-                  Ils nous font confiance
+                <Pill className="align-self-start text-white bg-base-color mb-30px" anime={fadeUp()}>
+                  Avis de clients
                 </Pill>{" "}
+                {reviewers.length > 0 && (
+                  <div className="d-flex align-items-center mb-auto lg-mb-50px sm-mb-30px" data-anime={fadeUp(100)}>
+                    <div className="jf-faces">
+                      {reviewers.map((r) => (
+                        <img key={r.author} src={r.author_photo} alt={r.author} width={56} height={56} />
+                      ))}
+                    </div>
+                    <span className="fs-15 lh-20 ms-15px">
+                      <span className="fw-600 text-dark-gray d-block">{stats?.missions_done ?? reviews.length} missions notées</span>
+                      après intervention, par les clients eux-mêmes.
+                    </span>
+                  </div>
+                )}
                 <div className="w-100" data-anime={fadeUp(150)}>
                   <div
                     className="swiper magic-cursor drag-cursor"
@@ -218,15 +229,15 @@ export default async function ContactPage({
                     </div>
                   </div>
                   <div className="col ps-0">
-                    <div className="d-flex flex-wrap align-items-center justify-content-end">
+                    <div className="d-flex flex-nowrap align-items-center justify-content-end">
                       <h3 className="alt-font fw-700 ls-minus-1px mb-0 me-10px">
                         {formatRating(stats?.average_rating ?? null)}
                       </h3>
                       <div className="text-center">
                         <div className="bg-dark-gray text-white border-radius-30px ps-15px pe-15px fs-12 lh-30 mb-5px">
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <i key={n} className="bi bi-star-fill me-1" />
-                          ))}
+                          <i className="bi bi-star-fill" /> <i className="bi bi-star-fill" />{" "}
+                          <i className="bi bi-star-fill" /> <i className="bi bi-star-fill" />{" "}
+                          <i className="bi bi-star-fill" />
                         </div>{" "}
                         <span className="fs-10 lh-16 fw-600 d-block text-uppercase">
                           Avis Jeflink
