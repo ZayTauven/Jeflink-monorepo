@@ -10,12 +10,13 @@ from datetime import date, timedelta
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
-from jeflink.catalog.models import Trade, Zone
-from jeflink.console.models import AuditLog
+from jeflink.catalog.models import Campaign, Trade, Zone
+from jeflink.console.models import AuditLog, ProSettlement
 from jeflink.jobs import services
-from jeflink.jobs.models import Dispute, Quote, RequestEvent, Review, ServiceRequest
+from jeflink.jobs.models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 DEMO_PASSWORD = "jeflink-demo"
 IMG = "/images/{}.webp"
@@ -412,6 +413,7 @@ class Command(BaseCommand):
         if reset:
             ServiceRequest.objects.all().delete()
             AuditLog.objects.all().delete()  # il pointerait vers des demandes disparues
+            ProSettlement.objects.all().delete()
 
         for position, data in enumerate(TRADES):
             Trade.objects.update_or_create(
@@ -428,11 +430,13 @@ class Command(BaseCommand):
         clients = {c["first_name"]: self._user(c) for c in CLIENTS}
         pros = {p["first_name"]: self._pro(p) for p in PROS}
 
+        self._marketing(admin)
         if not ServiceRequest.objects.exists():
             self._requests(clients, pros)
             self._spread_showcase()
             self._history(pros)
             self._disputes()
+            self._settlements(pros, admin)
         self._pending_pros()
         if not ContactMessage.objects.exists():
             for name, email, message in CONTACT_MESSAGES:
@@ -735,7 +739,15 @@ class Command(BaseCommand):
                 continue  # Devis reçus, client pas encore décidé.
 
             quote = min(quotes, key=lambda q: q.amount) if rng.random() < 0.6 else quotes[0]
-            services.accept_quote(client, req, quote.pk)
+            code = ""
+            if not ServiceRequest.objects.filter(client=client, pro__isnull=False).exists():
+                code = "BIENVENUE"  # première commande
+            elif slug == "climatisation" and rng.random() < 0.6:
+                code = "CLIM20"
+            try:
+                services.accept_quote(client, req, quote.pk, code)
+            except ValidationError:
+                services.accept_quote(client, req, quote.pk)  # code refusé (minimum…) : sans
             RequestEvent.objects.filter(request=req, status="booked").update(created_at=booked_at)
             done_at = booked_at + timedelta(days=rng.uniform(0.5, 4))
             if done_at > now - hour:
@@ -751,3 +763,76 @@ class Command(BaseCommand):
             rating = rng.choices([5, 4, 3, 2, 1], [55, 30, 8, 5, 2])[0]
             review = services.leave_review(client, req, rating, rng.choice(COMMENTS[rating]))
             Review.objects.filter(pk=review.pk).update(created_at=reviewed_at)
+
+    def _marketing(self, admin):
+        """Commission propre au ménage, trois codes promo, deux campagnes (une fois)."""
+        Trade.objects.filter(slug="menage", commission_percent=None).update(commission_percent=12)
+        if Coupon.objects.exists():
+            return
+        now = timezone.now()
+        bienvenue = Coupon.objects.create(
+            code="BIENVENUE",
+            description="2 000 F CFA offerts sur la première mission",
+            kind=Coupon.Kind.FIXED,
+            value=2000,
+            min_amount=5000,
+            first_order_only=True,
+            max_uses_per_client=1,
+            starts_at=now - timedelta(days=120),
+        )
+        clim = Coupon.objects.create(
+            code="CLIM20",
+            description="−20 % sur l'entretien des clims avant la chaleur",
+            kind=Coupon.Kind.PERCENT,
+            value=20,
+            max_discount=5000,
+            max_uses=40,
+            max_uses_per_client=2,
+            starts_at=now - timedelta(days=60),
+            ends_at=now + timedelta(days=30),
+        )
+        clim.trades.set(Trade.objects.filter(slug="climatisation"))
+        Coupon.objects.create(
+            code="TABASKI",
+            description="Ménage avant la fête",
+            kind=Coupon.Kind.FIXED,
+            value=3000,
+            starts_at=now - timedelta(days=150),
+            ends_at=now - timedelta(days=120),
+        ).trades.set(Trade.objects.filter(slug="menage"))
+        Campaign.objects.create(
+            title="Votre clim prête pour la chaleur",
+            message="Entretien par un frigoriste vérifié : −20 % avec le code CLIM20.",
+            cta_label="Demander un entretien",
+            cta_url="/espace/demandes/nouvelle?metier=climatisation",
+            coupon=clim,
+            placement=Campaign.Placement.HOME,
+            starts_at=now - timedelta(days=10),
+            ends_at=now + timedelta(days=30),
+        )
+        Campaign.objects.create(
+            title="Première demande ?",
+            message="2 000 F CFA offerts sur votre première mission avec le code BIENVENUE.",
+            coupon=bienvenue,
+            placement=Campaign.Placement.REQUEST,
+        )
+
+    def _settlements(self, pros, admin):
+        """Quelques règlements déjà reçus de pros, pour la page Soldes."""
+        now = timezone.now()
+        for name, amount, method, days in (
+            ("Cheikh", 3000, ProSettlement.Method.WAVE, 12),
+            ("Fatou", 10000, ProSettlement.Method.CASH, 8),
+            ("Mamadou", 5000, ProSettlement.Method.ORANGE_MONEY, 3),
+        ):
+            settlement = ProSettlement.objects.create(
+                pro=pros[name],
+                direction=ProSettlement.Direction.TO_JEFLINK,
+                amount=amount,
+                method=method,
+                reference=f"DEMO-{name.upper()}",
+                recorded_by=admin,
+            )
+            ProSettlement.objects.filter(pk=settlement.pk).update(
+                created_at=now - timedelta(days=days)
+            )

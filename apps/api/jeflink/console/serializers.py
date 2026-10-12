@@ -1,15 +1,19 @@
 """Sérialiseurs de la console : l'équipe voit noms complets, emails et téléphones (support)."""
 
+import re
+from datetime import datetime, time, timedelta
+
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils import timezone
 from rest_framework import serializers
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User, normalize_phone
-from jeflink.catalog.models import Trade, Zone
+from jeflink.catalog.models import Campaign, Trade, Zone
 from jeflink.jobs import services as jobs_services
-from jeflink.jobs.models import Dispute, Quote, RequestEvent, Review, ServiceRequest
+from jeflink.jobs.models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
 
-from .models import AuditLog, PlatformSettings
+from .models import AuditLog, PlatformSettings, ProSettlement
 
 
 def person(user: User | None) -> dict | None:
@@ -420,7 +424,7 @@ class TradeInputSerializer(serializers.Serializer):
 
     def validate_starting_price(self, value) -> int | None:
         """« 5 000 », « 5000 F CFA » → 5000 (entier F CFA) ; vide → pas de prix affiché."""
-        digits = "".join(ch for ch in value if ch.isdigit())
+        digits = "".join(ch for ch in value if "0" <= ch <= "9")
         if not digits:
             return None
         price = int(digits)
@@ -542,3 +546,297 @@ class MemberCreateSerializer(serializers.Serializer):
 
 class RoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=User.StaffRole.choices)
+
+
+# --- Lot 3 : marketing et finances ---------------------------------------------------------------
+
+
+def _day_start(d):
+    return timezone.make_aware(datetime.combine(d, time.min))
+
+
+def _local_date(dt):
+    return timezone.localdate(dt).isoformat() if dt else None
+
+
+class PeriodFields(serializers.Serializer):
+    """Dates saisies (jour) → instants : début à 0 h, fin à minuit le lendemain (heure de Dakar)."""
+
+    starts_on = serializers.DateField(required=False, allow_null=True, default=None)
+    ends_on = serializers.DateField(required=False, allow_null=True, default=None)
+
+    def to_internal_value(self, data):
+        data = data.copy() if hasattr(data, "copy") else dict(data)
+        for key in ("starts_on", "ends_on"):
+            if data.get(key) == "":
+                data[key] = None
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        start, end = attrs.pop("starts_on", None), attrs.pop("ends_on", None)
+        if start and end and end < start:
+            raise serializers.ValidationError({"ends_on": "La fin doit suivre le début."})
+        attrs["starts_at"] = _day_start(start) if start else None
+        attrs["ends_at"] = _day_start(end + timedelta(days=1)) if end else None
+        return attrs
+
+
+def _optional_int(value: str, maximum: int, field: str) -> int | None:
+    # Chiffres et espaces seulement : « 7,5 » ou « -3000 » sont refusés, pas recollés.
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if not re.fullmatch(r"[0-9][0-9 \u00a0\u202f]*", text):
+        raise serializers.ValidationError({field: "Un nombre entier, sans virgule ni signe."})
+    number = int(re.sub(r"\D", "", text))
+    if number > maximum:
+        raise serializers.ValidationError({field: "Valeur trop élevée."})
+    return number
+
+
+class CouponSerializer(serializers.ModelSerializer):
+    kind_label = serializers.CharField(source="get_kind_display")
+    trades = serializers.SerializerMethodField()
+    zones = serializers.SerializerMethodField()
+    starts_on = serializers.SerializerMethodField()
+    ends_on = serializers.SerializerMethodField()
+    uses = serializers.IntegerField(source="n_uses", default=0)
+    discount_total = serializers.IntegerField(source="sum_discount", default=0)
+    state = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Coupon
+        fields = [
+            "id",
+            "code",
+            "description",
+            "kind",
+            "kind_label",
+            "value",
+            "max_discount",
+            "min_amount",
+            "starts_on",
+            "ends_on",
+            "max_uses",
+            "max_uses_per_client",
+            "first_order_only",
+            "trades",
+            "zones",
+            "is_active",
+            "uses",
+            "discount_total",
+            "state",
+        ]
+
+    def get_trades(self, c) -> list[dict]:
+        return [{"slug": t.slug, "name": t.name} for t in c.trades.all()]
+
+    def get_zones(self, c) -> list[dict]:
+        return [{"slug": z.slug, "name": z.name} for z in c.zones.all()]
+
+    def get_starts_on(self, c) -> str | None:
+        return _local_date(c.starts_at)
+
+    def get_ends_on(self, c) -> str | None:
+        return _local_date(c.ends_at - timedelta(seconds=1)) if c.ends_at else None
+
+    def get_state(self, c) -> str:
+        """active | scheduled | expired | exhausted | off"""
+        now = timezone.now()
+        if not c.is_active:
+            return "off"
+        if c.starts_at and c.starts_at > now:
+            return "scheduled"
+        if c.ends_at and c.ends_at <= now:
+            return "expired"
+        if c.max_uses is not None and getattr(c, "n_uses", 0) >= c.max_uses:
+            return "exhausted"
+        return "active"
+
+
+class CouponInputSerializer(PeriodFields):
+    code = serializers.RegexField(r"^[A-Za-z0-9-]{3,20}$", max_length=20)
+    description = serializers.CharField(
+        max_length=160, required=False, allow_blank=True, default=""
+    )
+    kind = serializers.ChoiceField(choices=Coupon.Kind.choices)
+    value = serializers.CharField()
+    max_discount = serializers.CharField(required=False, allow_blank=True, default="")
+    min_amount = serializers.CharField(required=False, allow_blank=True, default="")
+    max_uses = serializers.CharField(required=False, allow_blank=True, default="")
+    max_uses_per_client = serializers.IntegerField(min_value=1, max_value=50, default=1)
+    first_order_only = serializers.BooleanField(default=False)
+    trades = serializers.SlugRelatedField(
+        slug_field="slug", queryset=Trade.objects.all(), many=True, required=False, default=list
+    )
+    zones = serializers.SlugRelatedField(
+        slug_field="slug", queryset=Zone.objects.all(), many=True, required=False, default=list
+    )
+    is_active = serializers.BooleanField(default=True)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        attrs["code"] = attrs["code"].upper()
+        value = _optional_int(attrs["value"], 10_000_000, "value")
+        if not value:
+            raise serializers.ValidationError({"value": "Indiquez la valeur de la remise."})
+        if attrs["kind"] == Coupon.Kind.PERCENT and value > 100:
+            raise serializers.ValidationError({"value": "Un pourcentage va de 1 à 100."})
+        attrs["value"] = value
+        attrs["max_discount"] = _optional_int(attrs["max_discount"], 10_000_000, "max_discount")
+        attrs["min_amount"] = _optional_int(attrs["min_amount"], 10_000_000, "min_amount")
+        attrs["max_uses"] = _optional_int(attrs["max_uses"], 1_000_000, "max_uses")
+        if attrs["kind"] == Coupon.Kind.FIXED:
+            attrs["max_discount"] = None
+        return attrs
+
+
+class CampaignSerializer(serializers.ModelSerializer):
+    placement_label = serializers.CharField(source="get_placement_display")
+    coupon_code = serializers.SerializerMethodField()
+    starts_on = serializers.SerializerMethodField()
+    ends_on = serializers.SerializerMethodField()
+    is_live = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Campaign
+        fields = [
+            "id",
+            "title",
+            "message",
+            "cta_label",
+            "cta_url",
+            "coupon_code",
+            "placement",
+            "placement_label",
+            "starts_on",
+            "ends_on",
+            "is_active",
+            "is_live",
+        ]
+
+    def get_coupon_code(self, c) -> str:
+        return c.coupon.code if c.coupon_id else ""
+
+    def get_starts_on(self, c) -> str | None:
+        return _local_date(c.starts_at)
+
+    def get_ends_on(self, c) -> str | None:
+        return _local_date(c.ends_at - timedelta(seconds=1)) if c.ends_at else None
+
+    def get_is_live(self, c) -> bool:
+        now = timezone.now()
+        return (
+            c.is_active
+            and (c.starts_at is None or c.starts_at <= now)
+            and (c.ends_at is None or c.ends_at > now)
+        )
+
+
+class CampaignInputSerializer(PeriodFields):
+    title = serializers.CharField(max_length=80)
+    message = serializers.CharField(max_length=200)
+    cta_label = serializers.CharField(max_length=40, required=False, allow_blank=True, default="")
+    cta_url = serializers.RegexField(
+        r"^(/(?!/)[\w\-/?=&.%]*)?$", max_length=200, required=False, allow_blank=True, default=""
+    )
+    coupon_code = serializers.CharField(max_length=20, required=False, allow_blank=True, default="")
+    placement = serializers.ChoiceField(choices=Campaign.Placement.choices)
+    is_active = serializers.BooleanField(default=True)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        code = attrs.pop("coupon_code", "").strip().upper()
+        attrs["coupon"] = None
+        if code:
+            attrs["coupon"] = Coupon.objects.filter(code=code).first()
+            if attrs["coupon"] is None:
+                raise serializers.ValidationError({"coupon_code": "Code promo inconnu."})
+        if attrs["cta_label"] and not attrs["cta_url"]:
+            raise serializers.ValidationError({"cta_url": "Indiquez la page du bouton."})
+        return attrs
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    status_label = serializers.CharField(source="get_status_display")
+    trade = serializers.CharField(source="trade.name")
+    zone = serializers.CharField(source="zone.name")
+    client = serializers.SerializerMethodField()
+    pro = serializers.SerializerMethodField()
+    coupon = serializers.SerializerMethodField()
+    client_pays = serializers.SerializerMethodField()
+    net = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ServiceRequest
+        fields = [
+            "id",
+            "title",
+            "status",
+            "status_label",
+            "trade",
+            "zone",
+            "client",
+            "pro",
+            "price",
+            "discount",
+            "coupon",
+            "commission_rate",
+            "commission",
+            "client_pays",
+            "net",
+            "updated_at",
+        ]
+
+    def get_client(self, r) -> dict:
+        return short(r.client)
+
+    def get_pro(self, r) -> dict | None:
+        return short(r.pro)
+
+    def get_coupon(self, r) -> str:
+        return r.coupon.code if r.coupon_id else ""
+
+    def get_client_pays(self, r) -> int:
+        return r.price - r.discount
+
+    def get_net(self, r) -> int:
+        return r.commission - r.discount
+
+
+class SettlementSerializer(serializers.ModelSerializer):
+    direction_label = serializers.CharField(source="get_direction_display")
+    method_label = serializers.CharField(source="get_method_display")
+    recorded_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProSettlement
+        fields = [
+            "id",
+            "direction",
+            "direction_label",
+            "amount",
+            "method",
+            "method_label",
+            "reference",
+            "note",
+            "recorded_by",
+            "created_at",
+        ]
+
+    def get_recorded_by(self, s) -> dict | None:
+        return short(s.recorded_by)
+
+
+class SettlementInputSerializer(serializers.Serializer):
+    direction = serializers.ChoiceField(choices=ProSettlement.Direction.choices)
+    amount = serializers.CharField()
+    method = serializers.ChoiceField(choices=ProSettlement.Method.choices)
+    reference = serializers.CharField(max_length=60, required=False, allow_blank=True, default="")
+    note = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
+
+    def validate_amount(self, value) -> int:
+        amount = _optional_int(value, 100_000_000, "amount")
+        if not amount:
+            raise serializers.ValidationError("Indiquez un montant en F CFA.")
+        return amount

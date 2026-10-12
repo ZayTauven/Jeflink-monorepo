@@ -11,4 +11,5 @@ urlpatterns = [
     path("reviews/", views.ReviewList.as_view(), name="review-list"),
     path("stats/", views.stats, name="stats"),
     path("site/", views.site, name="site"),
+    path("campaigns/", views.campaigns, name="campaigns"),
 ]

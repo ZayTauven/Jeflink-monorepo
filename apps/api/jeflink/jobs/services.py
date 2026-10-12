@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from .models import Dispute, Quote, RequestEvent, Review, ServiceRequest
+from .models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 S = ServiceRequest.Status
 
@@ -127,7 +127,10 @@ def submit_quote(pro, req: ServiceRequest, amount: int, message: str = "") -> Qu
 
 
 @transaction.atomic
-def accept_quote(client, req: ServiceRequest, quote_id: int) -> ServiceRequest:
+def accept_quote(
+    client, req: ServiceRequest, quote_id: int, coupon_code: str = ""
+) -> ServiceRequest:
+    """Le client choisit un devis (et applique un code promo) : la mission fige ses montants."""
     req = _locked(req)
     if req.client_id != client.pk:
         raise PermissionDenied("Seul l'auteur de la demande peut choisir un devis.")
@@ -139,8 +142,18 @@ def accept_quote(client, req: ServiceRequest, quote_id: int) -> ServiceRequest:
         raise ValidationError(
             "Ce pro n'est plus disponible sur Jeflink. Choisissez un autre devis."
         )
+    coupon, discount = check_coupon(coupon_code, client, req, quote.amount)
     req.pro = quote.pro
-    transition(req, S.BOOKED, client, f"Devis de {quote.pro.public_name} accepté")
+    req.price = quote.amount
+    req.coupon = coupon
+    req.discount = discount
+    req.commission_rate = commission_rate_for(req.trade)
+    req.commission = percent_of(req.price, req.commission_rate)
+    req.save(update_fields=["price", "coupon", "discount", "commission_rate", "commission"])
+    note = f"Devis de {quote.pro.public_name} accepté"
+    if coupon:
+        note += f" (code {coupon.code} : −{xof(discount)})"
+    transition(req, S.BOOKED, client, note[:200])
     quote.status = Quote.Status.ACCEPTED
     quote.save(update_fields=["status"])
     req.quotes.exclude(pk=quote.pk).update(status=Quote.Status.DECLINED)
@@ -187,6 +200,9 @@ def staff_cancel(staff, req: ServiceRequest, reason: str) -> ServiceRequest:
     if not reason:
         raise ValidationError("Indiquez le motif de l'annulation.")
     req = _locked(req)
+    if req.coupon_id:  # l'équipe annule : le client retrouve son code promo
+        req.coupon, req.discount = None, 0
+        req.save(update_fields=["coupon", "discount"])
     return transition(req, S.CANCELLED, staff, f"Annulée par l'équipe : {reason}"[:200])
 
 
@@ -232,3 +248,85 @@ def update_dispute(staff, dispute: Dispute, status: str, resolution: str = "") -
     dispute.closed_at = timezone.now() if closing else None
     dispute.save()
     return dispute
+
+
+# --- Argent : commission et codes promo --------------------------------------------------------
+
+
+def xof(amount: int) -> str:
+    """« 12 500 F CFA », espaces fines insécables (typographie française)."""
+    return f"{amount:,}".replace(",", "\u202f") + "\u00a0F\u00a0CFA"
+
+
+def percent_of(amount: int, rate: int) -> int:
+    """Pourcentage d'un montant en F CFA, arrondi au franc le plus proche, sans float."""
+    return (amount * rate + 50) // 100
+
+
+def _refused(reason: str) -> dict:
+    """Erreur sur le champ code promo, avec l'issue : le devis reste disponible sans code."""
+    return {"coupon": f"{reason} Vous pouvez choisir ce devis sans code."}
+
+
+def commission_rate_for(trade) -> int:
+    """Taux du métier s'il en a un, sinon le taux par défaut de la plateforme (en %)."""
+    if trade.commission_percent is not None:
+        return trade.commission_percent
+    return platform().default_commission_percent
+
+
+def coupon_discount(coupon: Coupon, amount: int) -> int:
+    """Remise en F CFA entiers, jamais plus que le devis ni que le plafond."""
+    if coupon.kind == Coupon.Kind.PERCENT:
+        discount = percent_of(amount, coupon.value)
+        if coupon.max_discount is not None:
+            discount = min(discount, coupon.max_discount)
+    else:
+        discount = coupon.value
+    return max(0, min(discount, amount))
+
+
+def coupon_uses(coupon: Coupon, client=None):
+    """Utilisations comptées : toute réservation qui porte le code, même annulée ensuite par le
+    client (sinon réserver, payer la remise sur place puis annuler rendrait le code
+    réutilisable). Seule une annulation par l'équipe libère le code (`staff_cancel`)."""
+    qs = coupon.requests.all()
+    return qs.filter(client=client) if client is not None else qs
+
+
+def check_coupon(code: str, client, req: ServiceRequest, amount: int):
+    """(code promo, remise) si le code s'applique à cette réservation ; sinon un motif clair."""
+    code = (code or "").strip().upper()
+    if not code:
+        return None, 0
+    # Verrous (effectifs sous Postgres) : deux réservations simultanées ne dépassent pas les
+    # limites du code, ni celles du client.
+    coupon = Coupon.objects.select_for_update().filter(code=code, is_active=True).first()
+    if coupon is None:
+        raise ValidationError(_refused("Ce code n'est pas reconnu. Vérifiez les lettres."))
+    now = timezone.now()
+    if coupon.starts_at and coupon.starts_at > now:
+        raise ValidationError(_refused("Ce code n'est pas encore valable."))
+    if coupon.ends_at and coupon.ends_at < now:
+        raise ValidationError(_refused("Ce code a expiré."))
+    if coupon.min_amount and amount < coupon.min_amount:
+        raise ValidationError(
+            _refused(
+                f"Ce code est valable pour un devis d'au moins {xof(coupon.min_amount)}. "
+                f"Ce devis est de {xof(amount)}."
+            )
+        )
+    if coupon.trades.exists() and not coupon.trades.filter(pk=req.trade_id).exists():
+        raise ValidationError(_refused("Ce code n'est pas valable pour ce métier."))
+    if coupon.zones.exists() and not coupon.zones.filter(pk=req.zone_id).exists():
+        raise ValidationError(_refused("Ce code n'est pas valable dans ce quartier."))
+    if coupon.max_uses is not None and coupon_uses(coupon).count() >= coupon.max_uses:
+        raise ValidationError(_refused("Ce code n'est plus disponible."))
+    type(client).objects.select_for_update().filter(pk=client.pk).first()
+    if coupon_uses(coupon, client).count() >= coupon.max_uses_per_client:
+        raise ValidationError(_refused("Vous avez déjà utilisé ce code."))
+    if coupon.first_order_only and (
+        ServiceRequest.objects.filter(client=client, pro__isnull=False).exclude(pk=req.pk).exists()
+    ):
+        raise ValidationError(_refused("Ce code est réservé à une première mission sur Jeflink."))
+    return coupon, coupon_discount(coupon, amount)

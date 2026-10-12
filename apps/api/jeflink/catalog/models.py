@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator
 from django.db import models
 
 
@@ -22,6 +23,13 @@ class Trade(models.Model):
     )
     position = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField("actif", default=True)
+    commission_percent = models.PositiveSmallIntegerField(
+        "commission (%)",
+        null=True,
+        blank=True,
+        validators=[MaxValueValidator(50)],
+        help_text="Vide : taux par défaut de la plateforme.",
+    )
 
     class Meta:
         ordering = ["position", "name"]
@@ -46,3 +54,41 @@ class Zone(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Campaign(models.Model):
+    """Bandeau d'annonce sur le site (accueil, formulaire de demande), sur une période."""
+
+    class Placement(models.TextChoices):
+        HOME = "home", "Accueil"
+        REQUEST = "request", "Formulaire de demande"
+        BOTH = "both", "Accueil et formulaire"
+
+    title = models.CharField("titre", max_length=80)
+    message = models.CharField("message", max_length=200)
+    cta_label = models.CharField("texte du bouton", max_length=40, blank=True)
+    cta_url = models.CharField(
+        "lien du bouton", max_length=200, blank=True, help_text="Page du site, ex. /metiers/menage"
+    )
+    coupon = models.ForeignKey(
+        "jobs.Coupon",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="campaigns",
+        verbose_name="code promo affiché",
+    )
+    placement = models.CharField(
+        "emplacement", max_length=10, choices=Placement.choices, default=Placement.HOME
+    )
+    starts_at = models.DateTimeField("début", null=True, blank=True)
+    ends_at = models.DateTimeField("fin", null=True, blank=True)
+    is_active = models.BooleanField("active", default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "campagne"
+
+    def __str__(self):
+        return self.title

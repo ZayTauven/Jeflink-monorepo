@@ -1,6 +1,9 @@
 """Lecture publique : métiers, quartiers, pros vérifiés et chiffres de la vitrine."""
 
-from django.db.models import Avg
+from datetime import timedelta
+
+from django.db.models import Avg, Q
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import generics, serializers
 from rest_framework.decorators import api_view, permission_classes
@@ -170,6 +173,56 @@ def site(request):
             "support_email": current.support_email,
             "max_quotes": current.max_quotes,
         }
+    )
+
+
+def _last_day(end):
+    """Dernier jour valable d'une période qui finit à minuit (heure de Dakar)."""
+    return timezone.localtime(end - timedelta(seconds=1)).date().isoformat() if end else None
+
+
+def _terms(campaign) -> dict:
+    """Conditions à afficher avec le bandeau : le client sait à quoi s'attendre avant de choisir."""
+    coupon = campaign.coupon if campaign.coupon_id and campaign.coupon.is_active else None
+    ends = [e for e in (campaign.ends_at, coupon and coupon.ends_at) if e]
+    return {
+        "min_amount": coupon.min_amount if coupon else None,
+        "max_discount": coupon.max_discount if coupon else None,
+        "first_order_only": bool(coupon and coupon.first_order_only),
+        "ends_on": _last_day(min(ends)) if ends else None,
+    }
+
+
+@extend_schema(parameters=[OpenApiParameter("placement", str, enum=["home", "request"])])
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def campaigns(request):
+    """Campagnes en cours pour un emplacement du site (accueil ou formulaire de demande)."""
+    from jeflink.catalog.models import Campaign
+
+    now = timezone.now()
+    placement = request.query_params.get("placement", "home")
+    places = [placement, Campaign.Placement.BOTH]
+    live = (
+        Campaign.objects.filter(is_active=True, placement__in=places)
+        .filter(Q(starts_at__isnull=True) | Q(starts_at__lte=now))
+        .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
+        .select_related("coupon")
+        .order_by("-created_at")[:3]
+    )
+    return Response(
+        [
+            {
+                "id": c.pk,
+                "title": c.title,
+                "message": c.message,
+                "cta_label": c.cta_label,
+                "cta_url": c.cta_url,
+                "coupon_code": c.coupon.code if c.coupon_id and c.coupon.is_active else "",
+                "terms": _terms(c),
+            }
+            for c in live
+        ]
     )
 
 

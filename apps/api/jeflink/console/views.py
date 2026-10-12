@@ -5,26 +5,29 @@ Lecture : listes filtrées et paginées (20 par page), fiches détaillées.
 journalisées. Aucune modification libre d'un enregistrement.
 """
 
+import csv
 from datetime import timedelta
 
 from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
-from jeflink.catalog.models import Trade, Zone
-from jeflink.jobs.models import Dispute, Quote, Review, ServiceRequest
+from jeflink.catalog.models import Campaign, Trade, Zone
+from jeflink.jobs.models import Coupon, Dispute, Quote, Review, ServiceRequest
 
+from . import finance, services, stats
 from . import serializers as s
-from . import services, stats
-from .models import AuditLog, PlatformSettings
+from .models import AuditLog, PlatformSettings, ProSettlement
 from .permissions import ConsoleSection, can, section
 
 PERIODS = {7, 30, 90}
@@ -733,3 +736,327 @@ class TeamConsoleViewSet(ConsoleViewSet):
     def reactivate(self, request, pk=None):
         member = services.set_member_active(request.user, self._member(pk), True)
         return self.done(member, s.MemberSerializer)
+
+
+# --- Marketing : codes promo et campagnes ------------------------------------------------------
+
+
+def _coupons():
+    used = ~Q(requests__status=S.CANCELLED)
+    return Coupon.objects.prefetch_related("trades", "zones").annotate(
+        n_uses=Count("requests", filter=used & Q(requests__isnull=False), distinct=True),
+        sum_discount=Coalesce(Sum("requests__discount", filter=used), 0),
+    )
+
+
+class CouponConsoleViewSet(ConsoleViewSet):
+    """Codes promo : remise en % (avec plafond) ou en F CFA, financée par Jeflink."""
+
+    console_section = "marketing"
+    serializer_class = s.CouponSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return _coupons()
+
+    def list(self, request):
+        return Response(s.CouponSerializer(self.get_queryset(), many=True).data)
+
+    def retrieve(self, request, pk=None):
+        return Response(s.CouponSerializer(get_object_or_404(self.get_queryset(), pk=pk)).data)
+
+    @extend_schema(request=s.CouponInputSerializer, responses={201: s.CouponSerializer})
+    def create(self, request):
+        data = s.CouponInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        coupon = services.save_coupon(request.user, data.validated_data)
+        return Response(s.CouponSerializer(self.get_queryset().get(pk=coupon.pk)).data, status=201)
+
+    @extend_schema(request=s.CouponInputSerializer, responses=s.CouponSerializer)
+    @action(detail=True, methods=["post"], url_path="update")
+    def edit(self, request, pk=None):
+        coupon = get_object_or_404(Coupon, pk=pk)
+        data = s.CouponInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        if data.validated_data["code"] != coupon.code:
+            raise ValidationError({"code": "Le code d'un code promo ne change pas."})
+        services.save_coupon(request.user, data.validated_data, coupon)
+        return self.retrieve(request, pk)
+
+
+class CampaignConsoleViewSet(ConsoleViewSet):
+    """Campagnes : bandeaux sur l'accueil ou le formulaire de demande, sur une période."""
+
+    console_section = "marketing"
+    serializer_class = s.CampaignSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return Campaign.objects.select_related("coupon")
+
+    def list(self, request):
+        return Response(s.CampaignSerializer(self.get_queryset(), many=True).data)
+
+    @extend_schema(request=s.CampaignInputSerializer, responses={201: s.CampaignSerializer})
+    def create(self, request):
+        data = s.CampaignInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        campaign = services.save_campaign(request.user, data.validated_data)
+        return Response(s.CampaignSerializer(campaign).data, status=201)
+
+    @extend_schema(request=s.CampaignInputSerializer, responses=s.CampaignSerializer)
+    @action(detail=True, methods=["post"], url_path="update")
+    def edit(self, request, pk=None):
+        data = s.CampaignInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        campaign = services.save_campaign(
+            request.user, data.validated_data, get_object_or_404(Campaign, pk=pk)
+        )
+        return Response(s.CampaignSerializer(campaign).data)
+
+
+# --- Finance -------------------------------------------------------------------------------------
+
+
+def _cell(value):
+    """Texte saisi par un client ou un pro : jamais lu comme une formule par Excel."""
+    if isinstance(value, str) and value.lstrip()[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
+def _csv(filename: str, header: list[str], rows) -> HttpResponse:
+    """CSV pour Excel en français : séparateur « ; », UTF-8 avec BOM."""
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response.write("\ufeff")  # BOM : Excel lit alors l'UTF-8 (accents)
+    writer = csv.writer(response, delimiter=";")
+    writer.writerow(header)
+    writer.writerows([_cell(v) for v in row] for row in rows)
+    return response
+
+
+@extend_schema(methods=["GET"], responses=OpenApiTypes.OBJECT)
+@extend_schema(methods=["POST"], request=OpenApiTypes.OBJECT, responses=OpenApiTypes.OBJECT)
+@api_view(["GET", "POST"])
+@permission_classes([section("finance")])
+def commissions(request):
+    """Taux par défaut et par métier. POST : default_commission_percent, trade_<id>."""
+    if request.method == "POST":
+
+        def rate(key):
+            raw = str(request.data.get(key, "")).strip().rstrip("%").strip()
+            if raw == "":
+                return None
+            if not raw.isdecimal() or not raw.isascii() or int(raw) > 50:
+                raise ValidationError({key: "Un taux entier de 0 à 50 %."})
+            return int(raw)
+
+        default = rate("default_commission_percent")
+        if default is None:
+            raise ValidationError({"default_commission_percent": "Indiquez le taux par défaut."})
+        per_trade = {
+            int(key.removeprefix("trade_")): rate(key)
+            for key in request.data
+            if key.startswith("trade_") and key.removeprefix("trade_").isdecimal()
+        }
+        services.update_commissions(request.user, default, per_trade)
+    default = PlatformSettings.load().default_commission_percent
+    return Response(
+        {
+            "default_commission_percent": default,
+            "trades": [
+                {
+                    "id": t.pk,
+                    "name": t.name,
+                    "icon": t.icon,
+                    "is_active": t.is_active,
+                    "commission_percent": t.commission_percent,
+                    "effective": t.commission_percent
+                    if t.commission_percent is not None
+                    else default,
+                }
+                for t in Trade.objects.order_by("position", "name")
+            ],
+        }
+    )
+
+
+@extend_schema(
+    parameters=[
+        OpenApiParameter("days", int),
+        OpenApiParameter("trade", str),
+        OpenApiParameter("pro", int),
+        OpenApiParameter("coupon", str, description="code, ou * pour « avec un code »"),
+        OpenApiParameter("status", str, enum=["booked", "done"]),
+    ]
+)
+class TransactionConsoleViewSet(ConsoleViewSet):
+    """Missions réservées et leurs montants : prix, remise, commission, ce que paie le client."""
+
+    console_section = "finance"
+    serializer_class = s.TransactionSerializer
+
+    def get_queryset(self):
+        qs = finance.missions()
+        days = self.param("days")
+        qs = finance.period_filter(
+            qs,
+            int(days) if days.isdecimal() and days.isascii() and len(days) <= 4 else None,
+            self.param("trade"),
+            self.param("pro"),
+            self.param("coupon"),
+        )
+        if (status := self.param("status")) in ("booked", "done"):
+            qs = qs.filter(status=status)
+        return qs.order_by("-updated_at")
+
+    def list(self, request):
+        qs = self.get_queryset()
+        page = self.paginate_queryset(qs)
+        response = self.get_paginated_response(s.TransactionSerializer(page, many=True).data)
+        response.data["totals"] = finance.totals(qs)
+        return response
+
+    @extend_schema(responses={(200, "text/csv"): OpenApiTypes.STR})
+    @action(detail=False, methods=["get"])
+    def export(self, request):
+        rows = (
+            [
+                r.pk,
+                timezone.localtime(r.updated_at).strftime("%d/%m/%Y"),
+                r.get_status_display(),
+                r.title,
+                r.trade.name,
+                r.zone.name,
+                r.client.get_full_name(),
+                r.pro.get_full_name() if r.pro else "",
+                r.price,
+                r.discount,
+                r.coupon.code if r.coupon_id else "",
+                r.commission_rate,
+                r.commission,
+                r.price - r.discount,
+                r.commission - r.discount,
+            ]
+            for r in self.get_queryset()
+        )
+        header = [
+            "N°",
+            "Mise à jour",
+            "Statut",
+            "Demande",
+            "Métier",
+            "Quartier",
+            "Client",
+            "Pro",
+            "Devis (F CFA)",
+            "Remise (F CFA)",
+            "Code promo",
+            "Commission (%)",
+            "Commission (F CFA)",
+            "Payé par le client (F CFA)",
+            "Net Jeflink (F CFA)",
+        ]
+        return _csv("jeflink-transactions.csv", header, rows)
+
+
+class BalanceConsoleViewSet(ConsoleViewSet):
+    """Soldes des pros : commission due moins remises, corrigée des règlements enregistrés."""
+
+    console_section = "finance"
+    pagination_class = None
+    serializer_class = s.SettlementSerializer
+
+    def _row(self, row) -> dict:
+        profile = row["pro"]
+        return {
+            "pro": {
+                "id": profile.user_id,
+                "name": profile.user.get_full_name() or profile.user.email,
+                "phone": profile.user.phone,
+                "photo": profile.photo or profile.user.photo,
+            },
+            **{k: row[k] for k in ("missions_done", "due", "settled", "balance")},
+        }
+
+    def list(self, request):
+        rows = [self._row(r) for r in finance.balances()]
+        owed = sum(r["balance"] for r in rows if r["balance"] > 0)
+        to_pay = -sum(r["balance"] for r in rows if r["balance"] < 0)
+        return Response({"results": rows, "totals": {"owed_by_pros": owed, "owed_to_pros": to_pay}})
+
+    def retrieve(self, request, pk=None):
+        profile = get_object_or_404(ProProfile.objects.select_related("user"), user_id=pk)
+        missions = (
+            finance.missions().filter(pro=profile.user, status=S.DONE).order_by("-updated_at")
+        )
+        return Response(
+            {
+                **self._row({"pro": profile, **finance.pro_balance(profile.user)}),
+                "missions": s.TransactionSerializer(missions[:30], many=True).data,
+                "settlements": s.SettlementSerializer(
+                    ProSettlement.objects.filter(pro=profile.user).select_related("recorded_by"),
+                    many=True,
+                ).data,
+            }
+        )
+
+    @extend_schema(request=s.SettlementInputSerializer, responses=OpenApiTypes.OBJECT)
+    @action(detail=True, methods=["post"])
+    def settle(self, request, pk=None):
+        profile = get_object_or_404(ProProfile.objects.select_related("user"), user_id=pk)
+        data = s.SettlementInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.add_settlement(request.user, profile.user, data.validated_data)
+        return self.retrieve(request, pk)
+
+
+@extend_schema(
+    parameters=[OpenApiParameter("month", str, description="AAAA-MM")],
+    responses=OpenApiTypes.OBJECT,
+)
+@api_view(["GET"])
+@permission_classes([section("finance")])
+def reports(request):
+    """Six derniers mois (missions terminées) et détail par métier du mois choisi."""
+    months = finance.monthly(6)
+    chosen = request.query_params.get("month", "") or months[0]["month"]
+    try:
+        year, month = (int(x) for x in chosen.split("-"))
+        trades = finance.by_trade(year, month)
+    except (ValueError, TypeError):
+        raise ValidationError({"month": "Mois au format AAAA-MM."}) from None
+    return Response({"months": months, "month": chosen, "by_trade": trades})
+
+
+@extend_schema(responses={(200, "text/csv"): OpenApiTypes.STR})
+@api_view(["GET"])
+@permission_classes([section("finance")])
+def reports_export(request):
+    rows = (
+        [
+            m["month"],
+            m["requests"],
+            m["booked"],
+            m["count"],
+            m["volume"],
+            m["discount"],
+            m["commission"],
+            m["net"],
+            m["coupons_used"],
+        ]
+        for m in finance.monthly(12)
+    )
+    header = [
+        "Mois",
+        "Demandes publiées",
+        "Réservées",
+        "Missions terminées",
+        "Volume (F CFA)",
+        "Remises (F CFA)",
+        "Commissions (F CFA)",
+        "Net Jeflink (F CFA)",
+        "Codes promo utilisés",
+    ]
+    return _csv("jeflink-rapport-mensuel.csv", header, rows)

@@ -30,6 +30,12 @@ class AuditLog(models.Model):
         TEAM_ROLE = "team.role", "Rôle modifié"
         TEAM_DEACTIVATE = "team.deactivate", "Accès à la console retiré"
         TEAM_REACTIVATE = "team.reactivate", "Accès à la console rétabli"
+        COUPON_CREATE = "coupon.create", "Code promo créé"
+        COUPON_UPDATE = "coupon.update", "Code promo modifié"
+        CAMPAIGN_CREATE = "campaign.create", "Campagne créée"
+        CAMPAIGN_UPDATE = "campaign.update", "Campagne modifiée"
+        COMMISSION_UPDATE = "commission.update", "Commission modifiée"
+        SETTLEMENT_ADD = "settlement.add", "Règlement enregistré"
 
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
@@ -76,6 +82,12 @@ class PlatformSettings(models.Model):
         "WhatsApp du support", max_length=13, blank=True, validators=[PHONE_E164_SN]
     )
     support_email = models.EmailField("email du support", blank=True)
+    default_commission_percent = models.PositiveSmallIntegerField(
+        "commission par défaut (%)",
+        default=10,
+        validators=[MaxValueValidator(50)],
+        help_text="Prélevée sur le devis accepté ; un métier peut avoir son propre taux.",
+    )
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
@@ -92,3 +104,43 @@ class PlatformSettings(models.Model):
     def load(cls) -> "PlatformSettings":
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class ProSettlement(models.Model):
+    """Règlement entre un pro et Jeflink (commission versée, remise reversée…), saisi en Finance."""
+
+    class Direction(models.TextChoices):
+        TO_JEFLINK = "to_jeflink", "Le pro a payé Jeflink"
+        TO_PRO = "to_pro", "Jeflink a payé le pro"
+
+    class Method(models.TextChoices):
+        CASH = "cash", "Espèces"
+        WAVE = "wave", "Wave"
+        ORANGE_MONEY = "orange_money", "Orange Money"
+        TRANSFER = "transfer", "Virement"
+
+    pro = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="settlements"
+    )
+    direction = models.CharField("sens", max_length=12, choices=Direction.choices)
+    amount = models.PositiveIntegerField("montant (F CFA)", validators=[MinValueValidator(1)])
+    method = models.CharField("moyen", max_length=14, choices=Method.choices)
+    reference = models.CharField("référence", max_length=60, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "règlement d'un pro"
+        verbose_name_plural = "règlements des pros"
+
+    def __str__(self):
+        return f"{self.get_direction_display()} — {self.amount} F CFA"
+
+    @property
+    def signed(self) -> int:
+        """Effet sur le solde dû par le pro : un paiement du pro le réduit."""
+        return -self.amount if self.direction == self.Direction.TO_JEFLINK else self.amount

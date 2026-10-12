@@ -12,11 +12,11 @@ from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
-from jeflink.catalog.models import Trade, Zone
+from jeflink.catalog.models import Campaign, Trade, Zone
 from jeflink.jobs import services as jobs
-from jeflink.jobs.models import Dispute, Quote, Review, ServiceRequest
+from jeflink.jobs.models import Coupon, Dispute, Quote, Review, ServiceRequest
 
-from .models import AuditLog, PlatformSettings
+from .models import AuditLog, PlatformSettings, ProSettlement
 from .permissions import can
 
 A = AuditLog.Action
@@ -353,3 +353,114 @@ def set_member_active(staff, member: User, active: bool, note: str = "") -> User
     action = A.TEAM_REACTIVATE if active else A.TEAM_DEACTIVATE
     log(staff, action, "staff", member.pk, member, note.strip())
     return member
+
+
+# --- Marketing : codes promo et campagnes ------------------------------------------------------
+
+
+def _save_with_m2m(obj, data: dict, m2m: tuple[str, ...]):
+    plain = {k: v for k, v in data.items() if k not in m2m}
+    for key, value in plain.items():
+        setattr(obj, key, value)
+    obj.save()
+    for key in m2m:
+        if key in data:
+            getattr(obj, key).set(data[key])
+    return obj
+
+
+def _m2m_changes(obj, data: dict, m2m: tuple[str, ...]) -> list[str]:
+    changed = []
+    for key in m2m:
+        if key in data and set(getattr(obj, key).values_list("pk", flat=True)) != {
+            x.pk for x in data[key]
+        }:
+            changed.append(str(obj._meta.get_field(key).verbose_name))
+    return changed
+
+
+@transaction.atomic
+def save_coupon(staff, data: dict, coupon: Coupon | None = None) -> Coupon:
+    _staff(staff, "marketing")
+    m2m = ("trades", "zones")
+    if coupon is None:
+        if Coupon.objects.filter(code=data["code"]).exists():
+            raise ValidationError({"code": "Ce code existe déjà."})
+        coupon, details, action = Coupon(), "", A.COUPON_CREATE
+    else:
+        plain = {k: v for k, v in data.items() if k not in m2m}
+        details = ", ".join(
+            filter(None, [_changes(coupon, plain), *_m2m_changes(coupon, data, m2m)])
+        )
+        action = A.COUPON_UPDATE
+        if not details:
+            raise ValidationError("Aucune modification.")
+    coupon = _save_with_m2m(coupon, data, m2m)
+    log(staff, action, "coupon", coupon.pk, f"Code {coupon.code}", details)
+    return coupon
+
+
+@transaction.atomic
+def save_campaign(staff, data: dict, campaign: Campaign | None = None) -> Campaign:
+    _staff(staff, "marketing")
+    if campaign is None:
+        campaign, details, action = Campaign(), "", A.CAMPAIGN_CREATE
+    else:
+        details, action = _changes(campaign, data), A.CAMPAIGN_UPDATE
+        if not details:
+            raise ValidationError("Aucune modification.")
+    for key, value in data.items():
+        setattr(campaign, key, value)
+    campaign.save()
+    log(staff, action, "campaign", campaign.pk, campaign.title, details)
+    return campaign
+
+
+# --- Finance : commissions et règlements des pros ----------------------------------------------
+
+
+@transaction.atomic
+def update_commissions(staff, default: int, per_trade: dict[int, int | None]) -> None:
+    """Taux par défaut et taux propres aux métiers (None = taux par défaut).
+
+    Les missions déjà réservées gardent le taux figé à leur réservation.
+    """
+    _staff(staff, "finance")
+    changes = []
+    current = PlatformSettings.load()
+    if current.default_commission_percent != default:
+        changes.append(f"par défaut {current.default_commission_percent} → {default} %")
+        current.default_commission_percent = default
+        current.updated_by = staff
+        current.save()
+    for trade in Trade.objects.filter(pk__in=per_trade):
+        rate = per_trade[trade.pk]
+        if trade.commission_percent != rate:
+            before = (
+                "défaut" if trade.commission_percent is None else f"{trade.commission_percent} %"
+            )
+            after = "défaut" if rate is None else f"{rate} %"
+            changes.append(f"{trade.name} {before} → {after}")
+            trade.commission_percent = rate
+            trade.save(update_fields=["commission_percent"])
+    if not changes:
+        raise ValidationError("Aucune modification.")
+    log(staff, A.COMMISSION_UPDATE, "commission", 1, "Taux de commission", "; ".join(changes))
+
+
+@transaction.atomic
+def add_settlement(staff, pro: User, data: dict) -> ProSettlement:
+    _staff(staff, "finance")
+    if not pro.is_pro:
+        raise ValidationError("Les règlements concernent les pros.")
+    settlement = ProSettlement.objects.create(pro=pro, recorded_by=staff, **data)
+    log(
+        staff,
+        A.SETTLEMENT_ADD,
+        "pro",
+        pro.pk,
+        pro,
+        f"{settlement.get_direction_display()} : {settlement.amount} F CFA "
+        f"({settlement.get_method_display()})",
+    )
+    return settlement

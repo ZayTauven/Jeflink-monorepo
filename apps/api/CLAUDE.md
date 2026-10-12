@@ -11,6 +11,7 @@ Django 5.2 + DRF + drf-spectacular, base SQLite (`db.sqlite3`, ignorée par git)
 
 - Règles métier dans `jobs/services.py` uniquement (qui voit quoi, devis, choix, fin, annulation, avis). Les vues valident l'entrée et appellent le service.
 - Cycle d'une demande : `open → booked → done`, annulation possible avant la fin (client, ou équipe avec motif). 3 devis au plus. Seul un pro **vérifié** (console → Pros) peut chiffrer.
+- Argent : `accept_quote` fige prix, remise (`Coupon`, financée par Jeflink), taux et montant de commission sur la demande ; `console/finance.py` calcule transactions, soldes des pros (`ProSettlement`) et rapports. Jamais de float.
 - Litiges (`Dispute`) : ouverts par le client, le pro de la mission ou l'équipe sur une mission réservée ou terminée, un seul actif à la fois ; clore exige une décision écrite. Règles dans `jobs/services.py`.
 - Console : chaque vue déclare sa rubrique (`console_section`) ; `console/permissions.py` dit quels rôles (`User.staff_role`, super admin pour un superuser) y ont accès. Réglages de la plateforme : `PlatformSettings.load()` (devis maximum, pause des demandes, support), lus par `jobs.services`.
 - Console : toute action de l'équipe passe par `console/services.py` et écrit une ligne `AuditLog` (lecture seule dans l'admin Django). Avis masqué = hors du site, de la note du pro et des chiffres publics.

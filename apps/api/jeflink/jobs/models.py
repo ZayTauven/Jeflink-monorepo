@@ -31,6 +31,20 @@ class ServiceRequest(models.Model):
         related_name="missions",
         help_text="Le pro dont le devis a été accepté.",
     )
+    # Montants figés quand le client choisit un devis (F CFA entiers). Paiement sur place :
+    # le client paie au pro price - discount ; le pro doit à Jeflink commission - discount.
+    price = models.PositiveIntegerField("prix du devis accepté", null=True, blank=True)
+    discount = models.PositiveIntegerField("remise Jeflink", default=0)
+    coupon = models.ForeignKey(
+        "Coupon",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="requests",
+        verbose_name="code promo",
+    )
+    commission_rate = models.PositiveSmallIntegerField("taux de commission (%)", default=0)
+    commission = models.PositiveIntegerField("commission Jeflink", default=0)
     staff_note = models.TextField(
         "note interne", blank=True, help_text="Visible de l'équipe Jeflink seulement."
     )
@@ -158,3 +172,43 @@ class RequestEvent(models.Model):
 
     def __str__(self):
         return f"{self.request_id} → {self.status}"
+
+
+class Coupon(models.Model):
+    """Code promo : réduit ce que le client paie. La remise est financée par Jeflink."""
+
+    class Kind(models.TextChoices):
+        PERCENT = "percent", "Pourcentage"
+        FIXED = "fixed", "Montant fixe"
+
+    code = models.CharField(max_length=20, unique=True, help_text="Majuscules, sans espaces.")
+    description = models.CharField(max_length=160, blank=True)
+    kind = models.CharField("type", max_length=10, choices=Kind.choices, default=Kind.FIXED)
+    value = models.PositiveIntegerField(
+        "valeur", help_text="% (1 à 100) ou montant en F CFA selon le type."
+    )
+    max_discount = models.PositiveIntegerField(
+        "remise maximum (F CFA)", null=True, blank=True, help_text="Pour un pourcentage."
+    )
+    min_amount = models.PositiveIntegerField("devis minimum (F CFA)", null=True, blank=True)
+    starts_at = models.DateTimeField("début", null=True, blank=True)
+    ends_at = models.DateTimeField("fin", null=True, blank=True)
+    max_uses = models.PositiveIntegerField("utilisations maximum", null=True, blank=True)
+    max_uses_per_client = models.PositiveSmallIntegerField("par client", default=1)
+    first_order_only = models.BooleanField("première commande seulement", default=False)
+    trades = models.ManyToManyField(
+        "catalog.Trade", blank=True, related_name="coupons", verbose_name="métiers"
+    )
+    zones = models.ManyToManyField(
+        "catalog.Zone", blank=True, related_name="coupons", verbose_name="quartiers"
+    )
+    is_active = models.BooleanField("actif", default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "code promo"
+        verbose_name_plural = "codes promo"
+
+    def __str__(self):
+        return self.code

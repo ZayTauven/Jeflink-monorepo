@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from jeflink.catalog.models import Trade, Zone
+from jeflink.console.permissions import can
 
 from . import services
 from .models import Dispute, Quote, RequestEvent, Review, ServiceRequest
@@ -85,6 +86,7 @@ class RequestSerializer(serializers.ModelSerializer):
     review = ReviewSerializer(read_only=True, allow_null=True)
     events = EventSerializer(many=True, read_only=True)
     dispute = serializers.SerializerMethodField()
+    money = serializers.SerializerMethodField()
     actions = serializers.SerializerMethodField()
 
     class Meta:
@@ -109,6 +111,7 @@ class RequestSerializer(serializers.ModelSerializer):
             "review",
             "events",
             "dispute",
+            "money",
             "actions",
             "created_at",
         ]
@@ -143,6 +146,24 @@ class RequestSerializer(serializers.ModelSerializer):
         if user.pk != req.client_id and not user.is_staff:
             quotes = quotes.filter(pro=user)
         return QuoteSerializer(quotes, many=True, context=self.context).data
+
+    def get_money(self, req) -> dict | None:
+        """Montants de la mission réservée, pour le client et le pro concernés."""
+        user = self._viewer
+        if req.price is None or (user.pk not in (req.client_id, req.pro_id) and not user.is_staff):
+            return None
+        money = {
+            "price": req.price,
+            "discount": req.discount,
+            "coupon": req.coupon.code if req.coupon_id else "",
+            "client_pays": req.price - req.discount,
+        }
+        if user.pk == req.pro_id or can(user, "finance"):
+            # Le pro touche le devis complet : le client paie price - discount sur place,
+            # Jeflink compense la remise ; le pro doit la commission.
+            money["commission"] = req.commission
+            money["commission_rate"] = req.commission_rate
+        return money
 
     def _dispute(self, req):
         return req.disputes.order_by("-created_at").first()
@@ -209,6 +230,7 @@ class QuoteCreateSerializer(serializers.Serializer):
 
 class AcceptSerializer(serializers.Serializer):
     quote_id = serializers.IntegerField()
+    coupon = serializers.CharField(max_length=20, required=False, allow_blank=True, default="")
 
 
 class DisputeCreateSerializer(serializers.Serializer):

@@ -81,7 +81,10 @@ class RequestViewSet(
         serializer = AcceptSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         req = services.accept_quote(
-            request.user, self.get_object(), serializer.validated_data["quote_id"]
+            request.user,
+            self.get_object(),
+            serializer.validated_data["quote_id"],
+            serializer.validated_data["coupon"],
         )
         return Response(self._read(req))
 
