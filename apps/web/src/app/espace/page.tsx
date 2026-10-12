@@ -36,7 +36,7 @@ export default async function DashboardPage() {
   );
 
   return (
-    <PageShell>
+    <PageShell actions={false}>
       <AccountHero
         pill={isPro ? "Espace pro" : "Mon espace"}
         title={`Bonjour ${me.first_name || ""}.`}

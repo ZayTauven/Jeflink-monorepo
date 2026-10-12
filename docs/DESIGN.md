@@ -37,12 +37,18 @@ La boule blanche animée de Crafto est une vidéo non livrée avec le template. 
 - **Photos de personnes et de métiers** : remplacées par les images Jeflink (`references/assets-originaux`), produites par `apps/web/scripts/build-images.py` dans `apps/web/public/images/` (WebP aux tailles du template, provenance ligne par ligne dans `PLAN`). Les photos phares reçoivent le traitement « anneaux orange » du template (fonction `anneaux`).
 - Exception voulue par Zay : la page Contact garde pour l'instant ses photos Crafto.
 
+## Mobile et poids
+
+- **Hero** : sur mobile, la sphère quitte l'arrière-plan du texte et prend sa place entre le bouton et le séparateur (`.jf-hero-stage`).
+- **Barre d'actions** (`components/mobile-actions.tsx`) sous 768 px : « Faire une demande » + WhatsApp (numéro lu côté serveur dans `SUPPORT_WHATSAPP_NUMBER`, bouton masqué s'il manque). Masquée dans l'espace connecté.
+- **Bandeaux défilants** : bouton pause (`components/marquee-pause.tsx`, WCAG 2.2.2), arrêtés d'office si `prefers-reduced-motion`.
+- **Images Crafto** : servies en WebP par l'optimiseur de Next via `opt()` (`components/crafto.tsx`). Accueil 1,2 Mo → 0,3 Mo d'images.
+- **JS Crafto** (~260 Ko gzippés) : gardé tel quel. Retirer les plugins inutiles du `vendors.min.js` minifié ne fait gagner que ~8 % pour une chirurgie fragile ; le vrai allègement passera par une reconstruction des plugins avant la production.
+
 ## À peaufiner (incohérences connues)
 
 1. **Logos de marques** (bandeaux de l'accueil et de l'À propos) : gardés pour l'instant, à remplacer par les vrais partenaires de Jeflink.
-2. **Pastille tournante** (`demo-marketing-strategy-08.png`) : texte du template.
-3. **Mobile** : barre d'actions « Faire une demande » + WhatsApp, bandeaux défilants avec pause (WCAG 2.2.2).
-4. **Poids** : le JS Crafto (~0,6 Mo de plugins) est lourd pour un réseau faible ; à alléger avant la production.
+2. **JS Crafto** : reconstruire un bundle avec les seuls plugins utilisés avant la production.
 
 ## Banque d'images
 

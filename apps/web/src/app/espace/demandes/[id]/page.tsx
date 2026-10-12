@@ -28,7 +28,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
   const can = (a: ServiceRequest["actions"][number]) => req.actions.includes(a);
 
   return (
-    <PageShell>
+    <PageShell actions={false}>
       <AccountHero
         pill={`Demande n° ${req.id}`}
         title={req.title}

@@ -29,7 +29,7 @@ export default async function NewRequestPage({
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <PageShell>
+    <PageShell actions={false}>
       <AccountHero
         pill="Nouvelle demande"
         title="Décrivez votre besoin."

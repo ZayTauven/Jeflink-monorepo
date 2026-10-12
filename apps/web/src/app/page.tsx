@@ -10,11 +10,12 @@ import {
   Pill,
   SECTION_X,
   slideX,
-  SwitchLink,
-} from "@/components/crafto";
+  SwitchLink, opt } from "@/components/crafto";
 import { HeroShow } from "@/components/hero-show";
 import { LaurelBadge } from "@/components/laurel-badge";
+import { MarqueePause } from "@/components/marquee-pause";
 import { PageShell } from "@/components/page-shell";
+import { RotatingText } from "@/components/rotating-text";
 import { getPros, getStats, getTrades } from "@/lib/api";
 import { formatRating } from "@/lib/format";
 
@@ -25,19 +26,19 @@ const PROMISES = [
     tags: ["Vérifié", "Noté", "Proche"],
     title: "Le bon pro, près de chez vous.",
     text: "Chaque pro est contrôlé par l'équipe Jeflink avant sa première mission, puis noté par ses clients après chacune.",
-    image: `${IMG}-03.jpg`,
+    image: opt(`${IMG}-03.jpg`),
   },
   {
     tags: ["Devis", "F CFA", "Sans surprise"],
     title: "Au bon prix, fixé avant de commencer.",
     text: "Jusqu'à trois devis par demande, en francs CFA, à comparer tranquillement. Le prix ne change pas sur place.",
-    image: `${IMG}-04.jpg`,
+    image: opt(`${IMG}-04.jpg`),
   },
   {
     tags: ["Suivi", "Avis", "Recours"],
     title: "Travail garanti, du devis à l'avis.",
     text: "Chaque étape est tracée dans votre espace. Un souci après l'intervention ? L'équipe Jeflink fait le lien avec le pro.",
-    image: `${IMG}-05.jpg`,
+    image: opt(`${IMG}-05.jpg`),
   },
 ];
 
@@ -104,12 +105,12 @@ export default async function HomePage() {
     <PageShell home>
       {/* Accroche */}
       <section
-        className={`ipad-top-space-margin pt-15 sm-pt-50px md-pt-15 lg-pt-25 xl-pt-20 ${SECTION_X} pb-50px bg-gradient-top-green position-relative overflow-hidden`}
+        className={`ipad-top-space-margin pt-15 sm-pt-50px md-pt-15 lg-pt-25 xl-pt-20 ${SECTION_X} jf-hero bg-gradient-top-green position-relative overflow-hidden`}
       >
         <div className="container-fluid">
           <div className="row">
             <div
-              className="absolute-top-center top-0 h-100 z-index-0 d-flex align-items-center justify-content-center p-0"
+              className="absolute-top-center top-0 h-100 z-index-0 d-flex align-items-center justify-content-center p-0 jf-hero-stage"
               data-anime={fadeIn()}
             >
               <HeroShow className="hero-show z-index-1" />
@@ -128,7 +129,7 @@ export default async function HomePage() {
               data-anime={childsUp(600)}
             >
               <div className="d-flex align-items-center mb-20px pb-20px border-bottom border-color-dark-gray">
-                <img className="me-15px md-w-50px" src={`${IMG}-hero-02.png`} alt="" />
+                <img className="me-15px md-w-50px" src={opt(`${IMG}-hero-02.png`)} alt="" />
                 <div>
                   <h2 className="alt-font fw-600 ls-minus-2px mb-5px">
                     {stats?.average_rating ? `${formatRating(stats.average_rating)}/5` : "3 devis"}
@@ -151,7 +152,7 @@ export default async function HomePage() {
             </div>
           </div>
           <div
-            className="row align-items-center justify-content-center justify-content-md-between g-0 position-relative z-index-1 border-top border-color-dark-gray mt-60px pt-60px sm-mt-40px sm-pt-40px"
+            className="row align-items-center justify-content-center justify-content-md-between g-0 position-relative z-index-1 border-top border-color-dark-gray jf-hero-split pt-60px sm-pt-40px"
             data-anime={fadeUp(1800)}
           >
             <div className="col-sm-8 col-md-7 col-lg-6 col-xl-5 col-xxl-4 sm-mb-30px">
@@ -181,7 +182,7 @@ export default async function HomePage() {
             <div className="col-md-5 col-xl-4 sm-mb-30px" data-anime={slideX(-30)}>
               <div
                 className="cover-background p-10 sm-p-7 border-radius-20px overflow-hidden d-flex flex-column align-items-start h-100 sm-h-400px"
-                style={{ backgroundImage: `url('${IMG}-01.jpg')` }}
+                style={{ backgroundImage: `url('${opt(`${IMG}-01.jpg`)}')` }}
               >
                 <a
                   href="/services"
@@ -206,7 +207,7 @@ export default async function HomePage() {
               <div className="border-radius-20px overflow-hidden position-relative bg-white box-shadow-extra-large p-7">
                 <img
                   className="position-absolute bottom-0px right-0px w-40 xxl-w-30"
-                  src={`${IMG}-02.jpg`}
+                  src={opt(`${IMG}-02.jpg`)}
                   alt=""
                   data-anime='{ "scale": [1.3, 1], "opacity": [0.5,1], "duration": 1200, "delay":0, "staggervalue": 300, "easing": "easeOutQuad" }'
                 />
@@ -341,6 +342,7 @@ export default async function HomePage() {
       <section className="big-section pt-6 md-pt-4 sm-pt-40px pb-0">
         <div className="container-fluid">
           <div className="row position-relative">
+              <MarqueePause />
             <div
               className="col swiper swiper-width-auto text-center"
               data-slider-options='{ "slidesPerView": "auto", "spaceBetween":40, "centeredSlides": true, "speed": 8000, "loop": true, "allowTouchMove": false, "autoplay": { "delay":1, "disableOnInteraction": false }, "keyboard": { "enabled": true, "onlyInViewport": true }, "breakpoints": { "1400": { "spaceBetween":120 }, "1200": { "spaceBetween":80 }, "768": { "spaceBetween":60 } }, "effect": "slide" }'
@@ -370,7 +372,7 @@ export default async function HomePage() {
           <div className="text-center position-sticky top-40px w-290px lg-w-200px ms-auto d-none d-xl-block">
             <img
               className="animation-rotation-slow right-minus-100px lg-right-minus-50px position-relative"
-              src={`${IMG}-06.png`}
+              src={opt(`${IMG}-06.png`)}
               alt=""
             />
           </div>
@@ -415,7 +417,7 @@ export default async function HomePage() {
       {/* Appel à l'action */}
       <section
         className={`extra-big-section ${SECTION_X} cover-background`}
-        style={{ backgroundImage: `url('${IMG}-lining-bg.jpg')` }}
+        style={{ backgroundImage: `url('${opt(`${IMG}-lining-bg.jpg`)}')` }}
       >
         <div className="container-fluid">
           <div className="row justify-content-center">
@@ -456,9 +458,9 @@ export default async function HomePage() {
               data-anime={fadeIn(1200)}
             >
               <div className="w-130px h-130px lg-w-100px lg-h-100px md-w-90px md-h-90px box-shadow-medium-bottom position-absolute bg-white-transparent-extra-light blur-box border-radius-100 border border-color-white d-flex align-items-center justify-content-center">
-                <img src={`${IMG}-09.png`} alt="" />
+                <img src={opt(`${IMG}-09.png`)} alt="" />
               </div>
-              <img src={`${IMG}-08.png`} className="animation-rotation" alt="" />
+              <RotatingText id="accueil" className="animation-rotation" />
             </div>
             <div className="row justify-content-between">
               <div

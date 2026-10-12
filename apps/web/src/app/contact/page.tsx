@@ -10,8 +10,7 @@ import {
   PERSPECTIVE,
   Pill,
   SECTION_X,
-  SwitchSubmit,
-} from "@/components/crafto";
+  SwitchSubmit, opt } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { CONTACT_EMAIL } from "@/components/site-footer";
 import { getReviews, getStats } from "@/lib/api";
@@ -61,7 +60,7 @@ export default async function ContactPage({
             <div className="col-md-7 col-xl-8" data-anime={fadeIn(300)}>
               <img
                 className="border-radius-20px object-fit-cover h-100"
-                src={`${IMG}-contact-title.jpg`}
+                src={opt(`${IMG}-contact-title.jpg`)}
                 alt=""
               />
             </div>
@@ -94,7 +93,7 @@ export default async function ContactPage({
               <div className="overflow-visible position-relative h-100">
                 <div
                   className="border-radius-15px d-flex align-items-end justify-content-center overflow-hidden cover-background h-100 md-h-500px xs-h-400px"
-                  style={{ backgroundImage: `url('${IMG}-contact-02.jpg')` }}
+                  style={{ backgroundImage: `url('${opt(`${IMG}-contact-02.jpg`)}')` }}
                 >
                   <div className="opacity-very-light bg-dark-gray" />
                 </div>
@@ -251,7 +250,7 @@ export default async function ContactPage({
             <div className="col-xl-8">
               <div
                 className="cover-background h-100 border-radius-20px"
-                style={{ backgroundImage: `url('${IMG}-services-title.jpg')` }}
+                style={{ backgroundImage: `url('${opt(`${IMG}-services-title.jpg`)}')` }}
               >
                 <div className="row row-cols-1 row-cols-lg-2 m-0 h-100 align-items-center">
                   <div
@@ -266,7 +265,7 @@ export default async function ContactPage({
                       Rejoignez les pros Jeflink et recevez des demandes près de chez vous.
                     </h4>
                     <div className="bg-white w-370px xl-w-100 lg-w-350px xs-w-100 ps-5px border-radius-50px d-flex align-items-center mx-auto box-shadow-medium-bottom">
-                      <img className="me-5px xs-h-70px" src={`${IMG}-about-08.png`} alt="" />{" "}
+                      <img className="me-5px xs-h-70px" src={opt(`${IMG}-about-08.png`)} alt="" />{" "}
                       <a
                         href="/inscription?role=pro"
                         className="fs-22 xs-fs-20 fw-500 ls-minus-05px d-inline-block text-dark-gray-hover text-start"

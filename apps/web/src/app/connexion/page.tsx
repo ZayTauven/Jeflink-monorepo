@@ -16,7 +16,7 @@ export default async function LoginPage({
   const signup = `/inscription${suite !== "/espace" ? `?suite=${encodeURIComponent(suite)}` : ""}`;
 
   return (
-    <PageShell>
+    <PageShell actions={false}>
       <AccountHero
         pill="Mon espace"
         title="Bon retour sur Jeflink."

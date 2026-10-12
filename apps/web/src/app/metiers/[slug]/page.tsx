@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { SECTION_X, SwitchLink } from "@/components/crafto";
+import { SECTION_X, SwitchLink, opt } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { getPros, getTrade, getTrades } from "@/lib/api";
 import { formatRating, formatXOF } from "@/lib/format";
 
 const IMG = "/crafto/images/demo-marketing-strategy";
-const FALLBACK_PHOTOS = [`${IMG}-01.jpg`, `${IMG}-about-03.jpg`, "/images/services/pros.webp"];
+const FALLBACK_PHOTOS = [opt(`${IMG}-01.jpg`), opt(`${IMG}-about-03.jpg`), "/images/services/pros.webp"];
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -91,7 +91,7 @@ export default async function TradePage({ params }: Props) {
       <section
         className="one-fourth-screen"
         data-parallax-background-ratio="0.5"
-        style={{ backgroundImage: `url(${IMG}-hero-video-bg.jpg)` }}
+        style={{ backgroundImage: `url('${opt(`${IMG}-hero-video-bg.jpg`)}')` }}
       />
 
       {/* Description */}
@@ -99,7 +99,7 @@ export default async function TradePage({ params }: Props) {
         <div className="container-fluid">
           <div className="row mb-50px sm-mb-30px">
             <div className="col-12">
-              <img src={`${IMG}-03.jpg`} className="w-100 border-radius-20px" alt="" />
+              <img src={opt(`${IMG}-03.jpg`)} className="w-100 border-radius-20px" alt="" />
             </div>
           </div>
           <div className="row row-cols-1 row-cols-lg-2 mb-9">
@@ -115,7 +115,7 @@ export default async function TradePage({ params }: Props) {
           </div>
           <div className="row">
             <div className="col-12">
-              <img src={`${IMG}-04.jpg`} className="w-100 border-radius-20px" alt="" />
+              <img src={opt(`${IMG}-04.jpg`)} className="w-100 border-radius-20px" alt="" />
             </div>
           </div>
         </div>
@@ -135,7 +135,7 @@ export default async function TradePage({ params }: Props) {
                     {["01", "02", "03", "04", "05", "06"].map((n) => (
                       <div key={n} className="swiper-slide">
                         <img
-                          src={`${IMG}-portfolio-${n}.jpg`}
+                          src={opt(`${IMG}-portfolio-${n}.jpg`)}
                           className="border-radius-20px"
                           alt=""
                         />

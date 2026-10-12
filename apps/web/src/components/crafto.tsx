@@ -158,6 +158,14 @@ export function Asterisk({
   );
 }
 
+/**
+ * Image Crafto servie par l'optimiseur de Next (WebP, sans agrandissement) : les JPG/PNG du
+ * template pèsent 10 à 15 fois plus que leur version WebP.
+ */
+export function opt(src: string, width = 1920): string {
+  return `/_next/image?url=${encodeURIComponent(src)}&w=${width}&q=75`;
+}
+
 /** Marge latérale commune à toutes les sections du template. */
 export const SECTION_X =
   "ps-65px pe-65px xl-ps-45px xl-pe-45px lg-ps-15px lg-pe-15px sm-ps-0 sm-pe-0";

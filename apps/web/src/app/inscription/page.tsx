@@ -29,7 +29,7 @@ export default async function SignupPage({
   const [trades, zones] = pro ? await Promise.all([getTrades(), getZones()]) : [[], []];
 
   return (
-    <PageShell>
+    <PageShell actions={false}>
       <AccountHero
         pill={pro ? "Espace pro" : "Créer un compte"}
         title={pro ? "Rejoignez les pros Jeflink." : "Votre premier pro est à deux minutes."}

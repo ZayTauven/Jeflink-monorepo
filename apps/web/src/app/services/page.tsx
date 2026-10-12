@@ -9,8 +9,8 @@ import {
   PERSPECTIVE,
   Pill,
   SECTION_X,
-  SwitchLink,
-} from "@/components/crafto";
+  SwitchLink, opt } from "@/components/crafto";
+import { MarqueePause } from "@/components/marquee-pause";
 import { PageShell } from "@/components/page-shell";
 import { getTrades } from "@/lib/api";
 import { formatXOF } from "@/lib/format";
@@ -121,7 +121,7 @@ export default async function ServicesPage() {
       {/* Manifeste */}
       <section
         className={`${SECTION_X} cover-background`}
-        style={{ backgroundImage: `url('${IMG}-lining-bg.jpg')` }}
+        style={{ backgroundImage: `url('${opt(`${IMG}-lining-bg.jpg`)}')` }}
       >
         <div className="container-fluid">
           <div className="row justify-content-center">
@@ -130,14 +130,14 @@ export default async function ServicesPage() {
               data-anime={fadeIn()}
             >
               <img
-                src={`${IMG}-services-01.png`}
+                src={opt(`${IMG}-services-01.png`)}
                 className="position-absolute left-minus-50px bottom-0 d-none d-xl-block"
                 data-bottom-top="transform: rotate(0deg) translateX(0px); filter: blur(-6px)"
                 data-top-bottom="transform:rotate(10deg) translateX(50px); filter: blur(10px)"
                 alt=""
               />{" "}
               <img
-                src={`${IMG}-services-02.png`}
+                src={opt(`${IMG}-services-02.png`)}
                 className="position-absolute right-minus-100px top-20px d-none d-xl-block"
                 data-bottom-top="transform: rotate(0deg) translateX(0px); filter: blur(-6px)"
                 data-top-bottom="transform:rotate(-10deg) translateX(-30px); filter: blur(10px)"
@@ -275,14 +275,14 @@ export default async function ServicesPage() {
             </div>
             <div className="col-lg-7 col-xxl-6 position-relative">
               <img
-                src={`${IMG}-services-09.jpg`}
+                src={opt(`${IMG}-services-09.jpg`)}
                 className="position-absolute bottom-150px left-minus-40px"
                 data-bottom-top="transform: translateY(100px)"
                 data-top-bottom="transform: translateY(-100px)"
                 alt=""
               />{" "}
               <img
-                src={`${IMG}-services-10.jpg`}
+                src={opt(`${IMG}-services-10.jpg`)}
                 className="position-absolute top-150px right-minus-80px mt-70px"
                 data-bottom-top="transform: translateY(-100px)"
                 data-top-bottom="transform: translateY(100px)"
@@ -355,7 +355,7 @@ export default async function ServicesPage() {
             <div className="col-lg-7 col-xl-8">
               <div
                 className="cover-background ps-8 pe-8 xl-ps-6 xl-pe-6 pt-10 pb-10 border-radius-20px overflow-hidden h-100"
-                style={{ backgroundImage: `url('${IMG}-services-07.jpg')` }}
+                style={{ backgroundImage: `url('${opt(`${IMG}-services-07.jpg`)}')` }}
               >
                 <div className="row justify-content-center mt-20px">
                   <div className="col-12 text-center">
@@ -410,10 +410,11 @@ export default async function ServicesPage() {
       {/* Bandeau défilant */}
       <section className="py-0 position-relative" data-anime={fadeIn()}>
         <div className="text-center">
-          <img className="md-h-400px sm-h-350px" src={`${IMG}-portfolio-07.jpg`} alt="" />
+          <img className="md-h-400px sm-h-350px" src={opt(`${IMG}-portfolio-07.jpg`)} alt="" />
         </div>
         <div className="container-fluid absolute-middle-left">
           <div className="row position-relative">
+              <MarqueePause />
             <div
               className="col swiper swiper-width-auto text-center"
               data-slider-options='{ "slidesPerView": "auto", "spaceBetween":40, "centeredSlides": true, "speed": 8000, "loop": true, "allowTouchMove": false, "autoplay": { "delay":1, "disableOnInteraction": false }, "keyboard": { "enabled": true, "onlyInViewport": true }, "breakpoints": { "1400": { "spaceBetween":120 }, "1200": { "spaceBetween":80 }, "768": { "spaceBetween":60 } }, "effect": "slide" }'

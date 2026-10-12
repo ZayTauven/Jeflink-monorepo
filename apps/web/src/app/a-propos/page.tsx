@@ -10,9 +10,10 @@ import {
   lines,
   PERSPECTIVE,
   Pill,
-  SECTION_X,
-} from "@/components/crafto";
+  SECTION_X, opt } from "@/components/crafto";
+import { MarqueePause } from "@/components/marquee-pause";
 import { PageShell } from "@/components/page-shell";
+import { RotatingText } from "@/components/rotating-text";
 import { getStats } from "@/lib/api";
 
 export const metadata: Metadata = { title: "À propos" };
@@ -21,22 +22,22 @@ const IMG = "/crafto/images/demo-marketing-strategy";
 
 const REASONS = [
   {
-    icon: `${IMG}-about-icon-01.png`,
+    icon: opt(`${IMG}-about-icon-01.png`),
     title: "Des pros vérifiés",
     text: "Identité, téléphone et références contrôlés par l'équipe Jeflink avant la première mission.",
   },
   {
-    icon: `${IMG}-about-icon-02.png`,
+    icon: opt(`${IMG}-about-icon-02.png`),
     title: "Des devis comparables",
     text: "Trois devis au plus, en F CFA, avec ce qu'ils comprennent. Vous choisissez en connaissance de cause.",
   },
   {
-    icon: `${IMG}-about-icon-03.png`,
+    icon: opt(`${IMG}-about-icon-03.png`),
     title: "Une adresse par repères",
     text: "« Derrière la mosquée, portail vert » : le pro sait où venir, comme on se repère vraiment à Dakar.",
   },
   {
-    icon: `${IMG}-about-icon-04.png`,
+    icon: opt(`${IMG}-about-icon-04.png`),
     title: "Des avis qui comptent",
     text: "Seul un client dont la mission est terminée peut noter le pro. Pas d'avis inventés.",
   },
@@ -117,12 +118,12 @@ export default async function AboutPage() {
           <div className="row">
             <div className="col-lg-5 col-xl-6 text-center md-mb-50px" data-anime={childsFade()}>
               <div className="position-relative d-inline-block">
-                <img className="animation-float" src={`${IMG}-about-01.jpg`} alt="" />{" "}
+                <img className="animation-float" src={opt(`${IMG}-about-01.jpg`)} alt="" />{" "}
                 <div className="bg-white-transparent-extra-light blur-box box-shadow-medium-bottom border-radius-100 border border-color-white position-absolute right-minus-40px xl-right-minus-0px sm-right-20px lg-right-0px top-40px d-flex flex-column align-items-center justify-content-center lg-w-160px md-w-140px">
                   <div className="w-130px h-130px lg-w-100px lg-h-100px md-w-90px md-h-90px box-shadow-medium-bottom position-absolute bg-white-transparent-extra-light blur-box border-radius-100 border border-color-white d-flex align-items-center justify-content-center">
-                    <img src={`${IMG}-09.png`} alt="" />
+                    <img src={opt(`${IMG}-09.png`)} alt="" />
                   </div>{" "}
-                  <img src={`${IMG}-08.png`} className="animation-rotation" alt="" />
+                  <RotatingText id="a-propos" className="animation-rotation" />
                 </div>
               </div>
             </div>
@@ -234,7 +235,7 @@ export default async function AboutPage() {
             >
               <div
                 className="cover-background p-11 border-radius-20px overflow-hidden d-flex flex-column align-items-start h-700px sm-h-400px lg-h-500px"
-                style={{ backgroundImage: `url('${IMG}-about-03.jpg')` }}
+                style={{ backgroundImage: `url('${opt(`${IMG}-about-03.jpg`)}')` }}
               >
                 <a
                   href="/inscription?role=pro"
@@ -264,12 +265,13 @@ export default async function AboutPage() {
         <div className="text-center">
           <img
             className="animation-float md-h-350px sm-h-250px"
-            src={`${IMG}-about-04.jpg`}
+            src={opt(`${IMG}-about-04.jpg`)}
             alt=""
           />
         </div>
         <div className="container-fluid absolute-middle-left">
           <div className="row position-relative">
+              <MarqueePause />
             <div
               className="col swiper swiper-width-auto text-center"
               data-slider-options='{ "slidesPerView": "auto", "spaceBetween":40, "centeredSlides": true, "speed": 8000, "loop": true, "allowTouchMove": false, "autoplay": { "delay":1, "disableOnInteraction": false }, "keyboard": { "enabled": true, "onlyInViewport": true }, "breakpoints": { "1400": { "spaceBetween":120 }, "1200": { "spaceBetween":80 }, "768": { "spaceBetween":60 } }, "effect": "slide" }'
@@ -415,7 +417,7 @@ export default async function AboutPage() {
       {/* Appel aux pros */}
       <section
         className={`extra-big-section ${SECTION_X} cover-background`}
-        style={{ backgroundImage: `url('${IMG}-lining-bg.jpg')` }}
+        style={{ backgroundImage: `url('${opt(`${IMG}-lining-bg.jpg`)}')` }}
       >
         <div className="container-fluid">
           <div className="row justify-content-center">
