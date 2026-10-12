@@ -10,4 +10,5 @@ urlpatterns = [
     path("pros/<int:id>/", views.ProDetail.as_view(), name="pro-detail"),
     path("reviews/", views.ReviewList.as_view(), name="review-list"),
     path("stats/", views.stats, name="stats"),
+    path("site/", views.site, name="site"),
 ]

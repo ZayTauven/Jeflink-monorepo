@@ -11,7 +11,19 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 S = ServiceRequest.Status
-MAX_QUOTES = 3  # évite la course au moins-disant
+
+
+def platform():
+    """Réglages de la plateforme (devis maximum, pause des demandes…), modifiés dans la console."""
+    from jeflink.console.models import PlatformSettings
+
+    return PlatformSettings.load()
+
+
+def max_quotes() -> int:
+    """Devis maximum par demande : évite la course au moins-disant (3 par défaut)."""
+    return platform().max_quotes
+
 
 TRANSITIONS = {
     S.OPEN: {S.BOOKED, S.CANCELLED},
@@ -78,6 +90,12 @@ def _locked(req: ServiceRequest) -> ServiceRequest:
 def create_request(client, **data) -> ServiceRequest:
     if client.is_pro:
         raise PermissionDenied("Un compte pro ne publie pas de demande : créez un compte client.")
+    settings = platform()
+    if not settings.accepting_requests:
+        raise ValidationError(
+            settings.closed_message
+            or "Jeflink ne prend pas de nouvelles demandes pour le moment. Revenez bientôt."
+        )
     if not data["trade"].is_active or not data["zone"].is_active:
         raise ValidationError("Ce métier ou ce quartier n'est pas ouvert pour le moment.")
     req = ServiceRequest.objects.create(client=client, **data)
@@ -101,8 +119,8 @@ def submit_quote(pro, req: ServiceRequest, amount: int, message: str = "") -> Qu
         raise PermissionDenied("Cette demande ne correspond pas à vos métiers.")
     if req.quotes.filter(pro=pro).exists():
         raise ValidationError("Vous avez déjà envoyé un devis pour cette demande.")
-    if req.quotes.count() >= MAX_QUOTES:
-        raise ValidationError(f"Cette demande a déjà reçu {MAX_QUOTES} devis.")
+    if req.quotes.count() >= (limit := max_quotes()):
+        raise ValidationError(f"Cette demande a déjà reçu {limit} devis.")
     if amount <= 0:
         raise ValidationError("Le montant doit être un entier positif en F CFA.")
     return Quote.objects.create(request=req, pro=pro, amount=amount, message=message)

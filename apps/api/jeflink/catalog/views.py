@@ -143,6 +143,36 @@ class ProList(generics.ListAPIView):
         return qs.distinct()
 
 
+@extend_schema(
+    responses=inline_serializer(
+        "SiteSettings",
+        {
+            "accepting_requests": serializers.BooleanField(),
+            "closed_message": serializers.CharField(),
+            "support_whatsapp": serializers.CharField(),
+            "support_email": serializers.CharField(),
+            "max_quotes": serializers.IntegerField(),
+        },
+    )
+)
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def site(request):
+    """Réglages publics de la plateforme (modifiés dans la console)."""
+    from jeflink.console.models import PlatformSettings
+
+    current = PlatformSettings.load()
+    return Response(
+        {
+            "accepting_requests": current.accepting_requests,
+            "closed_message": current.closed_message,
+            "support_whatsapp": current.support_whatsapp,
+            "support_email": current.support_email,
+            "max_quotes": current.max_quotes,
+        }
+    )
+
+
 class ProDetail(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
     serializer_class = PublicProSerializer

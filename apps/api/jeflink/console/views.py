@@ -16,15 +16,16 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
+from jeflink.catalog.models import Trade, Zone
 from jeflink.jobs.models import Dispute, Quote, Review, ServiceRequest
 
 from . import serializers as s
 from . import services, stats
-from .models import AuditLog
+from .models import AuditLog, PlatformSettings
+from .permissions import ConsoleSection, can, section
 
 PERIODS = {7, 30, 90}
 S = ServiceRequest.Status
@@ -36,19 +37,24 @@ ACTIVE_DISPUTE = [Dispute.Status.OPEN, Dispute.Status.INVESTIGATING]
     responses=OpenApiTypes.OBJECT,
 )
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([section("dashboard")])
 def overview(request):
     """Tableau de bord : indicateurs de la période et de la précédente, séries, alertes."""
     try:
         days = int(request.query_params.get("days", 30))
     except ValueError:
         days = 30
-    return Response(stats.overview(days if days in PERIODS else 30))
+    data = stats.overview(days if days in PERIODS else 30)
+    if not can(request.user, "operations"):
+        # Noms, avis et activité détaillée : réservés aux rôles qui traitent les opérations.
+        for key in ("alerts", "activity", "top_pros"):
+            data.pop(key, None)
+    return Response(data)
 
 
 @extend_schema(responses=OpenApiTypes.OBJECT)
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([section("dashboard")])
 def badges(request):
     """Compteurs du menu : pros à vérifier, demandes sans devis, messages non traités."""
     return Response(stats.badges())
@@ -62,7 +68,8 @@ class ConsolePagination(PageNumberPagination):
 
 
 class ConsoleViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAdminUser]
+    permission_classes = [ConsoleSection]
+    console_section = "operations"  # rubrique de la console (voir permissions.py)
     pagination_class = ConsolePagination
 
     def param(self, name: str) -> str:
@@ -138,7 +145,7 @@ class RequestConsoleViewSet(ConsoleViewSet):
             qs = qs.filter(is_urgent=True)
         if self.param("stale") == "1":
             qs = qs.filter(
-                status=S.OPEN, created_at__lt=timezone.now() - stats.STALE_AFTER, n_quotes=0
+                status=S.OPEN, created_at__lt=timezone.now() - stats.stale_after(), n_quotes=0
             )
         if self.param("dispute") == "1":
             qs = qs.filter(n_open_disputes__gt=0)
@@ -263,7 +270,8 @@ class ProConsoleViewSet(ConsoleViewSet):
 
     def get_queryset(self):
         return (
-            ProProfile.objects.select_related("user")
+            ProProfile.objects.filter(user__is_staff=False)
+            .select_related("user")
             .prefetch_related("trades", "zones")
             .annotate(n_done=Count("user__missions", filter=Q(user__missions__status=S.DONE)))
         )
@@ -553,6 +561,8 @@ class AuditConsoleViewSet(mixins.ListModelMixin, ConsoleViewSet):
 
     def get_queryset(self):
         qs = AuditLog.objects.select_related("actor")
+        if not can(self.request.user, "admin"):
+            qs = qs.exclude(target_type__in=["staff", "settings"])
         if act := self.param("action"):
             qs = qs.filter(action=act)
         if target := self.param("target_type"):
@@ -562,3 +572,164 @@ class AuditConsoleViewSet(mixins.ListModelMixin, ConsoleViewSet):
         if (days := self.param("days")).isdigit() and len(days) <= 4:
             qs = qs.filter(created_at__gte=timezone.now() - timedelta(days=int(days)))
         return qs
+
+
+# --- Catalogue : métiers et quartiers ----------------------------------------------------------
+
+
+def _recent():
+    return timezone.now() - timedelta(days=30)
+
+
+class TradeConsoleViewSet(ConsoleViewSet):
+    """Métiers : tous (actifs ou non), création, modification. Pas de suppression."""
+
+    console_section = "catalog"
+    serializer_class = s.TradeConsoleSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return Trade.objects.annotate(
+            n_pros=Count(
+                "pros",
+                filter=Q(pros__is_verified=True, pros__user__is_active=True),
+                distinct=True,
+            ),
+            n_recent=Count(
+                "servicerequest",
+                filter=Q(servicerequest__created_at__gte=_recent()),
+                distinct=True,
+            ),
+            n_total=Count("servicerequest", distinct=True),
+        ).order_by("position", "name")
+
+    def list(self, request):
+        return Response(s.TradeConsoleSerializer(self.get_queryset(), many=True).data)
+
+    def retrieve(self, request, pk=None):
+        trade = get_object_or_404(self.get_queryset(), pk=pk)
+        return Response(s.TradeConsoleSerializer(trade).data)
+
+    @extend_schema(request=s.TradeInputSerializer, responses={201: s.TradeConsoleSerializer})
+    def create(self, request):
+        data = s.TradeInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        trade = services.save_trade(request.user, data.validated_data)
+        return Response(
+            s.TradeConsoleSerializer(self.get_queryset().get(pk=trade.pk)).data, status=201
+        )
+
+    @extend_schema(request=s.TradeInputSerializer, responses=s.TradeConsoleSerializer)
+    @action(detail=True, methods=["post"], url_path="update")
+    def edit(self, request, pk=None):
+        data = s.TradeInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        services.save_trade(request.user, data.validated_data, get_object_or_404(Trade, pk=pk))
+        return self.retrieve(request, pk)
+
+
+class ZoneConsoleViewSet(ConsoleViewSet):
+    """Quartiers desservis : ajout, modification, ouverture et fermeture."""
+
+    console_section = "catalog"
+    serializer_class = s.ZoneConsoleSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return Zone.objects.annotate(
+            n_pros=Count(
+                "pros", filter=Q(pros__is_verified=True, pros__user__is_active=True), distinct=True
+            ),
+            n_recent=Count(
+                "servicerequest",
+                filter=Q(servicerequest__created_at__gte=_recent()),
+                distinct=True,
+            ),
+        ).order_by("city", "position", "name")
+
+    def list(self, request):
+        return Response(s.ZoneConsoleSerializer(self.get_queryset(), many=True).data)
+
+    @extend_schema(request=s.ZoneInputSerializer, responses={201: s.ZoneConsoleSerializer})
+    def create(self, request):
+        data = s.ZoneInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        zone = services.save_zone(request.user, data.validated_data)
+        zone = self.get_queryset().get(pk=zone.pk)
+        return Response(s.ZoneConsoleSerializer(zone).data, status=201)
+
+    @extend_schema(request=s.ZoneInputSerializer, responses=s.ZoneConsoleSerializer)
+    @action(detail=True, methods=["post"], url_path="update")
+    def edit(self, request, pk=None):
+        data = s.ZoneInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        zone = get_object_or_404(Zone, pk=pk)
+        services.save_zone(request.user, data.validated_data, zone)
+        return Response(s.ZoneConsoleSerializer(self.get_queryset().get(pk=zone.pk)).data)
+
+
+# --- Réglages de la plateforme -----------------------------------------------------------------
+
+
+@extend_schema(methods=["GET"], responses=s.SettingsSerializer)
+@extend_schema(methods=["POST"], request=s.SettingsSerializer, responses=s.SettingsSerializer)
+@api_view(["GET", "POST"])
+@permission_classes([section("admin")])
+def platform_settings(request):
+    """Réglages de la plateforme. POST : tous les champs (formulaire complet)."""
+    current = PlatformSettings.load()
+    if request.method == "POST":
+        data = s.SettingsSerializer(current, data=request.data)
+        data.is_valid(raise_exception=True)
+        current = services.update_settings(request.user, dict(data.validated_data))
+    return Response(s.SettingsSerializer(current).data)
+
+
+# --- Équipe ------------------------------------------------------------------------------------
+
+
+class TeamConsoleViewSet(ConsoleViewSet):
+    """Membres de l'équipe (comptes is_staff) et leur rôle dans la console."""
+
+    console_section = "admin"
+    serializer_class = s.MemberSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return User.objects.filter(is_staff=True).order_by("-is_active", "first_name", "email")
+
+    def list(self, request):
+        return Response(s.MemberSerializer(self.get_queryset(), many=True).data)
+
+    def _member(self, pk) -> User:
+        return get_object_or_404(self.get_queryset(), pk=pk)
+
+    @extend_schema(request=s.MemberCreateSerializer, responses={201: s.MemberSerializer})
+    def create(self, request):
+        data = s.MemberCreateSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        member = services.add_member(request.user, data.validated_data)
+        return Response(s.MemberSerializer(member).data, status=201)
+
+    @extend_schema(request=s.RoleSerializer, responses=s.MemberSerializer)
+    @action(detail=True, methods=["post"])
+    def role(self, request, pk=None):
+        data = s.RoleSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        member = services.set_member_role(
+            request.user, self._member(pk), data.validated_data["role"]
+        )
+        return self.done(member, s.MemberSerializer)
+
+    @extend_schema(request=None, responses=s.MemberSerializer)
+    @action(detail=True, methods=["post"])
+    def deactivate(self, request, pk=None):
+        note = str(request.data.get("note", ""))[:300]
+        member = services.set_member_active(request.user, self._member(pk), False, note)
+        return self.done(member, s.MemberSerializer)
+
+    @extend_schema(request=None, responses=s.MemberSerializer)
+    @action(detail=True, methods=["post"])
+    def reactivate(self, request, pk=None):
+        member = services.set_member_active(request.user, self._member(pk), True)
+        return self.done(member, s.MemberSerializer)

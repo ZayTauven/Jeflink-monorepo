@@ -53,12 +53,27 @@ class User(AbstractUser):
         CLIENT = "client", "Client"
         PRO = "pro", "Pro"
 
+    class StaffRole(models.TextChoices):
+        """Rôle d'un membre de l'équipe dans la console (comptes is_staff)."""
+
+        SUPER = "super", "Super admin"
+        OPS = "ops", "Opérations"
+        MARKETING = "marketing", "Marketing"
+        FINANCE = "finance", "Finance"
+
     username = None
     email = models.EmailField("email", unique=True)
     phone = models.CharField("téléphone", max_length=13, blank=True, validators=[PHONE_E164_SN])
     role = models.CharField("rôle", max_length=10, choices=Role.choices, default=Role.CLIENT)
     photo = models.CharField(
         "photo", max_length=200, blank=True, help_text="Chemin d'image servi par le site web."
+    )
+    staff_role = models.CharField(
+        "rôle dans l'équipe",
+        max_length=12,
+        choices=StaffRole.choices,
+        blank=True,
+        help_text="Pour les comptes de l'équipe : ce qu'ils voient et font dans la console.",
     )
     suspension_reason = models.CharField(
         "motif de suspension",
@@ -81,6 +96,16 @@ class User(AbstractUser):
     @property
     def is_pro(self) -> bool:
         return self.role == self.Role.PRO
+
+    @property
+    def console_role(self) -> str:
+        """Rôle effectif dans la console : super admin pour un superuser, sinon le rôle choisi
+        (Opérations par défaut). Vide pour un compte hors équipe."""
+        if not self.is_staff:
+            return ""
+        if self.is_superuser:
+            return self.StaffRole.SUPER
+        return self.staff_role or self.StaffRole.OPS
 
     @property
     def public_name(self) -> str:

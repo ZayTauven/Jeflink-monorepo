@@ -277,6 +277,22 @@ PROS = [
 ]
 
 ADMIN = {"email": "admin@jeflink.local", "first_name": "Équipe", "last_name": "Jeflink"}
+# Un membre par rôle de la console (démo des droits).
+STAFF = [
+    {"email": "ops@jeflink.local", "first_name": "Ndèye", "last_name": "Mbengue", "role": "ops"},
+    {
+        "email": "marketing@jeflink.local",
+        "first_name": "Ousmane",
+        "last_name": "Sène",
+        "role": "marketing",
+    },
+    {
+        "email": "finance@jeflink.local",
+        "first_name": "Aïda",
+        "last_name": "Gaye",
+        "role": "finance",
+    },
+]
 
 # --- Historique de la console : 90 jours d'activité inventée, reproductible (graine fixe) -------
 
@@ -406,7 +422,9 @@ class Command(BaseCommand):
                 slug=slugify_zone(name), defaults={"name": name, "position": position}
             )
 
-        admin = self._user(ADMIN, is_staff=True, is_superuser=True)
+        admin = self._user(ADMIN, is_staff=True, is_superuser=True, staff_role="super")
+        for member in STAFF:
+            self._user(member, is_staff=True, staff_role=member["role"])
         clients = {c["first_name"]: self._user(c) for c in CLIENTS}
         pros = {p["first_name"]: self._pro(p) for p in PROS}
 

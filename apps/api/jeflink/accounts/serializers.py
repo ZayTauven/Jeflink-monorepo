@@ -28,6 +28,8 @@ class ProProfileSerializer(serializers.ModelSerializer):
 
 class MeSerializer(serializers.ModelSerializer):
     pro_profile = ProProfileSerializer(read_only=True)
+    console_role = serializers.CharField(read_only=True)
+    console_sections = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -39,8 +41,15 @@ class MeSerializer(serializers.ModelSerializer):
             "phone",
             "role",
             "is_staff",
+            "console_role",
+            "console_sections",
             "pro_profile",
         ]
+
+    def get_console_sections(self, user) -> list[str]:
+        from jeflink.console.permissions import sections_for
+
+        return sections_for(user)
 
 
 class RegisterSerializer(serializers.Serializer):

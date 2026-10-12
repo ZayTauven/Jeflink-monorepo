@@ -1,11 +1,15 @@
 """Sérialiseurs de la console : l'équipe voit noms complets, emails et téléphones (support)."""
 
+from django.contrib.auth import password_validation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from jeflink.accounts.models import ContactMessage, ProProfile, User
+from jeflink.accounts.models import ContactMessage, ProProfile, User, normalize_phone
+from jeflink.catalog.models import Trade, Zone
+from jeflink.jobs import services as jobs_services
 from jeflink.jobs.models import Dispute, Quote, RequestEvent, Review, ServiceRequest
 
-from .models import AuditLog
+from .models import AuditLog, PlatformSettings
 
 
 def person(user: User | None) -> dict | None:
@@ -34,6 +38,7 @@ class RequestRowSerializer(serializers.ModelSerializer):
     client = serializers.SerializerMethodField()
     pro = serializers.SerializerMethodField()
     quotes_count = serializers.IntegerField(source="n_quotes", default=0)
+    quotes_max = serializers.SerializerMethodField()
     amount = serializers.IntegerField(source="accepted_amount", allow_null=True, default=None)
     open_disputes = serializers.IntegerField(source="n_open_disputes", default=0)
 
@@ -50,11 +55,17 @@ class RequestRowSerializer(serializers.ModelSerializer):
             "client",
             "pro",
             "quotes_count",
+            "quotes_max",
             "amount",
             "open_disputes",
             "created_at",
             "updated_at",
         ]
+
+    def get_quotes_max(self, req) -> int:
+        if "quotes_max" not in self.context:  # une lecture des réglages par liste
+            self.context["quotes_max"] = jobs_services.max_quotes()
+        return self.context["quotes_max"]
 
     def get_trade(self, req) -> dict:
         return {"slug": req.trade.slug, "name": req.trade.name, "icon": req.trade.icon}
@@ -347,3 +358,187 @@ class DisputeUpdateSerializer(serializers.Serializer):
         choices=[c for c in Dispute.Status.choices if c[0] != Dispute.Status.OPEN]
     )
     resolution = serializers.CharField(max_length=2000, required=False, allow_blank=True)
+
+
+# --- Lot 2 : catalogue, réglages, équipe ---------------------------------------------------------
+
+
+class TradeConsoleSerializer(serializers.ModelSerializer):
+    pros_verified = serializers.IntegerField(source="n_pros", default=0)
+    requests_30d = serializers.IntegerField(source="n_recent", default=0)
+    requests_total = serializers.IntegerField(source="n_total", default=0)
+
+    class Meta:
+        model = Trade
+        fields = [
+            "id",
+            "slug",
+            "name",
+            "tagline",
+            "description",
+            "services",
+            "starting_price",
+            "icon",
+            "image",
+            "position",
+            "is_active",
+            "pros_verified",
+            "requests_30d",
+            "requests_total",
+        ]
+
+
+class TradeInputSerializer(serializers.Serializer):
+    """Saisie d'un métier depuis la console (formulaire : champs texte)."""
+
+    name = serializers.CharField(max_length=80)
+    tagline = serializers.CharField(max_length=180, required=False, allow_blank=True, default="")
+    description = serializers.CharField(required=False, allow_blank=True, default="")
+    services = serializers.CharField(required=False, allow_blank=True, default="")
+    starting_price = serializers.CharField(required=False, allow_blank=True, default="")
+    icon = serializers.RegexField(
+        r"^(bi-[a-z0-9-]+)?$", required=False, allow_blank=True, default="", max_length=40
+    )
+    image = serializers.RegexField(
+        r"^(/images/(?!.*\.\.)[\w/.-]+)?$",
+        required=False,
+        allow_blank=True,
+        default="",
+        max_length=200,
+    )
+    position = serializers.IntegerField(min_value=0, max_value=999, default=0)
+    is_active = serializers.BooleanField(default=True)
+
+    def validate_services(self, value) -> list[str]:
+        """Une prestation par ligne → liste JSON, sans lignes vides ni doublons."""
+        seen: list[str] = []
+        for line in value.splitlines():
+            item = line.strip(" -•\t")
+            if item and item not in seen:
+                seen.append(item[:80])
+        return seen[:20]
+
+    def validate_starting_price(self, value) -> int | None:
+        """« 5 000 », « 5000 F CFA » → 5000 (entier F CFA) ; vide → pas de prix affiché."""
+        digits = "".join(ch for ch in value if ch.isdigit())
+        if not digits:
+            return None
+        price = int(digits)
+        if price > 10_000_000:
+            raise serializers.ValidationError("Prix trop élevé.")
+        return price
+
+
+class ZoneConsoleSerializer(serializers.ModelSerializer):
+    pros_count = serializers.SerializerMethodField()
+    requests_30d = serializers.IntegerField(source="n_recent", default=0)
+
+    class Meta:
+        model = Zone
+        fields = [
+            "id",
+            "slug",
+            "name",
+            "city",
+            "position",
+            "is_active",
+            "pros_count",
+            "requests_30d",
+        ]
+
+    def get_pros_count(self, zone) -> int:
+        """Pros vérifiés qui couvrent le quartier : l'ayant choisi, ou allant partout."""
+        if "everywhere" not in self.context:
+            self.context["everywhere"] = ProProfile.objects.filter(
+                is_verified=True, user__is_active=True, zones=None
+            ).count()
+        return getattr(zone, "n_pros", 0) + self.context["everywhere"]
+
+
+class ZoneInputSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=80)
+    city = serializers.CharField(max_length=80, default="Dakar")
+    position = serializers.IntegerField(min_value=0, max_value=999, default=0)
+    is_active = serializers.BooleanField(default=True)
+
+
+class SettingsSerializer(serializers.ModelSerializer):
+    updated_by = serializers.SerializerMethodField()
+    # Saisie libre (« 77 123 45 67 ») normalisée en E.164 par validate_support_whatsapp.
+    support_whatsapp = serializers.CharField(max_length=20, allow_blank=True, required=False)
+
+    class Meta:
+        model = PlatformSettings
+        fields = [
+            "max_quotes",
+            "stale_after_hours",
+            "accepting_requests",
+            "closed_message",
+            "support_whatsapp",
+            "support_email",
+            "updated_at",
+            "updated_by",
+        ]
+        read_only_fields = ["updated_at", "updated_by"]
+
+    def get_updated_by(self, obj) -> dict | None:
+        return short(obj.updated_by)
+
+    def validate_support_whatsapp(self, value: str) -> str:
+        if not value.strip():
+            return ""
+        try:
+            return normalize_phone(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages[0]) from exc
+
+
+class MemberSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    role = serializers.CharField(source="console_role")
+    role_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "name",
+            "email",
+            "role",
+            "role_label",
+            "is_active",
+            "is_superuser",
+            "last_login",
+            "date_joined",
+        ]
+
+    def get_name(self, user) -> str:
+        return user.get_full_name() or user.email
+
+    def get_role_label(self, user) -> str:
+        return User.StaffRole(user.console_role).label
+
+
+class MemberCreateSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    role = serializers.ChoiceField(choices=User.StaffRole.choices)
+    password = serializers.CharField(min_length=10, max_length=128, write_only=True)
+
+    def validate(self, attrs):
+        # Comparé à l'email et au nom : refuse un mot de passe qui ressemble à l'identité.
+        candidate = User(
+            email=attrs["email"],
+            first_name=attrs["first_name"],
+            last_name=attrs.get("last_name", ""),
+        )
+        try:
+            password_validation.validate_password(attrs["password"], candidate)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": exc.messages[0]}) from exc
+        return attrs
+
+
+class RoleSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=User.StaffRole.choices)

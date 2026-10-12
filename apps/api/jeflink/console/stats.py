@@ -13,10 +13,15 @@ from django.utils import timezone
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
 from jeflink.catalog.models import Trade, Zone
+from jeflink.console.models import PlatformSettings
 from jeflink.jobs.models import Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 S = ServiceRequest.Status
-STALE_AFTER = timedelta(hours=24)
+
+
+def stale_after() -> timedelta:
+    """Délai après lequel une demande sans devis remonte en alerte (réglable dans la console)."""
+    return timedelta(hours=PlatformSettings.load().stale_after_hours)
 
 
 def _booked(start, end) -> dict[int, int]:
@@ -60,7 +65,7 @@ def _pending_pros():
 def _stale_requests(now):
     """Demandes ouvertes depuis plus de 24 h sans aucun devis."""
     return (
-        ServiceRequest.objects.filter(status=S.OPEN, created_at__lt=now - STALE_AFTER)
+        ServiceRequest.objects.filter(status=S.OPEN, created_at__lt=now - stale_after())
         .annotate(n=Count("quotes"))
         .filter(n=0)
     )

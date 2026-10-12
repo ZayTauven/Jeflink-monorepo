@@ -1,5 +1,8 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+from jeflink.accounts.models import PHONE_E164_SN
 
 
 class AuditLog(models.Model):
@@ -18,6 +21,15 @@ class AuditLog(models.Model):
         CONTACT_REOPEN = "contact.reopen", "Message rouvert"
         DISPUTE_OPEN = "dispute.open", "Litige ouvert"
         DISPUTE_UPDATE = "dispute.update", "Litige mis à jour"
+        TRADE_CREATE = "trade.create", "Métier créé"
+        TRADE_UPDATE = "trade.update", "Métier modifié"
+        ZONE_CREATE = "zone.create", "Quartier ajouté"
+        ZONE_UPDATE = "zone.update", "Quartier modifié"
+        SETTINGS_UPDATE = "settings.update", "Réglages modifiés"
+        TEAM_ADD = "team.add", "Membre de l'équipe ajouté"
+        TEAM_ROLE = "team.role", "Rôle modifié"
+        TEAM_DEACTIVATE = "team.deactivate", "Accès à la console retiré"
+        TEAM_REACTIVATE = "team.reactivate", "Accès à la console rétabli"
 
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+"
@@ -36,3 +48,47 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.get_action_display()} — {self.target_label}"
+
+
+class PlatformSettings(models.Model):
+    """Réglages de la plateforme (une seule ligne), modifiés par un super admin dans la console."""
+
+    max_quotes = models.PositiveSmallIntegerField(
+        "devis maximum par demande",
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(10)],
+        help_text="Au-delà, la demande ne reçoit plus de devis : évite la course au moins-disant.",
+    )
+    stale_after_hours = models.PositiveSmallIntegerField(
+        "alerte « sans devis » après (heures)",
+        default=24,
+        validators=[MinValueValidator(1), MaxValueValidator(168)],
+    )
+    accepting_requests = models.BooleanField(
+        "nouvelles demandes ouvertes",
+        default=True,
+        help_text="Décocher pour mettre les nouvelles demandes en pause (fête, saturation…).",
+    )
+    closed_message = models.CharField(
+        "message quand les demandes sont en pause", max_length=200, blank=True
+    )
+    support_whatsapp = models.CharField(
+        "WhatsApp du support", max_length=13, blank=True, validators=[PHONE_E164_SN]
+    )
+    support_email = models.EmailField("email du support", blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        verbose_name = "réglages de la plateforme"
+        verbose_name_plural = "réglages de la plateforme"
+
+    def __str__(self):
+        return "Réglages de la plateforme"
+
+    @classmethod
+    def load(cls) -> "PlatformSettings":
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

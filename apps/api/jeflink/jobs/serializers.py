@@ -81,6 +81,7 @@ class RequestSerializer(serializers.ModelSerializer):
     contact_phone = serializers.SerializerMethodField()
     quotes = serializers.SerializerMethodField()
     quotes_count = serializers.IntegerField(source="quotes.count", read_only=True)
+    quotes_max = serializers.SerializerMethodField()
     review = ReviewSerializer(read_only=True, allow_null=True)
     events = EventSerializer(many=True, read_only=True)
     dispute = serializers.SerializerMethodField()
@@ -104,6 +105,7 @@ class RequestSerializer(serializers.ModelSerializer):
             "contact_phone",
             "quotes",
             "quotes_count",
+            "quotes_max",
             "review",
             "events",
             "dispute",
@@ -120,6 +122,9 @@ class RequestSerializer(serializers.ModelSerializer):
 
     def get_zone(self, req) -> dict:
         return {"slug": req.zone.slug, "name": req.zone.name}
+
+    def get_quotes_max(self, req) -> int:
+        return services.max_quotes()
 
     def get_contact_phone(self, req) -> str | None:
         """Le numéro de l'autre partie n'apparaît qu'une fois la mission réservée."""
@@ -170,7 +175,7 @@ class RequestSerializer(serializers.ModelSerializer):
             if (
                 req.status == S.OPEN
                 and not req.quotes.filter(pro=user).exists()
-                and req.quotes.count() < services.MAX_QUOTES
+                and req.quotes.count() < services.max_quotes()
                 and getattr(user, "pro_profile", None) is not None
                 and user.pro_profile.is_verified
             ):

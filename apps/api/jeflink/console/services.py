@@ -5,23 +5,27 @@ les appelle puis écrit le journal.
 """
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
+from django.utils.text import slugify
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
+from jeflink.catalog.models import Trade, Zone
 from jeflink.jobs import services as jobs
 from jeflink.jobs.models import Dispute, Quote, Review, ServiceRequest
 
-from .models import AuditLog
+from .models import AuditLog, PlatformSettings
+from .permissions import can
 
 A = AuditLog.Action
 
 
-def _staff(user):
-    """Garde-fou : ces actions ne sont permises qu'à l'équipe, même appelées hors des vues."""
-    if not user.is_staff:
-        raise PermissionDenied("Réservé à l'équipe Jeflink.")
+def _staff(user, section: str = "operations"):
+    """Garde-fou : action permise au rôle qui couvre la rubrique, même appelée hors des vues."""
+    if not can(user, section):
+        raise PermissionDenied("Réservé à l'équipe Jeflink, selon le rôle.")
 
 
 def _withdraw_pending_quotes(pro: User):
@@ -105,6 +109,8 @@ def suspend_user(staff, user: User, reason: str) -> User:
 @transaction.atomic
 def reactivate_user(staff, user: User) -> User:
     _staff(staff)
+    if user.is_staff or user.is_superuser:
+        raise ValidationError("Un compte de l'équipe se gère dans Équipe et rôles.")
     if user.is_active:
         raise ValidationError("Ce compte est déjà actif.")
     user.is_active = True
@@ -203,3 +209,147 @@ def set_contact_handled(staff, message: ContactMessage, handled: bool) -> Contac
     action = A.CONTACT_HANDLE if handled else A.CONTACT_REOPEN
     log(staff, action, "contact", message.pk, f"Message de {message.name}")
     return message
+
+
+# --- Catalogue : métiers et quartiers (jamais supprimés : des demandes y sont liées) -----------
+
+
+def _unique_slug(model, name: str, exclude_pk=None) -> str:
+    base = slugify(name.replace("–", "-")) or "element"
+    slug, n = base, 2
+    while model.objects.filter(slug=slug).exclude(pk=exclude_pk).exists():
+        slug, n = f"{base}-{n}", n + 1
+    return slug
+
+
+def _changes(obj, data: dict) -> str:
+    """Liste lisible des champs modifiés, pour le journal."""
+    changed = [k for k, v in data.items() if getattr(obj, k) != v]
+    return ", ".join(changed)
+
+
+@transaction.atomic
+def save_trade(staff, data: dict, trade: Trade | None = None) -> Trade:
+    _staff(staff, "catalog")
+    if trade is None:
+        trade = Trade(slug=_unique_slug(Trade, data["name"]))
+        details, action = "", A.TRADE_CREATE
+    else:
+        details, action = _changes(trade, data), A.TRADE_UPDATE
+        if not details:
+            raise ValidationError("Aucune modification.")
+    for key, value in data.items():
+        setattr(trade, key, value)
+    trade.save()
+    log(staff, action, "trade", trade.pk, trade.name, details)
+    return trade
+
+
+@transaction.atomic
+def save_zone(staff, data: dict, zone: Zone | None = None) -> Zone:
+    _staff(staff, "catalog")
+    if zone is None:
+        if Zone.objects.filter(name__iexact=data["name"], city__iexact=data["city"]).exists():
+            raise ValidationError("Ce quartier existe déjà.")
+        zone = Zone(slug=_unique_slug(Zone, data["name"]))
+        details, action = "", A.ZONE_CREATE
+    else:
+        details, action = _changes(zone, data), A.ZONE_UPDATE
+        if not details:
+            raise ValidationError("Aucune modification.")
+    for key, value in data.items():
+        setattr(zone, key, value)
+    zone.save()
+    log(staff, action, "zone", zone.pk, f"{zone.name} ({zone.city})", details)
+    return zone
+
+
+# --- Réglages de la plateforme -------------------------------------------------------------------
+
+
+@transaction.atomic
+def update_settings(staff, data: dict) -> PlatformSettings:
+    _staff(staff, "admin")
+    current = PlatformSettings.load()
+    details = _changes(current, data)
+    if not details:
+        raise ValidationError("Aucune modification.")
+    for key, value in data.items():
+        setattr(current, key, value)
+    current.updated_by = staff
+    current.save()
+    log(staff, A.SETTINGS_UPDATE, "settings", current.pk, "Réglages de la plateforme", details)
+    return current
+
+
+# --- Équipe ------------------------------------------------------------------------------------
+
+
+def _supers():
+    # Verrouillés : deux retraits simultanés ne peuvent pas laisser l'équipe sans super admin.
+    return (
+        User.objects.select_for_update()
+        .filter(is_staff=True, is_active=True)
+        .filter(Q(is_superuser=True) | Q(staff_role=User.StaffRole.SUPER))
+    )
+
+
+def _keep_a_super(member: User):
+    if member.console_role == User.StaffRole.SUPER and not _supers().exclude(pk=member.pk).exists():
+        raise ValidationError("Il faut garder au moins un super admin actif.")
+
+
+@transaction.atomic
+def add_member(staff, data: dict) -> User:
+    _staff(staff, "admin")
+    email = data["email"].lower()
+    if User.objects.filter(email=email).exists():
+        raise ValidationError("Un compte existe déjà avec cet email.")
+    member = User(
+        email=email,
+        first_name=data["first_name"],
+        last_name=data.get("last_name", ""),
+        is_staff=True,
+        staff_role=data["role"],
+    )
+    member.set_password(data["password"])
+    member.save()
+    log(staff, A.TEAM_ADD, "staff", member.pk, member, member.get_staff_role_display())
+    return member
+
+
+@transaction.atomic
+def set_member_role(staff, member: User, role: str) -> User:
+    _staff(staff, "admin")
+    if member.pk == staff.pk:
+        raise ValidationError("Vous ne pouvez pas changer votre propre rôle.")
+    if member.is_superuser:
+        raise ValidationError("Le rôle d'un superutilisateur Django se gère dans l'admin.")
+    if member.console_role == role:
+        raise ValidationError("Ce membre a déjà ce rôle.")
+    if role != User.StaffRole.SUPER:
+        _keep_a_super(member)
+    member.staff_role = role
+    member.save(update_fields=["staff_role"])
+    log(staff, A.TEAM_ROLE, "staff", member.pk, member, member.get_staff_role_display())
+    return member
+
+
+@transaction.atomic
+def set_member_active(staff, member: User, active: bool, note: str = "") -> User:
+    _staff(staff, "admin")
+    if member.is_superuser:
+        raise ValidationError("L'accès d'un superutilisateur Django se gère dans l'admin.")
+    if member.pk == staff.pk:
+        raise ValidationError("Vous ne pouvez pas retirer votre propre accès.")
+    if member.is_active == active:
+        raise ValidationError("Rien à changer pour ce membre.")
+    if not active:
+        _keep_a_super(member)
+    member.is_active = active
+    member.save(update_fields=["is_active"])
+    if not active:
+        Token.objects.filter(user=member).delete()
+    action = A.TEAM_REACTIVATE if active else A.TEAM_DEACTIVATE
+    log(staff, action, "staff", member.pk, member, note.strip())
+    return member
