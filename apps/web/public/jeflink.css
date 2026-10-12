@@ -411,3 +411,33 @@
 .jf-summary {
   cursor: pointer;
 }
+
+/* Règlement d'une mission (espace client/pro) */
+.jf-money-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(18, 18, 18, 0.08);
+}
+.jf-money-list li:last-child {
+  border-bottom: 0;
+}
+
+/* Bandeau de campagne : code promo en pointillés orange */
+.jf-campaign__code {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 6px 16px;
+  border: 1px dashed var(--base-color);
+  border-radius: 50px;
+  color: #ff8a4c;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+@media (min-width: 768px) {
+  .jf-campaign__code {
+    align-self: center;
+  }
+}

@@ -11,9 +11,15 @@ import { redirect } from "next/navigation";
 
 import { api, requireStaff } from "@/lib/api";
 
-// Actions autorisées : action sur un élément, création (métier, quartier, membre), réglages.
-const ENDPOINT =
-  /^\/api\/console\/(?:(?:requests|disputes|pros|clients|reviews|messages|trades|zones|team)\/\d+\/[a-z]+\/|(?:trades|zones|team)\/|settings\/)$/;
+// Actions autorisées : action sur un élément, création (métier, quartier, membre, code promo,
+// campagne), réglages, commissions.
+const ENDPOINT = new RegExp(
+  "^/api/console/(?:" +
+    "(?:requests|disputes|pros|clients|reviews|messages|trades|zones|team|coupons|campaigns|balances)/\\d+/[a-z]+/" +
+    "|(?:trades|zones|team|coupons|campaigns)/" +
+    "|settings/|commissions/" +
+    ")$",
+);
 const BASE = "http://console.invalid";
 
 function backTo(value: FormDataEntryValue | null): URL {
@@ -38,9 +44,16 @@ export async function consoleAction(form: FormData) {
   if (!ENDPOINT.test(endpoint)) done(back, "erreur", "Action inconnue.");
 
   const { token } = await requireStaff(back.pathname);
-  const body: Record<string, string> = {};
+  // Champ « nom[] » → tableau (cases à cocher multiples) ; sinon la dernière valeur l'emporte
+  // (une case simple envoie « 0 » caché puis « 1 » si cochée).
+  const body: Record<string, string | string[]> = {};
   for (const [key, value] of form.entries()) {
-    if (!key.startsWith("_") && !key.startsWith("$") && typeof value === "string") {
+    if (key.startsWith("_") || key.startsWith("$") || typeof value !== "string") continue;
+    if (key.endsWith("[]")) {
+      const name = key.slice(0, -2);
+      const list = body[name];
+      body[name] = Array.isArray(list) ? [...list, value] : [value];
+    } else {
       body[key] = value;
     }
   }

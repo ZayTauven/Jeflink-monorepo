@@ -69,6 +69,33 @@ export type SiteSettings = {
   max_quotes: number;
 };
 
+/** Bandeau de campagne (console › Campagnes). */
+export type Campaign = {
+  id: number;
+  title: string;
+  message: string;
+  cta_label: string;
+  cta_url: string;
+  coupon_code: string;
+  /** Conditions du code promo (et date de fin), affichées avec le bandeau. */
+  terms: {
+    min_amount: number | null;
+    max_discount: number | null;
+    first_order_only: boolean;
+    ends_on: string | null;
+  };
+};
+
+/** Montants d'une mission réservée (F CFA entiers, paiement sur place). */
+export type Money = {
+  price: number;
+  discount: number;
+  coupon: string;
+  client_pays: number;
+  commission?: number;
+  commission_rate?: number;
+};
+
 export type RequestAction = "accept" | "cancel" | "complete" | "review" | "quote" | "report";
 
 export type DisputeStatus = "open" | "investigating" | "resolved" | "dismissed";
@@ -118,6 +145,7 @@ export type ServiceRequest = {
   review: { rating: number; comment: string; created_at: string } | null;
   events: { status: RequestStatus; status_label: string; note: string; created_at: string }[];
   dispute: Dispute | null;
+  money: Money | null;
   actions: RequestAction[];
   created_at: string;
 };

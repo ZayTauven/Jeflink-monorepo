@@ -23,7 +23,9 @@ Next.js (App Router), **template Crafto « Marketing strategy » pris tel quel**
 - Menu = `src/console/nav.ts` : chaque section déclare sa rubrique (`section`), le menu et la recherche sont filtrés par `me.console_sections` ; une page refusée par l'API renvoie au tableau de bord avec un message. Une rubrique avec `lot` affiche une page « bientôt » (`[...section]/page.tsx`) tant qu'elle n'est pas construite.
 - Listes = cartes (`src/console/cards.tsx`, `CardGrid`), comme les litiges ; formulaires = `src/console/forms.tsx` (`Field`, `Check` qui envoie « 0 » décochée).
 - Lecture : `consoleGet()` (`src/console/data.ts`) dans chaque page (revérifie l'accès). Filtres = formulaires GET, onglets = liens (`kit.tsx`).
-- Écriture : Server Actions permises ici (pas de Crafto). Une seule action, `consoleAction` (`src/console/actions.ts`) : `<ActionForm endpoint back ok>` poste vers une action de l'API console (liste blanche), puis revient sur la page avec `?ok=` ou `?erreur=` (`<Flash>`). Action risquée = `<ReasonAction>` : motif obligatoire.
+- Écriture : Server Actions permises ici (pas de Crafto). Une seule action, `consoleAction` (`src/console/actions.ts`) : `<ActionForm endpoint back ok>` poste vers une action de l'API console (liste blanche), puis revient sur la page avec `?ok=` ou `?erreur=` (`<Flash>`). Action risquée = `<ReasonAction>` : motif obligatoire. Un champ nommé `nom[]` part en tableau (cases à cocher multiples, `Picks`).
+- Exports CSV : `(console)/console/export/[name]/route.ts` relaie l'API avec le jeton (exports et filtres connus seulement, jamais depuis un autre site).
+- Une `page.tsx` n'exporte que sa page et ses métadonnées : les aides partagées vont dans `src/console/` (`coupons.ts`, `money.ts`, `text.ts`).
 
 <!-- BEGIN:nextjs-agent-rules -->
 

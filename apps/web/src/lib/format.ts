@@ -3,7 +3,8 @@
 const xof = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
 
 export function formatXOF(amount: number): string {
-  return `${xof.format(amount)} F CFA`;
+  // Vrai signe moins (U+2212) et espaces insécables : « −400 F CFA » ne se coupe jamais.
+  return `${xof.format(amount).replace("-", "−")} F CFA`;
 }
 
 export function formatDate(iso: string, withTime = false): string {

@@ -10,10 +10,13 @@ import {
   Pill,
   SECTION_X,
   slideX,
-  SwitchLink, opt } from "@/components/crafto";
+  SwitchLink,
+  opt,
+} from "@/components/crafto";
 import { HeroShow } from "@/components/hero-show";
 import { LaurelBadge } from "@/components/laurel-badge";
 import { MarqueePause } from "@/components/marquee-pause";
+import { CampaignBanner } from "@/components/campaign-banner";
 import { PageShell } from "@/components/page-shell";
 import { RotatingText } from "@/components/rotating-text";
 import { getPros, getStats, getTrades } from "@/lib/api";
@@ -175,6 +178,9 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Campagne en cours (console › Campagnes), s'il y en a une */}
+      <CampaignBanner placement="home" className={`${SECTION_X} pt-0 pb-0`} />
+
       {/* Comment ça marche, en bref */}
       <section className={`${SECTION_X} pt-0`}>
         <div className="container-fluid">
@@ -235,8 +241,8 @@ export default async function HomePage() {
           <div className="row">
             <div className="col-lg-5 d-flex flex-column align-items-start md-mb-50px sm-mb-30px">
               <Pill className="text-white bg-base-color mb-auto md-mb-15px" anime={fadeUp()}>
-                  À propos de Jeflink
-                </Pill>
+                À propos de Jeflink
+              </Pill>
               <h2
                 className="alt-font fw-500 ls-minus-2px mb-0"
                 style={PERSPECTIVE}
@@ -342,7 +348,7 @@ export default async function HomePage() {
       <section className="big-section pt-6 md-pt-4 sm-pt-40px pb-0">
         <div className="container-fluid">
           <div className="row position-relative">
-              <MarqueePause />
+            <MarqueePause />
             <div
               className="col swiper swiper-width-auto text-center"
               data-slider-options='{ "slidesPerView": "auto", "spaceBetween":40, "centeredSlides": true, "speed": 8000, "loop": true, "allowTouchMove": false, "autoplay": { "delay":1, "disableOnInteraction": false }, "keyboard": { "enabled": true, "onlyInViewport": true }, "breakpoints": { "1400": { "spaceBetween":120 }, "1200": { "spaceBetween":80 }, "768": { "spaceBetween":60 } }, "effect": "slide" }'
@@ -379,7 +385,11 @@ export default async function HomePage() {
           <div className="row mt-minus-300px lg-mt-0">
             <div className="col-md-6 sm-pb-40px" data-anime={fadeIn()}>
               <div className="position-sticky top-0 h-100vh lg-h-auto pt-12 pb-12 lg-pb-0 sm-pt-40px d-flex align-items-center">
-                <img className="border-radius-20px" src="/images/accueil/etapes.webp" alt="Une conseillère Jeflink au casque, aux côtés d’une collègue" />
+                <img
+                  className="border-radius-20px"
+                  src="/images/accueil/etapes.webp"
+                  alt="Une conseillère Jeflink au casque, aux côtés d’une collègue"
+                />
               </div>
             </div>
             <div className="col-md-6 col-xxl-5 ps-9 md-ps-15px xxl-ps-5 lg-pt-6 sm-pt-0 position-relative text-center text-md-start">
@@ -422,7 +432,9 @@ export default async function HomePage() {
         <div className="container-fluid">
           <div className="row justify-content-center">
             <div className="col-xl-11 col-xxl-8 text-center">
-              <Asterisk className="mb-25px" anime={fadeUp()}>Artisans et techniciens vérifiés</Asterisk>
+              <Asterisk className="mb-25px" anime={fadeUp()}>
+                Artisans et techniciens vérifiés
+              </Asterisk>
               <h2
                 className="alt-font fw-500 ls-minus-2px mb-45px sm-mb-30px"
                 style={PERSPECTIVE}

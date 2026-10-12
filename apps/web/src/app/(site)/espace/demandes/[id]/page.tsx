@@ -8,7 +8,7 @@ import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { getRequest, requireMe } from "@/lib/api";
 import { formatDate, formatRating, formatXOF } from "@/lib/format";
-import type { Dispute, ServiceRequest } from "@/lib/types";
+import type { Dispute, Money, ServiceRequest } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Demande" };
 
@@ -58,6 +58,9 @@ export default async function RequestPage({ params, searchParams }: Props) {
                 </div>
                 {req.review.comment && <p className="mb-0">« {req.review.comment} »</p>}
               </div>
+            )}
+            {req.money && (
+              <MoneyCard money={req.money} isClient={isClient} isPro={me.id === req.pro?.id} />
             )}
             {req.dispute && <DisputeCard dispute={req.dispute} />}
             {can("report") && <ReportForm act={act} isClient={isClient} />}
@@ -198,13 +201,41 @@ function Quotes({
           </div>
           {q.message && <p className="mt-15px mb-0">{q.message}</p>}
           {canAccept && q.status === "pending" && (
-            <ActionForm action={act("accept")} className="mt-20px">
+            <ActionForm
+              action={act("accept")}
+              className="jf-form mt-20px"
+              labels={{ coupon: "Code promo" }}
+            >
               <input type="hidden" name="quote_id" value={q.id} />
+              <details className="mb-15px">
+                <summary className="fw-500 text-dark-gray jf-summary">
+                  J&apos;ai un code promo
+                </summary>
+                <div className="mt-15px">
+                  <label htmlFor={`coupon-${q.id}`}>Code promo</label>
+                  <input
+                    id={`coupon-${q.id}`}
+                    name="coupon"
+                    className="form-control"
+                    maxLength={20}
+                    autoCapitalize="characters"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                  <div className="hint">
+                    À saisir maintenant : on ne peut plus l&apos;ajouter une fois le devis choisi.
+                  </div>
+                </div>
+              </details>
               <SwitchSubmit
                 label="Choisir ce devis"
                 icon="icon-feather-check"
                 className="btn-medium btn-base-color btn-rounded btn-box-shadow"
               />
+              <p className="fs-14 opacity-7 mt-10px mb-0">
+                Vous payez le pro sur place, une fois le travail fait. Le choix est définitif.
+              </p>
             </ActionForm>
           )}
         </div>
@@ -255,17 +286,88 @@ function QuoteForm({ act }: { act: (a: string) => string }) {
   );
 }
 
+/**
+ * Paiement d'une mission réservée. Le client paie le pro sur place (devis − réduction) ; Jeflink
+ * rembourse la réduction au pro, qui doit la commission : seule la différence change de main.
+ */
+function MoneyCard({
+  money,
+  isClient,
+  isPro,
+}: {
+  money: Money;
+  isClient: boolean;
+  isPro: boolean;
+}) {
+  const proView = isPro && money.commission !== undefined;
+  const owedByJeflink = proView ? money.discount - (money.commission ?? 0) : 0;
+  return (
+    <div className="bg-white border-radius-20px p-30px mb-30px">
+      <h2 className="h5 alt-font fw-500 mb-15px">Paiement</h2>
+      <span className="d-block fs-15 fw-500 text-dark-gray">
+        {isClient
+          ? "Vous payez au pro, sur place"
+          : isPro
+            ? "Le client vous paie, sur place"
+            : "Le client paie au pro, sur place"}
+      </span>
+      <span className="d-block alt-font fs-30 fw-600 ls-minus-1px mb-15px">
+        {formatXOF(money.client_pays)}
+      </span>
+      <ul className="list-unstyled jf-money-list mb-15px">
+        <li>
+          <span>Devis choisi</span>
+          <span>{formatXOF(money.price)}</span>
+        </li>
+        {money.discount > 0 && (
+          <li>
+            <span>
+              Réduction Jeflink, code {money.coupon}
+              {isPro ? " (Jeflink vous la rembourse)" : ""}
+            </span>
+            <span>−{formatXOF(money.discount)}</span>
+          </li>
+        )}
+        {proView && (
+          <li>
+            <span>Commission Jeflink ({money.commission_rate}&nbsp;%), à régler à Jeflink</span>
+            <span>{formatXOF(money.commission ?? 0)}</span>
+          </li>
+        )}
+        {proView && (
+          <li className="fw-600 text-dark-gray">
+            <span>{owedByJeflink > 0 ? "Jeflink vous doit" : "Vous devez à Jeflink"}</span>
+            <span>{formatXOF(Math.abs(owedByJeflink))}</span>
+          </li>
+        )}
+      </ul>
+      {proView && money.discount > 0 && (
+        <p className="mb-10px fw-500 text-dark-gray">
+          Acceptez ce montant&nbsp;: ne demandez pas plus au client.
+        </p>
+      )}
+      {(isClient || isPro) && (
+        <p className="mb-0 fs-15 opacity-7">
+          {isClient
+            ? "Payez une fois le travail fait, en espèces ou par mobile money. Par mobile money, vérifiez que le nom affiché est celui du pro avant de valider. Le travail est garanti pour les missions réservées sur Jeflink."
+            : "L'équipe Jeflink vous contacte après la mission pour régler la différence, par Wave, Orange Money ou en espèces."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Mêmes valeurs que jobs.models.Dispute.Reason ; l'API refuse tout autre motif.
 const CLIENT_REASONS: [string, string][] = [
   ["no_show", "Le pro n'est pas venu, ou très en retard"],
   ["quality", "Travail mal fait ou inachevé"],
-  ["price", "Prix différent du devis"],
+  ["price", "Le pro demande un autre prix que celui affiché"],
   ["damage", "Dégât chez moi"],
   ["behaviour", "Comportement"],
   ["other", "Autre"],
 ];
 const PRO_REASONS: [string, string][] = [
-  ["payment", "Paiement non reçu"],
+  ["payment", "Le client n'a pas payé le montant affiché"],
   ["behaviour", "Comportement du client"],
   ["other", "Autre"],
 ];

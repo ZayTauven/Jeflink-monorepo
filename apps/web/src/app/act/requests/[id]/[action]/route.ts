@@ -9,7 +9,7 @@ const BODIES: Record<string, (form: FormData) => unknown> = {
     amount: Number.parseInt(text(form, "amount").replace(/\D/g, ""), 10) || 0,
     message: text(form, "message"),
   }),
-  accept: (form) => ({ quote_id: Number(text(form, "quote_id")) }),
+  accept: (form) => ({ quote_id: Number(text(form, "quote_id")), coupon: text(form, "coupon") }),
   complete: () => ({}),
   cancel: () => ({}),
   review: (form) => ({ rating: Number(text(form, "rating")), comment: text(form, "comment") }),

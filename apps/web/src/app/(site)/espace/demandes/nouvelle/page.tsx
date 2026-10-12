@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AccountHero, ErrorAlert } from "@/components/account";
 import { ActionForm } from "@/components/action-form";
+import { CampaignBanner } from "@/components/campaign-banner";
 import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { getSite, getTrades, getZones, requireMe } from "@/lib/api";
@@ -55,99 +56,108 @@ export default async function NewRequestPage({
                 </a>
               </div>
             ) : (
-              <ActionForm action="/act/requests" className="jf-form" labels={LABELS}>
-                <ErrorAlert message={erreur} />
-                <div className="row">
-                  <div className="col-md-6 mb-20px">
-                    <label htmlFor="trade">Métier</label>
-                    <select
-                      id="trade"
-                      name="trade"
-                      className="form-control"
-                      defaultValue={metier ?? ""}
-                      required
-                    >
-                      <option value="" disabled>
-                        Choisir…
-                      </option>
-                      {trades.map((t) => (
-                        <option key={t.slug} value={t.slug}>
-                          {t.name}
+              <>
+                <CampaignBanner placement="request" />
+                <ActionForm action="/act/requests" className="jf-form" labels={LABELS}>
+                  <ErrorAlert message={erreur} />
+                  <div className="row">
+                    <div className="col-md-6 mb-20px">
+                      <label htmlFor="trade">Métier</label>
+                      <select
+                        id="trade"
+                        name="trade"
+                        className="form-control"
+                        defaultValue={metier ?? ""}
+                        required
+                      >
+                        <option value="" disabled>
+                          Choisir…
                         </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-md-6 mb-20px">
-                    <label htmlFor="zone">Quartier</label>
-                    <select id="zone" name="zone" className="form-control" defaultValue="" required>
-                      <option value="" disabled>
-                        Choisir…
-                      </option>
-                      {zones.map((z) => (
-                        <option key={z.slug} value={z.slug}>
-                          {z.name}
+                        {trades.map((t) => (
+                          <option key={t.slug} value={t.slug}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-6 mb-20px">
+                      <label htmlFor="zone">Quartier</label>
+                      <select
+                        id="zone"
+                        name="zone"
+                        className="form-control"
+                        defaultValue=""
+                        required
+                      >
+                        <option value="" disabled>
+                          Choisir…
                         </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="col-12 mb-20px">
-                    <label htmlFor="title">En une phrase</label>
-                    <input
-                      id="title"
-                      name="title"
-                      className="form-control"
-                      maxLength={120}
-                      placeholder="Ex. : Fuite sous l'évier de la cuisine"
-                      required
-                    />
-                  </div>
-                  <div className="col-12 mb-20px">
-                    <label htmlFor="description">Ce qui se passe</label>
-                    <textarea
-                      id="description"
-                      name="description"
-                      className="form-control"
-                      rows={4}
-                      placeholder="Depuis quand, ce que vous avez remarqué, le matériel concerné…"
-                      required
-                    />
-                  </div>
-                  <div className="col-md-7 mb-20px">
-                    <label htmlFor="landmark">Repère pour trouver la maison</label>
-                    <input
-                      id="landmark"
-                      name="landmark"
-                      className="form-control"
-                      maxLength={160}
-                      placeholder="Ex. : derrière la mosquée, portail vert"
-                    />
-                    <div className="hint">Visible des pros. Pas besoin du numéro de rue.</div>
-                  </div>
-                  <div className="col-md-5 mb-20px">
-                    <label htmlFor="preferred_date">Date souhaitée</label>
-                    <input
-                      id="preferred_date"
-                      name="preferred_date"
-                      type="date"
-                      min={today}
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="col-12 mb-30px">
-                    <div className="jf-checks">
-                      <label>
-                        <input type="checkbox" name="is_urgent" />
-                        <span>C&apos;est urgent</span>
-                      </label>
+                        {zones.map((z) => (
+                          <option key={z.slug} value={z.slug}>
+                            {z.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-12 mb-20px">
+                      <label htmlFor="title">En une phrase</label>
+                      <input
+                        id="title"
+                        name="title"
+                        className="form-control"
+                        maxLength={120}
+                        placeholder="Ex. : Fuite sous l'évier de la cuisine"
+                        required
+                      />
+                    </div>
+                    <div className="col-12 mb-20px">
+                      <label htmlFor="description">Ce qui se passe</label>
+                      <textarea
+                        id="description"
+                        name="description"
+                        className="form-control"
+                        rows={4}
+                        placeholder="Depuis quand, ce que vous avez remarqué, le matériel concerné…"
+                        required
+                      />
+                    </div>
+                    <div className="col-md-7 mb-20px">
+                      <label htmlFor="landmark">Repère pour trouver la maison</label>
+                      <input
+                        id="landmark"
+                        name="landmark"
+                        className="form-control"
+                        maxLength={160}
+                        placeholder="Ex. : derrière la mosquée, portail vert"
+                      />
+                      <div className="hint">Visible des pros. Pas besoin du numéro de rue.</div>
+                    </div>
+                    <div className="col-md-5 mb-20px">
+                      <label htmlFor="preferred_date">Date souhaitée</label>
+                      <input
+                        id="preferred_date"
+                        name="preferred_date"
+                        type="date"
+                        min={today}
+                        className="form-control"
+                      />
+                    </div>
+                    <div className="col-12 mb-30px">
+                      <div className="jf-checks">
+                        <label>
+                          <input type="checkbox" name="is_urgent" />
+                          <span>C&apos;est urgent</span>
+                        </label>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <SwitchSubmit
-                  label="Publier la demande"
-                  icon="icon-feather-send"
-                  className="btn-large btn-base-color btn-rounded btn-box-shadow"
-                />
-              </ActionForm>
+                  <SwitchSubmit
+                    label="Publier la demande"
+                    icon="icon-feather-send"
+                    className="btn-large btn-base-color btn-rounded btn-box-shadow"
+                  />
+                </ActionForm>
+              </>
             )}
           </div>
         }

@@ -9,6 +9,7 @@ import type {
   PublicReview,
   ServiceRequest,
   SiteSettings,
+  Campaign,
   Stats,
   Trade,
   Zone,
@@ -122,6 +123,12 @@ export async function getSite(): Promise<SiteSettings> {
     support_email: "",
     max_quotes: 3,
   };
+}
+
+/** Campagnes en cours pour un emplacement ; API arrêtée → aucune. */
+export async function getCampaigns(placement: "home" | "request"): Promise<Campaign[]> {
+  const res = await api<Campaign[]>(`/api/campaigns/?placement=${placement}`);
+  return res.ok ? res.data : [];
 }
 
 export async function getStats(): Promise<Stats | null> {

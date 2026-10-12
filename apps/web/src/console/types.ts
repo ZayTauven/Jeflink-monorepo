@@ -285,3 +285,128 @@ export type Member = {
   last_login: string | null;
   date_joined: string;
 };
+
+// --- Lot 3 : marketing et finances --------------------------------------------------------------
+
+export type CouponState = "active" | "scheduled" | "expired" | "exhausted" | "off";
+
+export type CouponAdmin = {
+  id: number;
+  code: string;
+  description: string;
+  kind: "percent" | "fixed";
+  kind_label: string;
+  value: number;
+  max_discount: number | null;
+  min_amount: number | null;
+  starts_on: string | null;
+  ends_on: string | null;
+  max_uses: number | null;
+  max_uses_per_client: number;
+  first_order_only: boolean;
+  trades: { slug: string; name: string }[];
+  zones: { slug: string; name: string }[];
+  is_active: boolean;
+  uses: number;
+  discount_total: number;
+  state: CouponState;
+};
+
+export type CampaignAdmin = {
+  id: number;
+  title: string;
+  message: string;
+  cta_label: string;
+  cta_url: string;
+  coupon_code: string;
+  placement: "home" | "request" | "both";
+  placement_label: string;
+  starts_on: string | null;
+  ends_on: string | null;
+  is_active: boolean;
+  is_live: boolean;
+};
+
+export type Commissions = {
+  default_commission_percent: number;
+  trades: {
+    id: number;
+    name: string;
+    icon: string;
+    is_active: boolean;
+    commission_percent: number | null;
+    effective: number;
+  }[];
+};
+
+export type Totals = {
+  count: number;
+  volume: number;
+  discount: number;
+  commission: number;
+  client_paid: number;
+  net: number;
+};
+
+export type Transaction = {
+  id: number;
+  title: string;
+  status: RequestStatus;
+  status_label: string;
+  trade: string;
+  zone: string;
+  client: Ref;
+  pro: Ref | null;
+  price: number;
+  discount: number;
+  coupon: string;
+  commission_rate: number;
+  commission: number;
+  client_pays: number;
+  net: number;
+  updated_at: string;
+};
+
+export type BalanceRow = {
+  pro: { id: number; name: string; phone: string; photo: string };
+  missions_done: number;
+  due: number;
+  settled: number;
+  balance: number;
+};
+
+export type Settlement = {
+  id: number;
+  direction: "to_jeflink" | "to_pro";
+  direction_label: string;
+  amount: number;
+  method: string;
+  method_label: string;
+  reference: string;
+  note: string;
+  recorded_by: Ref | null;
+  created_at: string;
+};
+
+export type BalanceDetail = BalanceRow & { missions: Transaction[]; settlements: Settlement[] };
+
+export type MonthReport = Totals & {
+  month: string;
+  requests: number;
+  booked: number;
+  coupons_used: number;
+};
+
+export type Reports = {
+  months: MonthReport[];
+  month: string;
+  by_trade: {
+    trade: string;
+    icon: string;
+    count: number;
+    volume: number;
+    discount: number;
+    commission: number;
+    net: number;
+  }[];
+};
