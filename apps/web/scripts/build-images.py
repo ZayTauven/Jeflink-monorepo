@@ -27,7 +27,7 @@ def face(name: str) -> Path:
 # sortie, source, (largeur, hauteur), point d'intérêt (x, y en 0..1), traitement
 PLAN = [
     # Accueil
-    ("accueil/etapes.webp", ji(92), (865, 700), (0.55, 0.4), "anneaux"),
+    ("accueil/etapes.webp", SRC / "assistance.jpg", (865, 700), (0.35, 0.45), "anneaux"),
     # Pros de démo (cartes « équipe »)
     ("pros/mamadou.webp", ji(85), (600, 742), (0.62, 0.45), None),
     ("pros/ousmane.webp", ji(63), (600, 742), (0.5, 0.45), None),

@@ -377,7 +377,7 @@ export default async function HomePage() {
           <div className="row mt-minus-300px lg-mt-0">
             <div className="col-md-6 sm-pb-40px" data-anime={fadeIn()}>
               <div className="position-sticky top-0 h-100vh lg-h-auto pt-12 pb-12 lg-pb-0 sm-pt-40px d-flex align-items-center">
-                <img className="border-radius-20px" src="/images/accueil/etapes.webp" alt="Une cliente décrit son besoin au téléphone" />
+                <img className="border-radius-20px" src="/images/accueil/etapes.webp" alt="Une conseillère Jeflink au casque, aux côtés d’une collègue" />
               </div>
             </div>
             <div className="col-md-6 col-xxl-5 ps-9 md-ps-15px xxl-ps-5 lg-pt-6 sm-pt-0 position-relative text-center text-md-start">
