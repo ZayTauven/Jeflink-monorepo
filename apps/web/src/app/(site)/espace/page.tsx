@@ -25,6 +25,7 @@ export default async function DashboardPage() {
       ])
     : [[], await list("/api/requests/", token)];
   const verified = me.pro_profile?.is_verified ?? false;
+  const note = me.pro_profile?.verification_note ?? ""; // motif d'un refus de vérification
 
   const logout = (
     <form action="/act/logout" method="post" className="mt-auto">
@@ -50,17 +51,22 @@ export default async function DashboardPage() {
                     role="status"
                   >
                     <span className="status-pill status-open align-self-start align-self-md-center">
-                      <i className="bi bi-hourglass-split" /> Vérification en cours
+                      <i className="bi bi-hourglass-split" />{" "}
+                      {note ? "À compléter" : "Vérification en cours"}
                     </span>
-                    <p className="mb-0">
-                      Vous voyez déjà les demandes de vos métiers. Vous pourrez envoyer des devis
-                      dès que l&apos;équipe Jeflink aura vérifié votre profil
-                      <span className="opacity-7">
-                        {" "}
-                        (démo : cochez « vérifié » dans l&apos;admin)
-                      </span>
-                      .
-                    </p>
+                    {note ? (
+                      <p className="mb-0">
+                        L&apos;équipe Jeflink n&apos;a pas encore pu vérifier votre profil&nbsp;:{" "}
+                        <strong>{note.replace(/[.\s]+$/, "")}.</strong> Écrivez-nous depuis la page
+                        Contact une fois corrigé.
+                      </p>
+                    ) : (
+                      <p className="mb-0">
+                        Vous voyez déjà les demandes de vos métiers. Vous pourrez envoyer des devis
+                        dès que l&apos;équipe Jeflink aura vérifié votre profil
+                        <span className="opacity-7"> (démo : console, rubrique Pros)</span>.
+                      </p>
+                    )}
                   </div>
                 )}
                 <h2 className="h5 alt-font fw-500 mb-20px">Demandes ouvertes dans vos métiers</h2>

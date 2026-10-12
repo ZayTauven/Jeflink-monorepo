@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { failure, forbidden, sameOrigin, success, text } from "@/lib/actions";
 import { api, getToken } from "@/lib/api";
 
-/** Actions sur une demande : devis (pro), choix du devis, fin de mission, annulation, avis. */
+/** Actions sur une demande : devis (pro), choix, fin de mission, annulation, avis, problème. */
 const BODIES: Record<string, (form: FormData) => unknown> = {
   quotes: (form) => ({
     amount: Number.parseInt(text(form, "amount").replace(/\D/g, ""), 10) || 0,
@@ -13,6 +13,7 @@ const BODIES: Record<string, (form: FormData) => unknown> = {
   complete: () => ({}),
   cancel: () => ({}),
   review: (form) => ({ rating: Number(text(form, "rating")), comment: text(form, "comment") }),
+  report: (form) => ({ reason: text(form, "reason"), description: text(form, "description") }),
 };
 
 export async function POST(
@@ -21,7 +22,7 @@ export async function POST(
 ) {
   if (!sameOrigin(req)) return forbidden();
   const { id, action } = await ctx.params;
-  const body = BODIES[action];
+  const body = Object.hasOwn(BODIES, action) ? BODIES[action] : undefined;
   if (!/^\d+$/.test(id) || !body) return forbidden();
   const back = `/espace/demandes/${id}`;
   const res = await api(`/api/requests/${id}/${action}/`, {

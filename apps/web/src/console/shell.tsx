@@ -105,7 +105,8 @@ export function ConsoleShell({
     document.dispatchEvent(new Event("ax:change")); // les graphiques vireo relisent leurs couleurs
   };
 
-  const pending = badges.pros_pending + badges.stale_requests + badges.contact_unhandled;
+  const pending =
+    badges.pros_pending + badges.stale_requests + badges.contact_unhandled + badges.disputes_active;
   const fullName = `${me.first_name} ${me.last_name}`.trim();
 
   return (
@@ -222,12 +223,15 @@ export function ConsoleShell({
                 <Todo href="/console/pros" icon="bi-person-badge">
                   {plural(badges.pros_pending, "pro à vérifier", "pros à vérifier")}
                 </Todo>
-                <Todo href="/console/demandes" icon="bi-hourglass-split">
+                <Todo href="/console/demandes?sans_devis=1" icon="bi-hourglass-split">
                   {plural(
                     badges.stale_requests,
                     "demande sans devis depuis plus de 24 h",
                     "demandes sans devis depuis plus de 24 h",
                   )}
+                </Todo>
+                <Todo href="/console/litiges" icon="bi-exclamation-triangle">
+                  {plural(badges.disputes_active, "litige en cours", "litiges en cours")}
                 </Todo>
                 <Todo href="/console/messages" icon="bi-chat-left-text">
                   {plural(
@@ -472,7 +476,7 @@ function SearchDialog({ onClose }: { onClose: () => void }) {
             aria-controls={listId}
             aria-autocomplete="list"
             aria-activedescendant={results[active] ? optionId(active) : undefined}
-            placeholder="Une rubrique : Pros, Avis, Réglages…"
+            placeholder="Une rubrique : Pros, Avis, Réglages…"
             aria-label="Rechercher une rubrique"
             value={q}
             onChange={(e) => setQ(e.target.value)}

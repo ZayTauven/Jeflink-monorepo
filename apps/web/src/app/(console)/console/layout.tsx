@@ -4,7 +4,12 @@ import { ConsoleShell } from "@/console/shell";
 import type { Badges } from "@/console/types";
 import { api, requireStaff } from "@/lib/api";
 
-const NO_BADGES: Badges = { pros_pending: 0, stale_requests: 0, contact_unhandled: 0 };
+const NO_BADGES: Badges = {
+  pros_pending: 0,
+  stale_requests: 0,
+  contact_unhandled: 0,
+  disputes_active: 0,
+};
 
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
   const { me, token } = await requireStaff("/console");

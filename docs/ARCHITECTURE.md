@@ -21,20 +21,23 @@ flowchart LR
 2. Les pros **vérifiés** de ce métier (et de ce quartier s'ils en ont choisi) la voient et envoient un devis en F CFA ; 3 devis au plus.
 3. Le client choisit un devis : la demande passe « Pro réservé », les autres devis « Non retenu », chacun voit le numéro de l'autre.
 4. Le client ou le pro marque la mission terminée ; le client laisse un avis (1 à 5).
+5. En cas de souci sur une mission réservée ou terminée, le client ou le pro **signale un problème** : un litige s'ouvre, l'équipe le traite dans la console et sa décision s'affiche dans la demande.
 
 Chaque étape est journalisée (`RequestEvent`) et affichée comme historique.
 
 ## Endpoints
 
-| Méthode  | Chemin                                                                                             | Accès               |
-| -------- | -------------------------------------------------------------------------------------------------- | ------------------- |
-| POST     | `/api/auth/register/`, `/api/auth/login/`                                                          | public              |
-| POST     | `/api/auth/logout/` · GET `/api/auth/me/`                                                          | connecté            |
-| POST     | `/api/auth/contact/`                                                                               | public              |
-| GET      | `/api/trades/`, `/api/trades/{slug}/`, `/api/zones/`, `/api/pros/`, `/api/reviews/`, `/api/stats/` | public              |
-| GET/POST | `/api/requests/` (`?scope=open` ou `?scope=mine` pour un pro)                                      | connecté            |
-| POST     | `/api/requests/{id}/` + `quotes/`, `accept/`, `complete/`, `cancel/`, `review/`                    | selon le rôle       |
-| GET      | `/api/console/overview/?days=7·30·90`, `/api/console/badges/`                                      | équipe (`is_staff`) |
+| Méthode  | Chemin                                                                                                                                                                                           | Accès                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| POST     | `/api/auth/register/`, `/api/auth/login/`                                                                                                                                                        | public                                    |
+| POST     | `/api/auth/logout/` · GET `/api/auth/me/`                                                                                                                                                        | connecté                                  |
+| POST     | `/api/auth/contact/`                                                                                                                                                                             | public                                    |
+| GET      | `/api/trades/`, `/api/trades/{slug}/`, `/api/zones/`, `/api/pros/`, `/api/reviews/`, `/api/stats/`                                                                                               | public                                    |
+| GET/POST | `/api/requests/` (`?scope=open` ou `?scope=mine` pour un pro)                                                                                                                                    | connecté                                  |
+| POST     | `/api/requests/{id}/` + `quotes/`, `accept/`, `complete/`, `cancel/`, `review/`                                                                                                                  | selon le rôle                             |
+| POST     | `/api/requests/{id}/report/` (signaler un problème)                                                                                                                                              | client ou pro de la mission               |
+| GET      | `/api/console/overview/?days=7·30·90`, `/api/console/badges/`                                                                                                                                    | équipe (`is_staff`)                       |
+| GET/POST | `/api/console/{requests,disputes,pros,clients,reviews,messages,audit}/` + actions (`cancel`, `note`, `verify`, `reject`, `suspend`, `reactivate`, `hide`, `show`, `handle`, `reopen`, `status`…) | équipe (`is_staff`), actions journalisées |
 
 ## Console d'administration
 
@@ -43,7 +46,7 @@ Décidée le 2026-10-12. Le front de la console fait grandir l'API : chaque rubr
 | Lot | Contenu                                                                                                                                                | État    |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
 | 0   | Fondations (vireo habillé Crafto, accès équipe, recherche Ctrl K, clair/sombre), tableau de bord branché sur les vraies données                        | fait    |
-| 1   | Demandes, litiges, pros (file de vérification, suspension), clients, avis (modération), messages de contact, journal d'audit                           | à faire |
+| 1   | Demandes, litiges, pros (file de vérification, suspension), clients, avis (modération), messages de contact, journal d'audit                           | fait    |
 | 2   | Métiers, quartiers, réglages de la plateforme, équipe et rôles (Opérations, Marketing, Finance)                                                        | à faire |
 | 3   | Finances (commission par métier, transactions, soldes des pros) et marketing (codes promo financés par Jeflink, campagnes), rapports                   | à faire |
 | 4   | « Jef », l'IA d'assistance à la réservation : aide le client à décrire son souci, transmet une fiche claire au pro ; réglages et suivi dans la console | à faire |
@@ -61,3 +64,6 @@ Les rubriques pas encore construites figurent déjà dans le menu (`src/console/
 - Wolof ; pagination des listes ; images optimisées et JS allégé (voir `docs/DESIGN.md › À peaufiner`).
 - `seed_demo` refuse de tourner si `DJANGO_DEBUG=0` : le compte `admin@jeflink.local` (superuser, mot de passe de démo public) ouvre toute la console. Les numéros du seed (`+22177…`) ont un format réel : aucun SMS ni WhatsApp vers eux.
 - Polices de la console servies en local plutôt que par Google Fonts.
+- Comptes de l'équipe : double authentification et sessions courtes ; rôles distincts (lot 2). Journal d'audit en ajout seul au niveau de la base, avec une durée de conservation (il contient des noms).
+- Limites de débit sur « signaler un problème » et sur les actions de la console ; recherche de la console (téléphone, email) hors des URL journalisées.
+- Messages de retour de la console (`?ok=`, `?erreur=`) passés par des codes plutôt qu'en texte libre.

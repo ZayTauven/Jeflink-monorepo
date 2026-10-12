@@ -6,6 +6,7 @@ export type Badges = {
   pros_pending: number;
   stale_requests: number;
   contact_unhandled: number;
+  disputes_active: number;
 };
 
 export type Person = { id: number; name: string; photo: string };
@@ -67,4 +68,164 @@ export type Overview = {
       created_at: string;
     }[];
   };
+};
+
+// --- Lot 1 : listes et fiches -----------------------------------------------------------------
+
+export type Page<T, F = Record<string, number>> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+  facets: F;
+};
+
+export type Ref = { id: number; name: string };
+export type Contact = Ref & { email: string; phone: string; role: "client" | "pro" };
+
+export type RequestRow = {
+  id: number;
+  title: string;
+  status: RequestStatus;
+  status_label: string;
+  is_urgent: boolean;
+  trade: { slug: string; name: string; icon: string };
+  zone: { slug: string; name: string };
+  client: Ref;
+  pro: Ref | null;
+  quotes_count: number;
+  amount: number | null;
+  open_disputes: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DisputeStatus = "open" | "investigating" | "resolved" | "dismissed";
+
+export type DisputeRow = {
+  id: number;
+  request: { id: number; title: string; status: RequestStatus };
+  reason: string;
+  reason_label: string;
+  description: string;
+  status: DisputeStatus;
+  status_label: string;
+  resolution: string;
+  opened_by: Contact;
+  handled_by: Ref | null;
+  client: Contact;
+  pro: Contact | null;
+  created_at: string;
+  closed_at: string | null;
+};
+
+export type ReviewRow = {
+  id: number;
+  request: { id: number; title: string; trade: string };
+  rating: number;
+  comment: string;
+  is_hidden: boolean;
+  hidden_reason: string;
+  client: Ref;
+  pro: Ref | null;
+  created_at: string;
+};
+
+export type RequestDetail = Omit<RequestRow, "client" | "pro"> & {
+  client: Contact;
+  pro: Contact | null;
+  description: string;
+  landmark: string;
+  preferred_date: string | null;
+  quotes: {
+    id: number;
+    pro: Ref;
+    amount: number;
+    message: string;
+    status: "pending" | "accepted" | "declined";
+    status_label: string;
+    created_at: string;
+  }[];
+  events: {
+    id: number;
+    status: RequestStatus;
+    status_label: string;
+    note: string;
+    actor: Ref | null;
+    created_at: string;
+  }[];
+  review: ReviewRow | null;
+  disputes: DisputeRow[];
+  staff_note: string;
+  can_cancel: boolean;
+  can_open_dispute: boolean;
+};
+
+export type Account = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  photo: string;
+  is_active: boolean;
+  suspension_reason: string;
+  date_joined: string;
+  last_login: string | null;
+};
+
+export type ProRow = {
+  account: Account;
+  headline: string;
+  photo: string;
+  years_experience: number;
+  trades: string[];
+  zones: string[];
+  is_verified: boolean;
+  verified_at: string | null;
+  verification_note: string;
+  missions_done: number;
+  rating: { average: number | null; count: number };
+};
+
+export type ProDetail = ProRow & {
+  bio: string;
+  stats: { quotes_sent: number; quotes_accepted: number; volume: number };
+  missions: RequestRow[];
+  reviews: ReviewRow[];
+  disputes: DisputeRow[];
+};
+
+export type ClientRow = Account & {
+  requests_count: number;
+  spent: number;
+  last_request_at: string | null;
+};
+
+export type ClientDetail = ClientRow & {
+  requests: RequestRow[];
+  reviews: ReviewRow[];
+  disputes: DisputeRow[];
+};
+
+export type ContactRow = {
+  id: number;
+  name: string;
+  email: string;
+  message: string;
+  is_handled: boolean;
+  handled_at: string | null;
+  handled_by: Ref | null;
+  created_at: string;
+};
+
+export type AuditRow = {
+  id: number;
+  action: string;
+  action_label: string;
+  actor: Ref | null;
+  target_type: "pro" | "client" | "request" | "review" | "contact" | "dispute";
+  target_id: number;
+  target_label: string;
+  details: string;
+  created_at: string;
 };

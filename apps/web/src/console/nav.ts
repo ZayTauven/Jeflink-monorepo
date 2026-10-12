@@ -1,6 +1,6 @@
 /**
  * Menu de la console : une seule source pour la barre latérale, la recherche (Ctrl K) et les
- * pages « bientôt ». `lot` = lot de livraison d'une rubrique pas encore construite.
+ * pages « bientôt ». `lot` = lot de livraison d'une rubrique pas encore construite.
  */
 import type { Badges } from "./types";
 
@@ -44,7 +44,6 @@ export const NAV: NavSection[] = [
         label: "Demandes",
         icon: "bi-inbox",
         badge: "stale_requests",
-        lot: 1,
         summary:
           "Toutes les demandes, filtrées par statut, métier, quartier et date ; historique, devis et note interne.",
         keywords: ["missions", "devis", "réservations"],
@@ -53,7 +52,7 @@ export const NAV: NavSection[] = [
         href: "/console/litiges",
         label: "Litiges",
         icon: "bi-exclamation-triangle",
-        lot: 1,
+        badge: "disputes_active",
         summary: "Signalements d'un client ou d'un pro, suivi jusqu'à la résolution.",
         keywords: ["réclamations", "signalements"],
       },
@@ -67,7 +66,6 @@ export const NAV: NavSection[] = [
         label: "Pros",
         icon: "bi-person-badge",
         badge: "pros_pending",
-        lot: 1,
         summary:
           "File de vérification des nouveaux pros, fiches, métiers et quartiers, suspension.",
         keywords: ["prestataires", "vérification", "artisans"],
@@ -76,7 +74,6 @@ export const NAV: NavSection[] = [
         href: "/console/clients",
         label: "Clients",
         icon: "bi-people",
-        lot: 1,
         summary: "Comptes clients, demandes passées, dépenses, blocage.",
         keywords: ["utilisateurs", "comptes"],
       },
@@ -84,8 +81,7 @@ export const NAV: NavSection[] = [
         href: "/console/avis",
         label: "Avis",
         icon: "bi-star-half",
-        lot: 1,
-        summary: "Modération des avis : masquer un avis abusif, répondre aux notes basses.",
+        summary: "Modération des avis : masquer un avis abusif, répondre aux notes basses.",
         keywords: ["notes", "modération"],
       },
       {
@@ -93,7 +89,6 @@ export const NAV: NavSection[] = [
         label: "Messages",
         icon: "bi-chat-left-text",
         badge: "contact_unhandled",
-        lot: 1,
         summary: "Messages envoyés depuis la page Contact, à traiter par l'équipe.",
         keywords: ["contact", "support"],
       },
@@ -108,7 +103,7 @@ export const NAV: NavSection[] = [
         icon: "bi-grid-3x3-gap",
         lot: 2,
         summary:
-          "Métiers, prestations courantes, prix « à partir de », image et ordre d'affichage.",
+          "Métiers, prestations courantes, prix « à partir de », image et ordre d'affichage.",
         keywords: ["services", "catégories"],
       },
       {
@@ -151,7 +146,7 @@ export const NAV: NavSection[] = [
         label: "Transactions",
         icon: "bi-cash-coin",
         lot: 3,
-        summary: "Missions terminées : montant du devis, remise, commission Jeflink, net du pro.",
+        summary: "Missions terminées : montant du devis, remise, commission Jeflink, net du pro.",
         keywords: ["paiements", "chiffre d'affaires"],
       },
       {
@@ -181,7 +176,7 @@ export const NAV: NavSection[] = [
         icon: "bi-stars",
         lot: 4,
         summary:
-          "L'assistant qui aide le client à décrire son souci et transmet une fiche claire au pro : réglages, conversations, indicateurs.",
+          "L'assistant qui aide le client à décrire son souci et transmet une fiche claire au pro : réglages, conversations, indicateurs.",
         keywords: ["ia", "assistant", "booking"],
       },
     ],
@@ -194,7 +189,7 @@ export const NAV: NavSection[] = [
         label: "Équipe et rôles",
         icon: "bi-shield-lock",
         lot: 2,
-        summary: "Comptes de l'équipe et rôles : Opérations, Marketing, Finance, Super admin.",
+        summary: "Comptes de l'équipe et rôles : Opérations, Marketing, Finance, Super admin.",
         keywords: ["staff", "permissions", "accès"],
       },
       {
@@ -207,9 +202,8 @@ export const NAV: NavSection[] = [
       },
       {
         href: "/console/journal",
-        label: "Journal d'audit",
+        label: "Journal des actions",
         icon: "bi-journal-text",
-        lot: 1,
         summary: "Qui a fait quoi dans la console, et quand.",
         keywords: ["historique", "audit", "traces"],
       },

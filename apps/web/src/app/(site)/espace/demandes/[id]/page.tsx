@@ -8,7 +8,7 @@ import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { getRequest, requireMe } from "@/lib/api";
 import { formatDate, formatRating, formatXOF } from "@/lib/format";
-import type { ServiceRequest } from "@/lib/types";
+import type { Dispute, ServiceRequest } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Demande" };
 
@@ -48,13 +48,19 @@ export default async function RequestPage({ params, searchParams }: Props) {
             {req.review && (
               <div className="bg-white border-radius-20px p-30px mb-30px">
                 <h2 className="h5 alt-font fw-500 mb-10px">Avis du client</h2>
-                <div className="jf-stars fs-20 mb-10px" aria-label={`${req.review.rating} sur 5`}>
+                <div
+                  className="jf-stars fs-20 mb-10px"
+                  role="img"
+                  aria-label={`Note : ${req.review.rating} sur 5`}
+                >
                   {"★".repeat(req.review.rating)}
                   <span className="opacity-3">{"★".repeat(5 - req.review.rating)}</span>
                 </div>
-                {req.review.comment && <p className="mb-0">« {req.review.comment} »</p>}
+                {req.review.comment && <p className="mb-0">« {req.review.comment} »</p>}
               </div>
             )}
+            {req.dispute && <DisputeCard dispute={req.dispute} />}
+            {can("report") && <ReportForm act={act} isClient={isClient} />}
             <div className="bg-white border-radius-20px p-30px">
               <h2 className="h5 alt-font fw-500 mb-20px">Historique</h2>
               <ol className="jf-timeline">
@@ -236,7 +242,7 @@ function QuoteForm({ act }: { act: (a: string) => string }) {
             name="message"
             rows={3}
             className="form-control"
-            placeholder="Ex. : changement du siphon et des joints, pièces comprises."
+            placeholder="Ex. : changement du siphon et des joints, pièces comprises."
           />
         </div>
         <SwitchSubmit
@@ -246,6 +252,100 @@ function QuoteForm({ act }: { act: (a: string) => string }) {
         />
       </ActionForm>
     </div>
+  );
+}
+
+// Mêmes valeurs que jobs.models.Dispute.Reason ; l'API refuse tout autre motif.
+const CLIENT_REASONS: [string, string][] = [
+  ["no_show", "Le pro n'est pas venu, ou très en retard"],
+  ["quality", "Travail mal fait ou inachevé"],
+  ["price", "Prix différent du devis"],
+  ["damage", "Dégât chez moi"],
+  ["behaviour", "Comportement"],
+  ["other", "Autre"],
+];
+const PRO_REASONS: [string, string][] = [
+  ["payment", "Paiement non reçu"],
+  ["behaviour", "Comportement du client"],
+  ["other", "Autre"],
+];
+
+const DISPUTE_PILL: Record<Dispute["status"], string> = {
+  open: "status-open",
+  investigating: "status-booked",
+  resolved: "status-done",
+  dismissed: "status-cancelled",
+};
+
+function DisputeCard({ dispute }: { dispute: Dispute }) {
+  return (
+    <div className="bg-white border-radius-20px p-30px mb-30px">
+      <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-15px">
+        <h2 className="h5 alt-font fw-500 mb-0">Problème signalé</h2>
+        <span className={`status-pill ${DISPUTE_PILL[dispute.status]}`}>
+          {dispute.status_label}
+        </span>
+      </div>
+      <p className="mb-5px fw-500 text-dark-gray">{dispute.reason_label}</p>
+      <p className="mb-15px">{dispute.description}</p>
+      {dispute.resolution ? (
+        <p className="mb-0">
+          <span className="fw-500 text-dark-gray">Décision de l&apos;équipe Jeflink&nbsp;:</span>{" "}
+          {dispute.resolution}
+        </p>
+      ) : (
+        <p className="mb-0 fs-15 opacity-7">
+          L&apos;équipe Jeflink examine le signalement et écrira sa décision ici.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ReportForm({ act, isClient }: { act: (a: string) => string; isClient: boolean }) {
+  const reasons = isClient ? CLIENT_REASONS : PRO_REASONS;
+  return (
+    <details className="bg-white border-radius-20px p-30px mb-30px">
+      <summary className="fw-500 text-dark-gray jf-summary">Signaler un problème</summary>
+      <ActionForm
+        action={act("report")}
+        className="jf-form mt-20px"
+        labels={{ reason: "Motif", description: "Ce qui s'est passé" }}
+      >
+        <div className="mb-20px">
+          <label htmlFor="reason">Motif</label>
+          <select id="reason" name="reason" className="form-control" required defaultValue="">
+            <option value="" disabled>
+              Choisir…
+            </option>
+            {reasons.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-25px">
+          <label htmlFor="description">Ce qui s&apos;est passé</label>
+          <textarea
+            id="description"
+            name="description"
+            rows={3}
+            className="form-control"
+            required
+          />
+          <div className="hint">
+            L&apos;équipe Jeflink examine chaque signalement. Sa décision s&apos;affichera sur cette
+            page.
+          </div>
+        </div>
+        <SwitchSubmit
+          label="Envoyer le signalement"
+          icon="icon-feather-alert-triangle"
+          className="btn-medium btn-dark-gray btn-rounded btn-box-shadow"
+        />
+      </ActionForm>
+    </details>
   );
 }
 

@@ -104,10 +104,10 @@ export default async function DashboardPage({
                   </span>
                 </span>
                 <span className="ax-list__content">
-                  <Link className="ax-list__title" href="/console/pros">
+                  <Link className="ax-list__title" href={`/console/pros/${p.id}`}>
                     {p.name} attend sa vérification
                   </Link>
-                  <span className="ax-list__subtitle">
+                  <span className="ax-list__meta">
                     {p.trades.join(", ") || "Métier non renseigné"} · inscrit {ago(p.joined_at)}
                   </span>
                 </span>
@@ -124,7 +124,7 @@ export default async function DashboardPage({
                   <Link className="ax-list__title" href={`/console/demandes/${r.id}`}>
                     {r.title} : aucun devis
                   </Link>
-                  <span className="ax-list__subtitle">
+                  <span className="ax-list__meta">
                     {r.trade} · {r.zone} · publiée {ago(r.created_at)}
                   </span>
                 </span>
@@ -138,11 +138,11 @@ export default async function DashboardPage({
                   </span>
                 </span>
                 <span className="ax-list__content">
-                  <Link className="ax-list__title" href="/console/avis">
+                  <Link className="ax-list__title" href="/console/avis?vue=basses">
                     Avis {r.rating}/5 pour {r.pro?.name ?? "un pro"}
                   </Link>
-                  <span className="ax-list__subtitle">
-                    {r.comment ? `« ${r.comment} »` : "Sans commentaire"} · {ago(r.created_at)}
+                  <span className="ax-list__meta">
+                    {r.comment ? `« ${r.comment} »` : "Sans commentaire"} · {ago(r.created_at)}
                   </span>
                 </span>
               </li>
@@ -237,7 +237,7 @@ export default async function DashboardPage({
                   </span>
                   <span className="ax-list__content">
                     <span className="ax-list__title">{p.name}</span>
-                    <span className="ax-list__subtitle">
+                    <span className="ax-list__meta">
                       {p.trades.join(", ")} · {plural(p.missions, "mission", "missions")} ·{" "}
                       {p.rating.average === null
                         ? "pas encore noté"
@@ -327,7 +327,7 @@ export default async function DashboardPage({
                   <Link className="ax-list__title" href={`/console/demandes/${e.request_id}`}>
                     {e.title}
                   </Link>
-                  <span className="ax-list__subtitle">
+                  <span className="ax-list__meta">
                     {e.note}
                     {e.actor && ` · ${e.actor.name}`} · {ago(e.created_at)}
                   </span>

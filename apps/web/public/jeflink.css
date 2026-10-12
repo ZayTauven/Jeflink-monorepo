@@ -406,3 +406,8 @@
   outline: 2px solid var(--base-color);
   outline-offset: 2px;
 }
+
+/* Bloc dépliable de l'espace (« Signaler un problème ») */
+.jf-summary {
+  cursor: pointer;
+}

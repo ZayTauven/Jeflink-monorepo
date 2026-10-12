@@ -124,7 +124,7 @@ export function Kpi({
           {unit && <small className="jf-kpi-unit">{unit}</small>}
         </div>
         {foot && (
-          <div className="ax-kpi__caption" style={{ gridColumn: "1 / -1" }}>
+          <div className="ax-kpi__caption" style={{ gridColumn: "1 / -1", gridRow: 4 }}>
             {foot}
           </div>
         )}

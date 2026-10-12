@@ -400,3 +400,303 @@
 .jf-skip:focus {
   inset-block-start: 12px;
 }
+
+/* ── Rubriques : listes, filtres, fiches, litiges ──────────────────────────────── */
+.jf-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--ax-border-strong);
+  text-underline-offset: 3px;
+}
+.jf-link:hover {
+  color: var(--ax-link);
+  text-decoration-color: currentColor;
+}
+.jf-strong {
+  font-weight: 600;
+  color: var(--ax-text-strong);
+}
+.jf-sub {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--ax-text-muted);
+}
+.jf-muted {
+  color: var(--ax-text-muted);
+  margin: 0;
+}
+.jf-prose {
+  color: var(--ax-text);
+  line-height: 1.55;
+  margin: 0 0 12px;
+  white-space: pre-line;
+}
+.jf-flag {
+  color: #b42318;
+  font-weight: 600;
+}
+[data-ax-theme="dark"] .jf-flag {
+  color: #f97066;
+}
+.jf-nowrap {
+  white-space: nowrap;
+}
+.jf-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.jf-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ax-space-6);
+  min-inline-size: 0;
+}
+.jf-stack--tight {
+  gap: 12px;
+  align-items: flex-start;
+}
+.jf-back {
+  margin: 0 0 8px;
+  font-size: 0.875rem;
+}
+.jf-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.jf-identity .ax-page-head {
+  flex: 1;
+  min-inline-size: 0;
+}
+.jf-tabs-list {
+  flex-wrap: wrap;
+}
+.jf-tabs-list a {
+  text-decoration: none;
+}
+
+/* Filtres (formulaire GET) */
+.jf-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  margin-block-end: var(--ax-space-5);
+}
+.jf-filters .ax-field {
+  margin: 0;
+  min-inline-size: 180px;
+  flex: 1 1 180px;
+  max-inline-size: 320px;
+}
+.jf-filters__actions {
+  display: flex;
+  gap: 8px;
+}
+.jf-checks {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 0.875rem;
+}
+.jf-checks legend {
+  inline-size: 100%;
+}
+.jf-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.jf-checks input {
+  accent-color: var(--ax-accent-600);
+  inline-size: 16px;
+  block-size: 16px;
+}
+
+/* Listes en lignes avec actions */
+.jf-rows .ax-list__row {
+  align-items: flex-start;
+  padding-block: 16px;
+}
+.jf-rows .ax-list__content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-inline-size: 0;
+}
+.jf-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 8px;
+}
+@media (max-width: 576px) {
+  .jf-rows .ax-list__row {
+    flex-wrap: wrap;
+  }
+  .jf-row-actions {
+    inline-size: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* Pagination */
+.jf-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-start: var(--ax-space-4);
+}
+.jf-pager .ax-pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.jf-pager span.ax-pagination__prev,
+.jf-pager span.ax-pagination__next {
+  opacity: 0.35;
+}
+
+/* Action avec motif : bouton qui déplie un petit formulaire */
+.jf-reason > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.jf-reason > summary::-webkit-details-marker {
+  display: none;
+}
+.jf-reason__form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-block-start: 10px;
+  min-inline-size: min(320px, 80vw);
+}
+.jf-reason__form .ax-textarea,
+.jf-reason__form .ax-select {
+  inline-size: 100%;
+}
+
+/* Fiches : libellé / valeur */
+.jf-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.jf-facts div {
+  display: grid;
+  grid-template-columns: minmax(110px, 40%) 1fr;
+  gap: 8px;
+}
+.jf-facts dt {
+  color: var(--ax-text-muted);
+  font-size: 0.875rem;
+}
+.jf-facts dd {
+  margin: 0;
+  color: var(--ax-text-strong);
+  overflow-wrap: anywhere;
+}
+.jf-facts a {
+  color: inherit;
+}
+
+/* Étoiles d'un avis */
+.jf-stars {
+  color: var(--ax-accent);
+  letter-spacing: 2px;
+  font-size: 1rem;
+}
+.jf-stars__off {
+  color: var(--ax-border-strong);
+}
+
+/* Litiges */
+.jf-parties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin-block: 12px;
+}
+.jf-party {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.jf-decision {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  border-radius: var(--ax-radius-md);
+  background: var(--ax-surface-subtle);
+}
+.jf-dispute__form {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  align-items: end;
+  gap: 12px;
+  margin-block-start: 16px;
+  padding-block-start: 16px;
+  border-block-start: 1px solid var(--ax-border);
+}
+.jf-dispute__form .ax-field {
+  margin: 0;
+}
+.jf-dispute__form button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+@media (max-width: 576px) {
+  .jf-dispute__form {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Bouton de confirmation d'une action risquée : rouge (vireo : --danger + --primary). */
+.ax-btn--danger.ax-btn--primary {
+  background: #b42318;
+  color: #ffffff;
+}
+.ax-btn--danger.ax-btn--primary:hover {
+  background: #912018;
+}
+
+/* Dans une liste, le motif s'ouvre en surimpression sous le bouton (la ligne ne bouge pas). */
+.jf-rows .jf-reason {
+  position: relative;
+}
+.jf-rows .jf-reason__form {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: calc(100% + 6px);
+  z-index: 20;
+  inline-size: min(340px, 85vw);
+  padding: 14px;
+  border-radius: var(--ax-radius-md);
+  background: var(--ax-surface-overlay);
+  border: 1px solid var(--ax-border-strong);
+  box-shadow: var(--ax-shadow-md);
+}
+.ax-card:has(.jf-reason[open]) {
+  overflow: visible;
+}
+/* Téléphone : le motif se déplie sous le bouton, en pleine largeur, sans déborder. */
+@media (max-width: 576px) {
+  .jf-rows .jf-reason {
+    inline-size: 100%;
+  }
+  .jf-rows .jf-reason__form {
+    position: static;
+    inline-size: 100%;
+    box-shadow: none;
+  }
+}

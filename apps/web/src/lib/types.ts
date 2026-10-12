@@ -50,12 +50,28 @@ export type Me = {
     zones: string[];
     years_experience: number;
     is_verified: boolean;
+    verification_note: string;
     photo: string;
   } | null;
 };
 
 export type RequestStatus = "open" | "booked" | "done" | "cancelled";
-export type RequestAction = "accept" | "cancel" | "complete" | "review" | "quote";
+export type RequestAction = "accept" | "cancel" | "complete" | "review" | "quote" | "report";
+
+export type DisputeStatus = "open" | "investigating" | "resolved" | "dismissed";
+
+/** Litige vu par le client et le pro de la mission. */
+export type Dispute = {
+  id: number;
+  reason: string;
+  reason_label: string;
+  description: string;
+  status: DisputeStatus;
+  status_label: string;
+  resolution: string;
+  created_at: string;
+  closed_at: string | null;
+};
 
 export type Quote = {
   id: number;
@@ -87,6 +103,7 @@ export type ServiceRequest = {
   quotes_count: number;
   review: { rating: number; comment: string; created_at: string } | null;
   events: { status: RequestStatus; status_label: string; note: string; created_at: string }[];
+  dispute: Dispute | null;
   actions: RequestAction[];
   created_at: string;
 };

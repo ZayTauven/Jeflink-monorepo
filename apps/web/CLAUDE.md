@@ -21,6 +21,8 @@ Next.js (App Router), **template Crafto « Marketing strategy » pris tel quel**
 - Tailwind v4 n'est chargé que par `console.css` (le site garde ses feuilles Crafto). Navigation par `next/link`.
 - Accès : `requireStaff()` (`lib/api.ts`) dans `(console)/console/layout.tsx` ; données via `/api/console/…` (DRF `IsAdminUser`).
 - Menu = `src/console/nav.ts` : une rubrique avec `lot` affiche une page « bientôt » (`[...section]/page.tsx`) tant qu'elle n'est pas construite.
+- Lecture : `consoleGet()` (`src/console/data.ts`) dans chaque page (revérifie l'accès). Filtres = formulaires GET, onglets = liens (`kit.tsx`).
+- Écriture : Server Actions permises ici (pas de Crafto). Une seule action, `consoleAction` (`src/console/actions.ts`) : `<ActionForm endpoint back ok>` poste vers une action de l'API console (liste blanche), puis revient sur la page avec `?ok=` ou `?erreur=` (`<Flash>`). Action risquée = `<ReasonAction>` : motif obligatoire.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
