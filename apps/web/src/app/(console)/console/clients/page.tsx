@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { CardGrid, ClientCard } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { Flash, Pager, Tabs } from "@/console/kit";
-import { ago } from "@/console/text";
 import type { ClientRow, Page } from "@/console/types";
-import { Empty, PageHead } from "@/console/ui";
-import { formatXOF } from "@/lib/format";
+import { PageHead } from "@/console/ui";
 
 export const metadata: Metadata = { title: "Clients" };
 
@@ -59,60 +57,12 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
         </div>
       </form>
 
-      <section className="ax-card" aria-label="Liste des clients">
-        <div className="ax-card__body">
-          {data.results.length === 0 ? (
-            <Empty>Aucun client trouvé.</Empty>
-          ) : (
-            <div
-              className="ax-table-wrap"
-              role="region"
-              aria-label="Tableau des clients (défile horizontalement)"
-              tabIndex={0}
-            >
-              <table className="ax-table ax-table--hover">
-                <thead>
-                  <tr>
-                    <th scope="col">Client</th>
-                    <th scope="col">Téléphone</th>
-                    <th scope="col">Demandes</th>
-                    <th scope="col" style={{ textAlign: "end" }}>
-                      Missions terminées
-                    </th>
-                    <th scope="col">Dernière demande</th>
-                    <th scope="col">Inscrit</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.results.map((c) => (
-                    <tr key={c.id}>
-                      <td>
-                        <Link href={`${BASE}/${c.id}`} className="jf-link jf-strong">
-                          {c.name}
-                        </Link>
-                        <span className="jf-sub">
-                          {c.email}
-                          {!c.is_active && <span className="jf-flag"> · Suspendu</span>}
-                        </span>
-                      </td>
-                      <td className="jf-nowrap">{c.phone || "—"}</td>
-                      <td className="ax-num">{c.requests_count}</td>
-                      <td className="ax-num jf-nowrap" style={{ textAlign: "end" }}>
-                        {formatXOF(c.spent)}
-                      </td>
-                      <td className="jf-nowrap">
-                        {c.last_request_at ? ago(c.last_request_at) : "—"}
-                      </td>
-                      <td className="jf-nowrap">{ago(c.date_joined)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <Pager count={data.count} base={BASE} params={params} />
-        </div>
-      </section>
+      <CardGrid empty="Aucun client trouvé.">
+        {data.results.map((c) => (
+          <ClientCard key={c.id} c={c} />
+        ))}
+      </CardGrid>
+      <Pager count={data.count} base={BASE} params={params} />
     </>
   );
 }

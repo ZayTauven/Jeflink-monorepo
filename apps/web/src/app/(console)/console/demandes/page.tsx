@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { CardGrid, RequestCard } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { Flash, Pager, Tabs } from "@/console/kit";
-import { ago } from "@/console/text";
 import type { Page, RequestRow } from "@/console/types";
-import { Empty, PageHead, Status } from "@/console/ui";
+import { PageHead } from "@/console/ui";
 import { getTrades, getZones } from "@/lib/api";
-import { formatXOF } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Demandes" };
 
@@ -133,76 +132,12 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
         </div>
       </form>
 
-      <section className="ax-card" aria-label="Liste des demandes">
-        <div className="ax-card__body">
-          {data.results.length === 0 ? (
-            <Empty>Aucune demande ne correspond à ces filtres.</Empty>
-          ) : (
-            <div
-              className="ax-table-wrap"
-              role="region"
-              aria-label="Tableau des demandes (défile horizontalement)"
-              tabIndex={0}
-            >
-              <table className="ax-table ax-table--hover">
-                <thead>
-                  <tr>
-                    <th scope="col">Demande</th>
-                    <th scope="col">Client</th>
-                    <th scope="col">Pro</th>
-                    <th scope="col">Devis</th>
-                    <th scope="col" style={{ textAlign: "end" }}>
-                      Montant
-                    </th>
-                    <th scope="col">Statut</th>
-                    <th scope="col">Publiée</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.results.map((r) => (
-                    <tr key={r.id}>
-                      <td>
-                        <Link href={`${BASE}/${r.id}`} className="jf-link jf-strong">
-                          #{r.id} {r.title}
-                        </Link>
-                        <span className="jf-sub">
-                          <i className={`bi ${r.trade.icon}`} aria-hidden="true" /> {r.trade.name} ·{" "}
-                          {r.zone.name}
-                          {r.is_urgent && <span className="jf-flag"> · Urgent</span>}
-                          {r.open_disputes > 0 && <span className="jf-flag"> · Litige</span>}
-                        </span>
-                      </td>
-                      <td>
-                        <Link href={`/console/clients/${r.client.id}`} className="jf-link">
-                          {r.client.name}
-                        </Link>
-                      </td>
-                      <td>
-                        {r.pro ? (
-                          <Link href={`/console/pros/${r.pro.id}`} className="jf-link">
-                            {r.pro.name}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="ax-num">{r.quotes_count}/3</td>
-                      <td className="ax-num jf-nowrap" style={{ textAlign: "end" }}>
-                        {r.amount === null ? "—" : formatXOF(r.amount)}
-                      </td>
-                      <td>
-                        <Status status={r.status} label={r.status_label} />
-                      </td>
-                      <td className="jf-nowrap">{ago(r.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <Pager count={data.count} base={BASE} params={params} />
-        </div>
-      </section>
+      <CardGrid empty="Aucune demande ne correspond à ces filtres.">
+        {data.results.map((r) => (
+          <RequestCard key={r.id} r={r} />
+        ))}
+      </CardGrid>
+      <Pager count={data.count} base={BASE} params={params} />
     </>
   );
 }

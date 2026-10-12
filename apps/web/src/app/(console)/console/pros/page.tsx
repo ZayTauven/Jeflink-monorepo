@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
+import { CardGrid, ProCard } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
-import { ActionButton, Avatar, Flash, Pager, ReasonAction, Tabs } from "@/console/kit";
-import { ago, plural } from "@/console/text";
+import { Flash, Pager, Tabs } from "@/console/kit";
 import type { Page, ProRow } from "@/console/types";
-import { Empty, PageHead } from "@/console/ui";
+import { PageHead } from "@/console/ui";
 import { getTrades } from "@/lib/api";
-import { formatRating } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Pros" };
 
@@ -91,64 +89,12 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
         </div>
       </form>
 
-      <section className="ax-card" aria-label="Liste des pros">
-        <div className="ax-card__body">
-          {data.results.length === 0 ? (
-            <Empty>{pending ? "Aucun pro en attente de vérification." : "Aucun pro."}</Empty>
-          ) : (
-            <ul className="ax-list jf-rows">
-              {data.results.map((p) => (
-                <li key={p.account.id} className="ax-list__row">
-                  <span className="ax-list__leading">
-                    <Avatar name={p.account.name} photo={p.photo || p.account.photo} size={44} />
-                  </span>
-                  <span className="ax-list__content">
-                    <Link href={`${BASE}/${p.account.id}`} className="ax-list__title jf-link">
-                      {p.account.name}
-                    </Link>
-                    <span className="ax-list__meta">
-                      {p.trades.join(", ") || "Aucun métier déclaré"}
-                      {p.headline && ` · ${p.headline}`}
-                    </span>
-                    <span className="ax-list__meta">
-                      {pending
-                        ? `Inscrit ${ago(p.account.date_joined)} · ${p.account.phone || p.account.email}`
-                        : `${plural(p.missions_done, "mission terminée", "missions terminées")} · ${p.rating.count ? `${formatRating(p.rating.average)}/5 (${p.rating.count} avis)` : "pas encore noté"}`}
-                    </span>
-                    {p.verification_note && (
-                      <span className="ax-list__meta jf-flag">Refusé : {p.verification_note}</span>
-                    )}
-                    {!p.account.is_active && (
-                      <span className="ax-list__meta jf-flag">
-                        Suspendu : {p.account.suspension_reason}
-                      </span>
-                    )}
-                  </span>
-                  {pending && (
-                    <span className="ax-list__trailing jf-row-actions">
-                      <ActionButton
-                        endpoint={`/api/console/pros/${p.account.id}/verify/`}
-                        back={back}
-                        ok="Pro vérifié : il peut envoyer des devis."
-                        label="Vérifier"
-                      />
-                      <ReasonAction
-                        endpoint={`/api/console/pros/${p.account.id}/reject/`}
-                        back={back}
-                        ok="Refus enregistré : le pro voit le motif dans son espace."
-                        label="Refuser…"
-                        confirm="Confirmer le refus"
-                        placeholder="Ce qui manque, ex. : pièce d'identité illisible."
-                      />
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          <Pager count={data.count} base={BASE} params={params} />
-        </div>
-      </section>
+      <CardGrid empty={pending ? "Aucun pro en attente de vérification." : "Aucun pro."}>
+        {data.results.map((p) => (
+          <ProCard key={p.account.id} p={p} back={back} pending={pending} />
+        ))}
+      </CardGrid>
+      <Pager count={data.count} base={BASE} params={params} />
     </>
   );
 }

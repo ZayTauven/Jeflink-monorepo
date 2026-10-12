@@ -519,34 +519,6 @@
   block-size: 16px;
 }
 
-/* Listes en lignes avec actions */
-.jf-rows .ax-list__row {
-  align-items: flex-start;
-  padding-block: 16px;
-}
-.jf-rows .ax-list__content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-inline-size: 0;
-}
-.jf-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: flex-start;
-  gap: 8px;
-}
-@media (max-width: 576px) {
-  .jf-rows .ax-list__row {
-    flex-wrap: wrap;
-  }
-  .jf-row-actions {
-    inline-size: 100%;
-    justify-content: flex-start;
-  }
-}
-
 /* Pagination */
 .jf-pager {
   display: flex;
@@ -670,11 +642,11 @@
   background: #912018;
 }
 
-/* Dans une liste, le motif s'ouvre en surimpression sous le bouton (la ligne ne bouge pas). */
-.jf-rows .jf-reason {
+/* Dans une carte de liste, le motif s'ouvre en surimpression sous le bouton (rien ne bouge). */
+.jf-item .jf-reason {
   position: relative;
 }
-.jf-rows .jf-reason__form {
+.jf-item .jf-reason__form {
   position: absolute;
   inset-inline-end: 0;
   inset-block-start: calc(100% + 6px);
@@ -691,12 +663,100 @@
 }
 /* Téléphone : le motif se déplie sous le bouton, en pleine largeur, sans déborder. */
 @media (max-width: 576px) {
-  .jf-rows .jf-reason {
+  .jf-item .jf-reason {
     inline-size: 100%;
   }
-  .jf-rows .jf-reason__form {
+  .jf-item .jf-reason__form {
     position: static;
     inline-size: 100%;
     box-shadow: none;
   }
+}
+
+/* ── Listes en cartes (Demandes, Pros, Clients, Avis, Messages), comme les litiges ─ */
+.jf-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  gap: var(--ax-space-5);
+  align-items: stretch;
+}
+.jf-item {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px;
+}
+.jf-item__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.jf-item__titles {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.jf-item__title {
+  margin: 0;
+  font-family: var(--ax-font-display);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--ax-text-strong);
+  overflow-wrap: anywhere;
+}
+.jf-item__title .jf-link {
+  text-decoration-color: transparent;
+}
+.jf-item__title .jf-link:hover {
+  text-decoration-color: currentColor;
+}
+.jf-item__aside {
+  flex-shrink: 0;
+}
+.jf-item__body > :last-child {
+  margin-block-end: 0;
+}
+.jf-item__body .jf-flag {
+  margin: 6px 0 0;
+}
+.jf-item__foot {
+  margin-block-start: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding-block-start: 14px;
+  border-block-start: 1px solid var(--ax-border);
+}
+.jf-item__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 0;
+  min-inline-size: 0;
+}
+.jf-item__stats dt {
+  font-size: 0.75rem;
+  color: var(--ax-text-muted);
+}
+.jf-item__stats dd {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ax-text-strong);
+  overflow-wrap: anywhere;
+}
+.jf-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+.jf-inline--end {
+  justify-content: flex-end;
 }
