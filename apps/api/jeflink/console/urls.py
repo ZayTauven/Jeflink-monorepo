@@ -18,6 +18,7 @@ router.register("coupons", views.CouponConsoleViewSet, basename="console-coupon"
 router.register("campaigns", views.CampaignConsoleViewSet, basename="console-campaign")
 router.register("transactions", views.TransactionConsoleViewSet, basename="console-transaction")
 router.register("balances", views.BalanceConsoleViewSet, basename="console-balance")
+router.register("jef", views.JefConsoleViewSet, basename="console-jef")
 
 urlpatterns = [
     path("overview/", views.overview, name="console-overview"),

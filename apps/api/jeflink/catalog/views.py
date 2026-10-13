@@ -172,6 +172,7 @@ def site(request):
             "support_whatsapp": current.support_whatsapp,
             "support_email": current.support_email,
             "max_quotes": current.max_quotes,
+            "jef_enabled": current.jef_enabled,
         }
     )
 

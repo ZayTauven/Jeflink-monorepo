@@ -59,6 +59,10 @@ Un pro qui s'inscrit sur le site doit être **vérifié** par l'équipe (console
 
 Remettre les demandes à zéro : `make demo-reset`.
 
+**Jef** (assistant de réservation, formulaire de nouvelle demande) utilise Claude si `apps/api/.env` contient `ANTHROPIC_API_KEY` (et, en option, `AI_MODEL_DEFAULT`). Sans clé ou sans crédit, Jef pose des questions fixes par métier : la démo fonctionne aussi hors ligne.
+
+Codes promo de démo : `BIENVENUE` (2 000 F CFA sur une première mission), `CLIM20` (−20 %, plafonné à 5 000 F CFA), `TABASKI` (expiré).
+
 ## Ancienne version
 
 L'architecture précédente (OTP, BFF, PostGIS, Celery, wallet, specs et ADR) est conservée au tag `archive/avant-simplification`.

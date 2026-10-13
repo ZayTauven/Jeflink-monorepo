@@ -8,6 +8,7 @@ journalisées. Aucune modification libre d'un enregistrement.
 import csv
 from datetime import timedelta
 
+from django.conf import settings
 from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
@@ -23,6 +24,8 @@ from rest_framework.response import Response
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
 from jeflink.catalog.models import Campaign, Trade, Zone
+from jeflink.jef import ai as jef_ai
+from jeflink.jef.models import JefSession
 from jeflink.jobs.models import Coupon, Dispute, Quote, Review, ServiceRequest
 
 from . import finance, services, stats
@@ -1060,3 +1063,42 @@ def reports_export(request):
         "Codes promo utilisés",
     ]
     return _csv("jeflink-rapport-mensuel.csv", header, rows)
+
+
+# --- Jef -----------------------------------------------------------------------------------------
+
+
+class JefConsoleViewSet(ConsoleViewSet):
+    """Échanges avec Jef : ce que les clients ont écrit, les questions posées, les fiches."""
+
+    console_section = "operations"
+    serializer_class = s.JefSessionSerializer
+
+    def get_queryset(self):
+        qs = JefSession.objects.select_related("client", "trade", "request")
+        if (mode := self.param("mode")) in JefSession.Mode.values:
+            qs = qs.filter(mode=mode)
+        if (published := self.param("published")) in ("0", "1"):
+            qs = qs.filter(request__isnull=published == "0")
+        return qs
+
+    def list(self, request):
+        response = self.paginated(self.get_queryset(), s.JefSessionSerializer)
+        recent = JefSession.objects.filter(created_at__gte=timezone.now() - timedelta(days=30))
+        counts = recent.aggregate(
+            sessions=Count("id"),
+            briefs=Count("id", filter=Q(brief__isnull=False)),
+            published=Count("id", filter=Q(request__isnull=False)),
+            ai=Count("id", filter=Q(mode=JefSession.Mode.AI)),
+        )
+        requests = ServiceRequest.objects.filter(
+            created_at__gte=timezone.now() - timedelta(days=30)
+        ).count()
+        response.data["status"] = {
+            "enabled": PlatformSettings.load().jef_enabled,
+            "ai": jef_ai.enabled(),  # clé présente : on ne renvoie jamais sa valeur
+            "model": settings.JEF_MODEL if jef_ai.enabled() else "",
+            "daily_limit": settings.JEF_DAILY_LIMIT,
+        }
+        response.data["stats"] = {**counts, "requests": requests}
+        return response

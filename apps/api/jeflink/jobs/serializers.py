@@ -87,6 +87,7 @@ class RequestSerializer(serializers.ModelSerializer):
     events = EventSerializer(many=True, read_only=True)
     dispute = serializers.SerializerMethodField()
     money = serializers.SerializerMethodField()
+    jef = serializers.SerializerMethodField()
     actions = serializers.SerializerMethodField()
 
     class Meta:
@@ -112,6 +113,7 @@ class RequestSerializer(serializers.ModelSerializer):
             "events",
             "dispute",
             "money",
+            "jef",
             "actions",
             "created_at",
         ]
@@ -165,6 +167,24 @@ class RequestSerializer(serializers.ModelSerializer):
             money["commission_rate"] = req.commission_rate
         return money
 
+    def get_jef(self, req) -> dict | None:
+        """Fiche préparée avec Jef, selon le lecteur : conseils pour le client, fiche pour le pro.
+
+        Le titre et la description proposés par Jef ne sont pas renvoyés : seule compte la
+        version que le client a publiée (il a pu la corriger).
+        """
+        session = getattr(req, "jef_session", None)
+        if session is None or not session.brief:
+            return None
+        brief = session.brief
+        out = {"mode": session.mode, "urgent": bool(brief.get("urgent"))}
+        if self._viewer.pk == req.client_id:
+            out["client_tips"] = brief.get("client_tips", [])
+        else:
+            for key in ("pro_summary", "pro_details", "pro_bring"):
+                out[key] = brief.get(key, [] if key != "pro_summary" else "")
+        return out
+
     def _dispute(self, req):
         return req.disputes.order_by("-created_at").first()
 
@@ -209,6 +229,10 @@ class RequestSerializer(serializers.ModelSerializer):
 class RequestCreateSerializer(serializers.ModelSerializer):
     trade = serializers.SlugRelatedField(slug_field="slug", queryset=Trade.objects.all())
     zone = serializers.SlugRelatedField(slug_field="slug", queryset=Zone.objects.all())
+    # Échange avec Jef dont la fiche accompagne la demande (facultatif).
+    jef_session = serializers.IntegerField(
+        required=False, allow_null=True, write_only=True, min_value=1, max_value=2**31 - 1
+    )
 
     class Meta:
         model = ServiceRequest
@@ -220,6 +244,7 @@ class RequestCreateSerializer(serializers.ModelSerializer):
             "landmark",
             "preferred_date",
             "is_urgent",
+            "jef_session",
         ]
 
 

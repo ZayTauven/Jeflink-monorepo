@@ -10,6 +10,7 @@ from rest_framework import serializers
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User, normalize_phone
 from jeflink.catalog.models import Campaign, Trade, Zone
+from jeflink.jef.models import JefSession
 from jeflink.jobs import services as jobs_services
 from jeflink.jobs.models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
 
@@ -480,6 +481,7 @@ class SettingsSerializer(serializers.ModelSerializer):
             "closed_message",
             "support_whatsapp",
             "support_email",
+            "jef_enabled",
             "updated_at",
             "updated_by",
         ]
@@ -840,3 +842,38 @@ class SettlementInputSerializer(serializers.Serializer):
         if not amount:
             raise serializers.ValidationError("Indiquez un montant en F CFA.")
         return amount
+
+
+# --- Jef -----------------------------------------------------------------------------------------
+
+
+class JefSessionSerializer(serializers.ModelSerializer):
+    """Un échange avec Jef, tel que l'équipe le relit : texte, questions, réponses, fiche."""
+
+    client = serializers.SerializerMethodField()
+    trade = serializers.CharField(source="trade.name", default="")
+    mode_label = serializers.CharField(source="get_mode_display")
+    request = serializers.SerializerMethodField()
+
+    class Meta:
+        model = JefSession
+        fields = [
+            "id",
+            "client",
+            "trade",
+            "mode",
+            "mode_label",
+            "text",
+            "questions",
+            "answers",
+            "brief",
+            "request",
+            "created_at",
+        ]
+
+    def get_client(self, obj) -> dict | None:
+        return short(obj.client)
+
+    def get_request(self, obj) -> dict | None:
+        req = obj.request
+        return None if req is None else {"id": req.pk, "title": req.title, "status": req.status}

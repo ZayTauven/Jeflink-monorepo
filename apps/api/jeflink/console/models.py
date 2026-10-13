@@ -88,6 +88,11 @@ class PlatformSettings(models.Model):
         validators=[MaxValueValidator(50)],
         help_text="Prélevée sur le devis accepté ; un métier peut avoir son propre taux.",
     )
+    jef_enabled = models.BooleanField(
+        "Jef proposé aux clients",
+        default=True,
+        help_text="L'assistant qui aide à décrire le souci avant de publier une demande.",
+    )
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"

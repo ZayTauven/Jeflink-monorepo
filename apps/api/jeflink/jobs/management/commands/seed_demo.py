@@ -15,6 +15,7 @@ from rest_framework.exceptions import ValidationError
 from jeflink.accounts.models import ContactMessage, ProProfile, User
 from jeflink.catalog.models import Campaign, Trade, Zone
 from jeflink.console.models import AuditLog, ProSettlement
+from jeflink.jef.models import JefSession
 from jeflink.jobs import services
 from jeflink.jobs.models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
 
@@ -414,6 +415,7 @@ class Command(BaseCommand):
             ServiceRequest.objects.all().delete()
             AuditLog.objects.all().delete()  # il pointerait vers des demandes disparues
             ProSettlement.objects.all().delete()
+            JefSession.objects.all().delete()
 
         for position, data in enumerate(TRADES):
             Trade.objects.update_or_create(

@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/auth/", include("jeflink.accounts.urls")),
     path("api/", include("jeflink.catalog.urls")),
     path("api/", include("jeflink.jobs.urls")),
+    path("api/", include("jeflink.jef.urls")),
     path("api/console/", include("jeflink.console.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),

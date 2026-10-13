@@ -9,6 +9,17 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# apps/api/.env (jamais versionné), une ligne « CLE=valeur » par variable (« export » et
+# commentaire « # … » en fin de ligne tolérés). Une variable déjà définie l'emporte.
+if (_env := BASE_DIR / ".env").exists():
+    for _line in _env.read_text(encoding="utf-8").splitlines():
+        _key, _sep, _value = _line.strip().removeprefix("export ").partition("=")
+        if _sep and _key.strip() and not _key.lstrip().startswith("#"):
+            _value = _value.split(" #", 1)[0].strip()
+            if len(_value) >= 2 and _value[0] == _value[-1] and _value[0] in "\"'":
+                _value = _value[1:-1]
+            os.environ.setdefault(_key.strip(), _value)
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-dev-only-change-me")
 DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 ALLOWED_HOSTS = [
@@ -31,6 +42,7 @@ INSTALLED_APPS = [
     "jeflink.catalog",
     "jeflink.jobs",
     "jeflink.console",
+    "jeflink.jef",
 ]
 
 MIDDLEWARE = [
@@ -104,3 +116,9 @@ SPECTACULAR_SETTINGS = {
         "QuoteStatusEnum": "jeflink.jobs.models.Quote.Status",
     },
 }
+
+# Jef, l'assistant de réservation. Sans clé d'API, Jef pose des questions fixes (mode guidé).
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+JEF_MODEL = os.environ.get("AI_MODEL_DEFAULT") or "claude-opus-5-5"
+JEF_DAILY_LIMIT = 20  # échanges par client et par 24 h : chaque appel à l'IA coûte
+JEF_AI_DAILY_LIMIT = 300  # échanges en IA, tous clients, par 24 h ; au-delà : mode guidé

@@ -5,6 +5,8 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from jeflink.jef import services as jef_services
+
 from . import services
 from .models import ServiceRequest
 from .serializers import (
@@ -43,7 +45,7 @@ class RequestViewSet(
         if status_filter := self.request.query_params.get("status"):
             qs = qs.filter(status=status_filter)
         return (
-            qs.select_related("trade", "zone", "client", "pro", "review")
+            qs.select_related("trade", "zone", "client", "pro", "review", "jef_session")
             .prefetch_related("events")
             .distinct()
         )
@@ -61,7 +63,11 @@ class RequestViewSet(
     def create(self, request, *args, **kwargs):
         serializer = RequestCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        req = services.create_request(request.user, **serializer.validated_data)
+        data = dict(serializer.validated_data)
+        jef_session = data.pop("jef_session", None)
+        req = services.create_request(request.user, **data)
+        if jef_session:
+            jef_services.attach(request.user, req, jef_session)
         return Response(self._read(req), status=status.HTTP_201_CREATED)
 
     @extend_schema(request=QuoteCreateSerializer, responses={201: QuoteSerializer})
