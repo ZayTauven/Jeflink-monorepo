@@ -106,11 +106,12 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
           </select>
         </div>
         <SortField
-          value={params.tri}
+          // Hors file d'attente, « name » est le tri par défaut (onglet changé après un tri par nom).
+          value={!pending && params.tri === "name" ? "" : params.tri}
           options={[
-            ["", pending ? "Inscrits depuis le plus longtemps" : "Nom (A → Z)"],
-            ...(pending ? ([["name", "Nom (A → Z)"]] as [string, string][]) : []),
-            ["missions", "Plus de missions"],
+            ["", pending ? "En attente depuis le plus longtemps" : "Nom, de A à Z"],
+            ...(pending ? ([["name", "Nom, de A à Z"]] as [string, string][]) : []),
+            ["missions", "Plus de missions réalisées"],
             ["recent", "Inscrits récemment"],
           ]}
         />

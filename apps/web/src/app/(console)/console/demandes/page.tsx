@@ -136,7 +136,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           options={[
             ["", "Plus récentes"],
             ["oldest", "Plus anciennes"],
-            ["amount", "Montant le plus élevé"],
+            ["amount", "Montant accepté, le plus élevé d'abord"],
           ]}
         />
         <fieldset className="jf-checks">

@@ -8,7 +8,16 @@
  * rien ne se recharge (la saisie et la fenêtre modale restent). Sans JavaScript, le formulaire
  * poste vers `consoleAction`, qui revient sur la page avec `?ok=` ou `?erreur=`.
  */
-import { createContext, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { unstable_rethrow } from "next/navigation";
+import {
+  createContext,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 import { consoleAction, submitConsoleAction } from "./actions";
 
@@ -30,15 +39,33 @@ export function ActionForm({
 }) {
   const [error, setError] = useState("");
   const [sending, startTransition] = useTransition();
+  // Verrou immédiat (l'état `sending` n'arrive qu'au rendu suivant : deux Entrée de suite
+  // passeraient toutes les deux).
+  const busy = useRef(false);
+  const alertRef = useRef<HTMLDivElement>(null);
+
+  // Erreur affichée en haut du formulaire : on y amène le focus (et la vue), sinon elle peut
+  // rester hors écran dans une longue fenêtre, le bouton d'envoi étant en bas.
+  useEffect(() => {
+    if (error) alertRef.current?.focus();
+  }, [error]);
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (sending) return;
+    if (busy.current) return;
+    busy.current = true;
     const data = new FormData(e.currentTarget);
     setError("");
     startTransition(async () => {
-      const result = await submitConsoleAction(data);
-      if (result?.error) setError(result.error);
+      try {
+        const result = await submitConsoleAction(data);
+        if (result?.error) setError(result.error);
+      } catch (err) {
+        unstable_rethrow(err); // redirections de Next (réussite, session expirée)
+        setError("La connexion a échoué. Vérifiez le réseau et réessayez.");
+      } finally {
+        busy.current = false;
+      }
     });
   }
 
@@ -48,7 +75,12 @@ export function ActionForm({
       <input type="hidden" name="_back" value={back} />
       <input type="hidden" name="_ok" value={ok} />
       {error && (
-        <div className="ax-alert ax-alert--danger jf-form-error jf-form__wide" role="alert">
+        <div
+          ref={alertRef}
+          tabIndex={-1}
+          className="ax-alert ax-alert--danger jf-form-error jf-form__wide"
+          role="alert"
+        >
           <i className="bi bi-exclamation-triangle ax-alert__icon" aria-hidden="true" />
           <div className="ax-alert__content">
             <p className="ax-alert__message">{error}</p>

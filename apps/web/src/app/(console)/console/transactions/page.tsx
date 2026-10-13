@@ -150,7 +150,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           value={params.tri}
           options={[
             ["", "Plus récentes"],
-            ["amount", "Montant le plus élevé"],
+            ["amount", "Devis le plus élevé d'abord"],
           ]}
         />
         <div className="jf-filters__actions">
