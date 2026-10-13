@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CardGrid } from "@/console/cards";
+import { CopyCode } from "@/console/copy-code";
 import { COUPON_STATE, couponRules, couponValue } from "@/console/coupons";
 import { consoleGet, type Query } from "@/console/data";
 import { CouponForm } from "@/console/forms";
@@ -59,7 +60,8 @@ export default async function CouponsPage({ searchParams }: { searchParams: Prom
                     </Link>
                   </h2>
                 </div>
-                <div className="jf-item__aside">
+                <div className="jf-item__aside jf-inline">
+                  <CopyCode code={c.code} />
                   <span className={`jf-status ${state.cls}`}>{state.label}</span>
                 </div>
               </div>

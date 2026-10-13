@@ -3,6 +3,7 @@ import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 
 
 import { ActionForm } from "./kit";
 import { Submit } from "./submit";
+import { TagsField } from "./tags-field";
 import type { CampaignAdmin, CouponAdmin, TradeAdmin, ZoneAdmin } from "./types";
 
 const NBSP = " ";
@@ -39,7 +40,10 @@ export function Field({
   );
 }
 
-/** Case à cocher envoyée même décochée (« 0 » caché, puis « 1 » si cochée). */
+/**
+ * Interrupteur oui/non (`ax-switch`, case à cocher avec role="switch"), envoyé même éteint
+ * (« 0 » caché, puis « 1 » s'il est allumé).
+ */
 export function Check({
   name,
   label,
@@ -57,6 +61,8 @@ export function Check({
       <label>
         <input
           type="checkbox"
+          role="switch"
+          className="ax-switch ax-switch--lg"
           name={name}
           value="1"
           defaultChecked={checked}
@@ -119,13 +125,17 @@ export function TradeForm({
           defaultValue={trade?.description}
         />
       </Field>
-      <Field id={id("services")} label="Prestations courantes" hint="Une par ligne." wide>
-        <textarea
+      <Field
+        id={id("services")}
+        label="Prestations courantes"
+        hint="Tapez une prestation puis Entrée (ou collez-en plusieurs, une par ligne)."
+        wide
+      >
+        <TagsField
           id={id("services")}
           name="services"
-          className="ax-textarea"
-          rows={5}
-          defaultValue={trade?.services.join("\n")}
+          defaultValue={trade?.services ?? []}
+          placeholder={`Ex.${NBSP}: réparation de fuite, puis Entrée`}
         />
       </Field>
       <Field
@@ -181,7 +191,7 @@ export function TradeForm({
         name="is_active"
         label="Proposé sur le site"
         checked={trade?.is_active ?? true}
-        hint="Décoché : le métier disparaît du site et des nouvelles demandes ; l'historique reste."
+        hint="Désactivé : le métier disparaît du site et des nouvelles demandes ; l'historique reste."
       />
       <div className="jf-form__wide">
         <Submit>{trade ? "Enregistrer" : "Créer le métier"}</Submit>

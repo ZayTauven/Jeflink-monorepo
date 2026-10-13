@@ -56,7 +56,7 @@ La console (`/console`) part du template **vireo** (`references/vireo`, licence 
 - **Icônes** : Bootstrap Icons, la police d'icônes du site (`/crafto/css/icon.min.css`).
 - **Graphiques** (skill `dataviz`) : un seul axe, légende toujours visible, séries orange Jeflink → bleu `#2a78d6` → vert d'eau `#1baf7a` (validées pour le daltonisme en clair et en sombre), regroupement par semaine au-delà de 31 jours.
 - **Navigation** : `next/link` est permis dans la console, qui ne charge pas les scripts Crafto.
-- **Composants vireo repris (2026-10-13)** : toasts (`.ax-toast`, en bas à droite, mats), fenêtres modales (`.ax-modal__*` sur un `<dialog>` natif), barre de chargement en haut de l'écran et jauges (`.ax-progress`), squelettes de chargement (`.ax-skeleton`), spinner dans les boutons (`.ax-spinner`).
+- **Composants vireo repris (2026-10-13)** : toasts (`.ax-toast`, en bas à droite, mats), fenêtres modales (`.ax-modal__*` sur un `<dialog>` natif), barre de chargement en haut de l'écran et jauges (`.ax-progress`), squelettes de chargement (`.ax-skeleton`), spinner dans les boutons (`.ax-spinner`) ; puis filtres automatiques et puces des filtres actifs, interrupteurs (`.ax-switch`) pour les réglages oui/non, infobulles des boutons-icônes (`.ax-tooltip--inverse`), étiquettes pour les listes courtes, barre « Modifications non enregistrées » des longs formulaires.
 - **Flou : une seule exception (décision Zay, 2026-10-13)** : toutes les fenêtres modales (confirmation, ajout, modification) ont un fond voilé et flouté (environ 8 px). Partout ailleurs, la console reste mate, sans verre dépoli.
 
 ## À peaufiner (incohérences connues)

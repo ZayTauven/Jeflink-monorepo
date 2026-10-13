@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { CopyCode } from "@/console/copy-code";
 import { COUPON_STATE, couponValue } from "@/console/coupons";
 import { consoleGet, type Query } from "@/console/data";
 import { CouponForm } from "@/console/forms";
@@ -40,6 +41,7 @@ export default async function CouponPage({ params, searchParams }: Props) {
             <span>{couponValue(c)}</span>
           </span>
         }
+        actions={<CopyCode code={c.code} />}
       />
       <Flash ok={flash.ok} erreur={flash.erreur} />
       <div className="ax-dash-grid">

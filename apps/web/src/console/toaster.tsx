@@ -18,12 +18,33 @@ type Tone = "success" | "danger";
 type Item = { id: number; tone: Tone; message: string; leaving: boolean };
 
 const LEAVE_MS = 180;
+const EVENT = "jf-toast";
+
+/** Toast lancé depuis le navigateur (ex. « Code copié »), sans passer par l'adresse. */
+export function toast(message: string, tone: Tone = "success") {
+  window.dispatchEvent(new CustomEvent(EVENT, { detail: { message, tone } }));
+}
 
 export function Toaster() {
   const params = useSearchParams();
   const [items, setItems] = useState<Item[]>([]);
   const seen = useRef("");
   const nextId = useRef(0);
+
+  const push = useCallback((tone: Tone, message: string) => {
+    nextId.current += 1;
+    const id = nextId.current;
+    setItems((cur) => [...cur.slice(-2), { id, tone, message, leaving: false }]);
+  }, []);
+
+  useEffect(() => {
+    const onToast = (e: Event) => {
+      const { message, tone } = (e as CustomEvent<{ message: string; tone: Tone }>).detail;
+      push(tone, message);
+    };
+    window.addEventListener(EVENT, onToast);
+    return () => window.removeEventListener(EVENT, onToast);
+  }, [push]);
 
   const dismiss = useCallback((id: number) => {
     setItems((cur) => cur.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
@@ -42,17 +63,13 @@ export function Toaster() {
     if (seen.current === key) return;
     seen.current = key;
 
-    const tone: Tone = erreur ? "danger" : "success";
-    const message = (erreur || ok) as string;
-    nextId.current += 1;
-    const id = nextId.current;
-    setItems((cur) => [...cur.slice(-2), { id, tone, message, leaving: false }]);
+    push(erreur ? "danger" : "success", (erreur || ok) as string);
 
     const url = new URL(window.location.href);
     url.searchParams.delete("ok");
     url.searchParams.delete("erreur");
     window.history.replaceState(null, "", url.pathname + url.search + url.hash);
-  }, [params]);
+  }, [params, push]);
 
   return (
     <div className="ax-toast-region ax-toast-region--bottom-end jf-toasts" aria-live="polite">

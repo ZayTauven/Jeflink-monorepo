@@ -17,6 +17,7 @@ import { LinkPending } from "./pending";
 import { COLLAPSED_KEY, THEME_KEY } from "./theme";
 import type { Badges } from "./types";
 import { plural } from "./text";
+import { Tip } from "./tip";
 import { Toaster } from "./toaster";
 
 const PHONE = "(max-width: 767.98px)";
@@ -170,17 +171,19 @@ export function ConsoleShell({
 
         <div className="ax-shell">
           <header className="ax-header">
-            <button
-              ref={toggle}
-              type="button"
-              className="ax-nav-toggle ax-icon-btn"
-              onClick={toggleMenu}
-              aria-label="Menu"
-              aria-controls="jf-sidebar"
-              aria-expanded={phone ? drawer : !collapsed}
-            >
-              <i className="bi bi-list" aria-hidden="true" />
-            </button>
+            <Tip label={phone ? "Menu" : collapsed ? "Déplier le menu" : "Replier le menu"}>
+              <button
+                ref={toggle}
+                type="button"
+                className="ax-nav-toggle ax-icon-btn"
+                onClick={toggleMenu}
+                aria-label={phone ? "Menu" : collapsed ? "Déplier le menu" : "Replier le menu"}
+                aria-controls="jf-sidebar"
+                aria-expanded={phone ? drawer : !collapsed}
+              >
+                <i className="bi bi-list" aria-hidden="true" />
+              </button>
+            </Tip>
             <button
               type="button"
               className="ax-search"
@@ -192,19 +195,22 @@ export function ConsoleShell({
               <kbd className="ax-search__keycap">Ctrl K</kbd>
             </button>
             <span className="ax-header__spacer" />
-            <a className="ax-icon-btn" href="/" aria-label="Voir le site" title="Voir le site">
-              <i className="bi bi-box-arrow-up-right" aria-hidden="true" />
-            </a>
-            <button
-              type="button"
-              className="ax-icon-btn"
-              onClick={toggleTheme}
-              aria-pressed={dark}
-              aria-label="Mode sombre"
-              title={dark ? "Passer en mode clair" : "Passer en mode sombre"}
-            >
-              <i className={`bi ${dark ? "bi-sun" : "bi-moon-stars"}`} aria-hidden="true" />
-            </button>
+            <Tip label="Voir le site">
+              <a className="ax-icon-btn" href="/" aria-label="Voir le site">
+                <i className="bi bi-box-arrow-up-right" aria-hidden="true" />
+              </a>
+            </Tip>
+            <Tip label={dark ? "Passer en mode clair" : "Passer en mode sombre"}>
+              <button
+                type="button"
+                className="ax-icon-btn"
+                onClick={toggleTheme}
+                aria-pressed={dark}
+                aria-label="Mode sombre"
+              >
+                <i className={`bi ${dark ? "bi-sun" : "bi-moon-stars"}`} aria-hidden="true" />
+              </button>
+            </Tip>
             {ops && (
               <Dropdown
                 className="ax-notif"
@@ -309,22 +315,25 @@ export function ConsoleShell({
 
 function NavLink({ item, active, count }: { item: NavItem; active: boolean; count: number }) {
   return (
-    <Link
-      href={item.href}
-      className={`ax-nav__item ax-nav__item--single${active ? " ax-nav__item--active is-active" : ""}`}
-      aria-current={active ? "page" : undefined}
-      title={item.label}
-    >
-      <span className="ax-nav__bar" aria-hidden="true" />
-      <i className={`bi ${item.icon} ax-nav__icon`} aria-hidden="true" />
-      <span className="ax-nav__label">{item.label}</span>
-      <LinkPending />
-      {count > 0 ? (
-        <span className="ax-nav__badge ax-nav__badge--count">{count}</span>
-      ) : item.lot ? (
-        <span className="ax-nav__badge jf-nav-soon">Bientôt</span>
-      ) : null}
-    </Link>
+    <Tip label={item.label} side="end" collapsedOnly block>
+      <Link
+        href={item.href}
+        // Menu replié : le libellé visible est masqué, ce nom le remplace.
+        aria-label={count > 0 ? `${item.label}, ${count} à traiter` : item.label}
+        className={`ax-nav__item ax-nav__item--single${active ? " ax-nav__item--active is-active" : ""}`}
+        aria-current={active ? "page" : undefined}
+      >
+        <span className="ax-nav__bar" aria-hidden="true" />
+        <i className={`bi ${item.icon} ax-nav__icon`} aria-hidden="true" />
+        <span className="ax-nav__label">{item.label}</span>
+        <LinkPending />
+        {count > 0 ? (
+          <span className="ax-nav__badge ax-nav__badge--count">{count}</span>
+        ) : item.lot ? (
+          <span className="ax-nav__badge jf-nav-soon">Bientôt</span>
+        ) : null}
+      </Link>
+    </Tip>
   );
 }
 

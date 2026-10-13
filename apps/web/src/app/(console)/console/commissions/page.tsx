@@ -4,6 +4,7 @@ import { CardGrid } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { Field } from "@/console/forms";
 import { ActionForm, Flash } from "@/console/kit";
+import { SaveBar } from "@/console/save-bar";
 import { Submit } from "@/console/submit";
 import type { Commissions } from "@/console/types";
 import { Card, PageHead } from "@/console/ui";
@@ -92,9 +93,9 @@ export default async function CommissionsPage({ searchParams }: { searchParams: 
             ))}
           </CardGrid>
         </div>
-        <div className="jf-sticky-save">
+        <SaveBar>
           <Submit>Enregistrer les taux</Submit>
-        </div>
+        </SaveBar>
       </ActionForm>
     </>
   );

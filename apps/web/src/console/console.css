@@ -795,18 +795,35 @@
   display: inline-flex;
   align-items: center;
   min-block-size: 44px; /* cible tactile confortable */
-  gap: 8px;
+  gap: 12px;
   font-weight: 500;
   color: var(--ax-text-strong);
   cursor: pointer;
 }
-.jf-check input[type="checkbox"] {
-  accent-color: var(--ax-accent-600);
-  inline-size: 18px;
-  block-size: 18px;
+/* Interrupteur : rail éteint assez contrasté (3:1), allumé à l'orange des boutons. */
+.jf-check .ax-switch {
+  background: #8a8a83;
+}
+.jf-check .ax-switch:checked {
+  background: var(--ax-accent-600);
+}
+[data-ax-theme="dark"] .jf-check .ax-switch {
+  background: #7a786f;
+}
+[data-ax-theme="dark"] .jf-check .ax-switch:checked {
+  background: var(--ax-accent);
+}
+.jf-check .ax-switch::after {
+  background: #ffffff;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jf-check .ax-switch,
+  .jf-check .ax-switch::after {
+    transition: none;
+  }
 }
 .jf-check .ax-field__hint {
-  margin: 4px 0 0 26px;
+  margin: 4px 0 0 56px;
 }
 
 /* Prestations d'un métier (pastilles) */
@@ -970,6 +987,64 @@
 .jf-sticky-save .ax-btn {
   box-shadow: var(--ax-shadow-md);
 }
+.jf-sticky-save {
+  align-items: center;
+  gap: 8px;
+}
+/* Zone d'annonce toujours présente (lue quand le message apparaît) ; vide, elle ne prend
+   pas de place. */
+.jf-sticky-save__note:empty {
+  margin: 0;
+}
+.jf-sticky-save__note:empty::before {
+  display: none;
+}
+/* Modifications en attente : la barre se détache, avec son message et « Annuler ». */
+.jf-sticky-save.is-dirty {
+  inline-size: fit-content;
+  margin-inline-start: auto;
+  padding: 8px 8px 8px 20px;
+  border-radius: var(--ax-radius-pill);
+  background: var(--ax-surface);
+  box-shadow: 0 12px 32px rgb(18 18 18 / 0.16);
+  animation: jf-toast-in var(--ax-motion-base) var(--ax-ease-standard);
+}
+.jf-sticky-save.is-dirty .ax-btn {
+  box-shadow: none;
+}
+[data-ax-theme="dark"] .jf-sticky-save.is-dirty {
+  background: var(--ax-surface-overlay);
+  border: 1px solid var(--ax-border);
+}
+.jf-sticky-save__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 8px 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ax-text-strong);
+}
+.jf-sticky-save__note::before {
+  content: "";
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--ax-accent);
+}
+@media (max-width: 576px) {
+  .jf-sticky-save.is-dirty {
+    inline-size: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    border-radius: var(--ax-radius-lg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jf-sticky-save.is-dirty {
+    animation: none;
+  }
+}
 /* Jef : ce que le client a écrit, puis questions et réponses */
 .jf-quote {
   margin: 0;
@@ -1074,6 +1149,90 @@
   }
   .jf-toast-timer {
     animation-name: jf-toast-wait;
+  }
+}
+
+/* Étiquettes (prestations d'un métier) */
+.jf-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.jf-tags__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.jf-tag {
+  gap: 4px;
+  min-block-size: 32px;
+  padding-inline: 12px 4px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ax-text-strong);
+  background: var(--ax-surface-subtle);
+}
+.jf-tag__remove {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 26px;
+  block-size: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ax-text-muted);
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+@media (max-width: 576px) {
+  .jf-tag__remove {
+    position: relative;
+  }
+  /* Zone tactile de 44 px autour de la petite croix (26 + 2 × 9). */
+  .jf-tag__remove::before {
+    content: "";
+    position: absolute;
+    inset: -9px;
+  }
+}
+.jf-tag__remove:hover {
+  background: var(--ax-fill-active);
+  color: var(--ax-text-strong);
+}
+
+/* Infobulles des boutons-icônes (posées sur <body>, position fixe). */
+.jf-tip {
+  display: inline-flex;
+}
+.jf-tip--block {
+  display: block;
+}
+.jf-tip__bubble {
+  position: fixed;
+  z-index: var(--ax-z-toast);
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 8px;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  pointer-events: none;
+  opacity: 0;
+  animation: jf-fade-in var(--ax-motion-fast) 250ms forwards;
+}
+.jf-tip__bubble--bottom {
+  transform: translateX(-50%);
+}
+.jf-tip__bubble--end {
+  transform: translateY(-50%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .jf-tip__bubble {
+    animation-duration: 1ms;
   }
 }
 

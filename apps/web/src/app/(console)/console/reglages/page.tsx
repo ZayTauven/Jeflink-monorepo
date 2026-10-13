@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { consoleGet, type Query } from "@/console/data";
 import { Check, Field } from "@/console/forms";
 import { ActionForm, Flash } from "@/console/kit";
+import { SaveBar } from "@/console/save-bar";
 import { Submit } from "@/console/submit";
 import type { PlatformSettings } from "@/console/types";
 import { Card, PageHead } from "@/console/ui";
@@ -73,7 +74,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 name="accepting_requests"
                 label="Les clients peuvent publier de nouvelles demandes"
                 checked={s.accepting_requests}
-                hint="Décocher pour une pause (fête, saturation des pros). Les demandes en cours continuent."
+                hint="Désactiver pour une pause (fête, saturation des pros). Les demandes en cours continuent."
               />
               <Field
                 id="closed_message"
@@ -98,7 +99,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 name="jef_enabled"
                 label="Proposer Jef aux clients sur le formulaire de demande"
                 checked={s.jef_enabled}
-                hint="Jef aide à décrire le souci et prépare une fiche pour le pro. Décocher le retire du site ; le formulaire reste disponible."
+                hint="Jef aide à décrire le souci et prépare une fiche pour le pro. Désactivé, il disparaît du site ; le formulaire reste disponible."
               />
             </div>
           </Card>
@@ -131,9 +132,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </div>
           </Card>
         </div>
-        <div className="jf-sticky-save">
+        <SaveBar>
           <Submit>Enregistrer les réglages</Submit>
-        </div>
+        </SaveBar>
       </ActionForm>
     </>
   );
