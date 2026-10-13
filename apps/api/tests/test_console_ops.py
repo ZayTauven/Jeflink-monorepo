@@ -55,6 +55,43 @@ def world():
     }
 
 
+# --- Tri des listes ----------------------------------------------------------------------------
+
+
+def test_tri_des_listes_pris_dans_une_liste_blanche(world):
+    staff = as_user(world["staff"])
+    done, waiting_req = (
+        world["req"],
+        services.create_request(
+            world["client"], trade=world["trade"], zone=world["zone"], title="WC", description="…"
+        ),
+    )
+
+    def ids(url):
+        res = staff.get(url)
+        assert res.status_code == 200
+        return [row["id"] for row in res.data["results"]]
+
+    assert ids("/api/console/requests/") == [waiting_req.pk, done.pk]
+    assert ids("/api/console/requests/?sort=oldest") == [done.pk, waiting_req.pk]
+    # Montant : les demandes sans devis accepté passent après.
+    assert ids("/api/console/requests/?sort=amount") == [done.pk, waiting_req.pk]
+    # Valeur inconnue ou champ arbitraire : tri par défaut, jamais d'erreur.
+    assert ids("/api/console/requests/?sort=-client__password") == [waiting_req.pk, done.pk]
+
+    world["pro"].first_name = "Moussa"
+    world["pro"].save()
+    idle = User.objects.create_user(
+        "aaa@example.com", PASSWORD, role=User.Role.PRO, first_name="Aaa"
+    )
+    ProProfile.objects.create(user=idle, is_verified=True)
+    pros = "/api/console/pros/?status=verified"
+    names = staff.get(pros).data["results"]
+    assert names[0]["account"]["id"] == idle.pk
+    busiest = staff.get(pros + "&sort=missions").data["results"]
+    assert busiest[0]["account"]["id"] == world["pro"].pk
+
+
 # --- Pros --------------------------------------------------------------------------------------
 
 

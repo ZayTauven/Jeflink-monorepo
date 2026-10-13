@@ -9,7 +9,7 @@ import csv
 from datetime import timedelta
 
 from django.conf import settings
-from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
+from django.db.models import Count, F, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -81,6 +81,10 @@ class ConsoleViewSet(viewsets.GenericViewSet):
     def param(self, name: str) -> str:
         return (self.request.query_params.get(name) or "").strip()
 
+    def sort(self, queryset, choices: dict, default: tuple):
+        """Tri demandé (`sort`), pris dans une liste blanche ; sinon `default`."""
+        return queryset.order_by(*choices.get(self.param("sort"), default))
+
     def paginated(self, queryset, serializer_class, facets: dict | None = None):
         page = self.paginate_queryset(queryset)
         response = self.get_paginated_response(serializer_class(page, many=True).data)
@@ -120,6 +124,13 @@ def requests_queryset():
     )
 
 
+REQUEST_SORTS = {
+    "recent": ("-created_at",),
+    "oldest": ("created_at",),
+    "amount": (F("accepted_amount").desc(nulls_last=True), "-created_at"),
+}
+
+
 @extend_schema(
     parameters=[
         OpenApiParameter("status", str, enum=[v for v in S.values]),
@@ -129,6 +140,7 @@ def requests_queryset():
         OpenApiParameter("urgent", bool),
         OpenApiParameter("stale", bool, description="ouvertes depuis 24 h sans devis"),
         OpenApiParameter("dispute", bool, description="avec un litige en cours"),
+        OpenApiParameter("sort", str, enum=["recent", "oldest", "amount"]),
     ]
 )
 class RequestConsoleViewSet(ConsoleViewSet):
@@ -166,7 +178,9 @@ class RequestConsoleViewSet(ConsoleViewSet):
             .annotate(n=Count("id"))
             .values_list("status", "n")
         }
-        return self.paginated(qs.order_by("-created_at"), s.RequestRowSerializer, facets)
+        return self.paginated(
+            self.sort(qs, REQUEST_SORTS, ("-created_at",)), s.RequestRowSerializer, facets
+        )
 
     def retrieve(self, request, pk=None):
         req = get_object_or_404(
@@ -261,12 +275,19 @@ class DisputeConsoleViewSet(ConsoleViewSet):
 
 # --- Pros --------------------------------------------------------------------------------------
 
+PRO_SORTS = {
+    "name": ("user__first_name", "user__last_name"),
+    "missions": ("-n_done", "user__first_name"),
+    "recent": ("-user__date_joined",),
+}
+
 
 @extend_schema(
     parameters=[
         OpenApiParameter("status", str, enum=["pending", "verified", "suspended"]),
         OpenApiParameter("trade", str),
         OpenApiParameter("q", str),
+        OpenApiParameter("sort", str, enum=["name", "missions", "recent"]),
     ]
 )
 class ProConsoleViewSet(ConsoleViewSet):
@@ -286,7 +307,7 @@ class ProConsoleViewSet(ConsoleViewSet):
         qs = self.get_queryset()
         status = self.param("status")
         if status == "pending":
-            qs = qs.filter(is_verified=False, user__is_active=True).order_by("user__date_joined")
+            qs = qs.filter(is_verified=False, user__is_active=True)
         elif status == "verified":
             qs = qs.filter(is_verified=True, user__is_active=True)
         elif status == "suspended":
@@ -295,8 +316,9 @@ class ProConsoleViewSet(ConsoleViewSet):
             qs = qs.filter(trades__slug=trade)
         if q := self.param("q"):
             qs = qs.filter(search_people("user__", q) | Q(headline__icontains=q))
-        if status != "pending":
-            qs = qs.order_by("user__first_name", "user__last_name")
+        # File d'attente : les plus anciens inscrits d'abord ; sinon par nom.
+        default = ("user__date_joined",) if status == "pending" else PRO_SORTS["name"]
+        qs = self.sort(qs, PRO_SORTS, default)
         base = ProProfile.objects
         facets = {
             "pending": base.filter(is_verified=False, user__is_active=True).count(),
@@ -885,6 +907,9 @@ def commissions(request):
     )
 
 
+TRANSACTION_SORTS = {"recent": ("-updated_at",), "amount": ("-price", "-updated_at")}
+
+
 @extend_schema(
     parameters=[
         OpenApiParameter("days", int),
@@ -892,6 +917,7 @@ def commissions(request):
         OpenApiParameter("pro", int),
         OpenApiParameter("coupon", str, description="code, ou * pour « avec un code »"),
         OpenApiParameter("status", str, enum=["booked", "done"]),
+        OpenApiParameter("sort", str, enum=["recent", "amount"]),
     ]
 )
 class TransactionConsoleViewSet(ConsoleViewSet):
@@ -912,7 +938,7 @@ class TransactionConsoleViewSet(ConsoleViewSet):
         )
         if (status := self.param("status")) in ("booked", "done"):
             qs = qs.filter(status=status)
-        return qs.order_by("-updated_at")
+        return self.sort(qs, TRANSACTION_SORTS, TRANSACTION_SORTS["recent"])
 
     def list(self, request):
         qs = self.get_queryset()
