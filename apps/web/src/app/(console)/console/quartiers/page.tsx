@@ -24,7 +24,11 @@ export default async function ZonesPage({ searchParams }: { searchParams: Promis
         title="Quartiers"
         subtitle={`${plural(served, "quartier desservi", "quartiers desservis")}. Fermer un quartier le retire des nouvelles demandes ; les demandes passées restent.`}
         actions={
-          <Modal trigger="Ajouter un quartier" triggerClassName="ax-btn ax-btn--primary" title="Ajouter un quartier">
+          <Modal
+            trigger="Ajouter un quartier"
+            triggerClassName="ax-btn ax-btn--primary"
+            title="Ajouter un quartier"
+          >
             <ZoneForm back={BASE} prefix="nouveau" />
           </Modal>
         }

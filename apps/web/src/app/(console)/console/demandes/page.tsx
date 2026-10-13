@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { CardGrid, RequestCard } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
-import { Flash, Pager, Tabs } from "@/console/kit";
+import { AutoFilters } from "@/console/filters";
+import { ActiveFilters, Flash, Pager, Tabs, withoutFilters, type FilterChip } from "@/console/kit";
+import { plural } from "@/console/text";
 import type { Page, RequestRow } from "@/console/types";
 import { PageHead } from "@/console/ui";
 import { getTrades, getZones } from "@/lib/api";
@@ -30,6 +31,19 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
   ]);
   const f = data.facets;
   const total = Object.values(f).reduce((a, b) => a + b, 0);
+  const filters: FilterChip[] = [
+    { name: "q", label: "Recherche", value: params.q },
+    { name: "metier", label: "Métier", value: trades.find((t) => t.slug === params.metier)?.name },
+    {
+      name: "quartier",
+      label: "Quartier",
+      value: zones.find((z) => z.slug === params.quartier)?.name,
+    },
+    { name: "urgent", label: "Urgentes", flag: true },
+    { name: "sans_devis", label: "Sans devis, à relancer", flag: true },
+    { name: "litige", label: "Avec un litige en cours", flag: true },
+  ];
+  const filtered = filters.some((x) => params[x.name]);
 
   return (
     <>
@@ -52,7 +66,11 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
         ]}
       />
 
-      <form className="jf-filters" method="get" action={BASE} role="search">
+      <AutoFilters
+        base={BASE}
+        label="Filtrer les demandes"
+        summary={data.count ? plural(data.count, "demande", "demandes") : "Aucun résultat"}
+      >
         {params.statut && <input type="hidden" name="statut" value={params.statut} />}
         <div className="ax-field">
           <label className="ax-field__label" htmlFor="q">
@@ -61,6 +79,8 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           <input
             id="q"
             name="q"
+            type="search"
+            autoComplete="off"
             className="ax-input"
             defaultValue={params.q}
             placeholder="N°, titre, client ou pro"
@@ -126,13 +146,26 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           <button type="submit" className="ax-btn ax-btn--primary">
             Filtrer
           </button>
-          <Link href={BASE} className="ax-btn ax-btn--ghost">
-            Effacer
-          </Link>
         </div>
-      </form>
+      </AutoFilters>
+      <ActiveFilters base={BASE} params={params} filters={filters} />
 
-      <CardGrid empty="Aucune demande ne correspond à ces filtres.">
+      <CardGrid
+        empty={
+          filtered
+            ? "Aucune demande ne correspond à ces filtres."
+            : "Aucune demande ici pour l'instant."
+        }
+        clear={
+          filtered
+            ? withoutFilters(
+                BASE,
+                params,
+                filters.map((x) => x.name),
+              )
+            : undefined
+        }
+      >
         {data.results.map((r) => (
           <RequestCard key={r.id} r={r} />
         ))}

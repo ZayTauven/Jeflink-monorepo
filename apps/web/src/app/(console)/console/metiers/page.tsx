@@ -26,7 +26,13 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
         title="Métiers"
         subtitle={`${plural(active, "métier proposé", "métiers proposés")} sur le site. Un métier se masque, il ne se supprime pas : les demandes passées gardent leur métier.`}
         actions={
-          <Modal trigger="Nouveau métier" triggerClassName="ax-btn ax-btn--primary" title="Nouveau métier" subtitle="Il apparaît sur le site dès qu'il est proposé." size="lg">
+          <Modal
+            trigger="Nouveau métier"
+            triggerClassName="ax-btn ax-btn--primary"
+            title="Nouveau métier"
+            subtitle="Il apparaît sur le site dès qu'il est proposé."
+            size="lg"
+          >
             <TradeForm back={BASE} prefix="nouveau" />
           </Modal>
         }

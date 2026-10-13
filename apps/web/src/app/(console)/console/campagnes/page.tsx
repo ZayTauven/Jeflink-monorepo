@@ -25,7 +25,13 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
         title="Campagnes"
         subtitle={`${plural(live, "campagne visible", "campagnes visibles")} sur le site en ce moment. Trois bandeaux au plus par emplacement ; au-delà, seuls les plus récents s'affichent.`}
         actions={
-          <Modal trigger="Nouvelle campagne" triggerClassName="ax-btn ax-btn--primary" title="Nouvelle campagne" subtitle="Un bandeau sur le site, sur une période." size="lg">
+          <Modal
+            trigger="Nouvelle campagne"
+            triggerClassName="ax-btn ax-btn--primary"
+            title="Nouvelle campagne"
+            subtitle="Un bandeau sur le site, sur une période."
+            size="lg"
+          >
             <CampaignForm back={BASE} prefix="nouvelle" />
           </Modal>
         }
@@ -74,12 +80,7 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
                 )}
               </dl>
               <div className="jf-item__actions">
-                <Modal
-                  trigger="Modifier"
-                  title="Modifier la campagne"
-                  subtitle={c.title}
-                  size="lg"
-                >
+                <Modal trigger="Modifier" title="Modifier la campagne" subtitle={c.title} size="lg">
                   <CampaignForm campaign={c} back={BASE} prefix={`campagne-${c.id}`} />
                 </Modal>
               </div>

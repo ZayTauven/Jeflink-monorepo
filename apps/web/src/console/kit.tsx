@@ -79,6 +79,65 @@ export function Tabs({
   );
 }
 
+/**
+ * Un filtre de liste : paramètre de l'adresse, libellé, valeur lisible. `flag` : case à cocher,
+ * la puce n'affiche que le libellé. Valeur introuvable (métier retiré…) : la valeur brute.
+ */
+export type FilterChip = { name: string; label: string; value?: string; flag?: boolean };
+
+/** Adresse de la liste sans ces filtres (ni la page) ; l'onglet reste. */
+export function withoutFilters(base: string, params: Query, names: string[]): string {
+  return `${base}${qs(params, Object.fromEntries([...names, "page"].map((n) => [n, undefined])))}`;
+}
+
+/** Filtres actifs, chacun en puce qui le retire, et « Tout effacer ». */
+export function ActiveFilters({
+  base,
+  params,
+  filters,
+}: {
+  base: string;
+  params: Query;
+  filters: FilterChip[];
+}) {
+  const active = filters.filter((f) => params[f.name]);
+  if (active.length === 0) return null;
+  return (
+    <div className="jf-chips-bar" aria-label="Filtres actifs" role="group">
+      {active.map((f) => {
+        const text = f.flag ? f.label : `${f.label} : ${f.value || params[f.name]}`;
+        return (
+          <Link
+            key={f.name}
+            href={withoutFilters(base, params, [f.name])}
+            className="ax-badge ax-badge--soft ax-badge--accent ax-badge--chip jf-chip"
+            aria-label={`Retirer le filtre ${text}`}
+            scroll={false}
+          >
+            {text}
+            <i className="bi bi-x-lg" aria-hidden="true" />
+            <LinkPending />
+          </Link>
+        );
+      })}
+      {active.length > 1 && (
+        <Link
+          href={withoutFilters(
+            base,
+            params,
+            active.map((f) => f.name),
+          )}
+          className="jf-link jf-chips-bar__clear"
+          scroll={false}
+        >
+          Tout effacer
+          <LinkPending />
+        </Link>
+      )}
+    </div>
+  );
+}
+
 const PAGE_SIZE = 20;
 
 export function Pager({ count, base, params }: { count: number; base: string; params: Query }) {

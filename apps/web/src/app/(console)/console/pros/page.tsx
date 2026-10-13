@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 
 import { CardGrid, ProCard } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
-import { Flash, Pager, Tabs } from "@/console/kit";
+import { AutoFilters } from "@/console/filters";
+import { ActiveFilters, Flash, Pager, Tabs, withoutFilters, type FilterChip } from "@/console/kit";
+import { plural } from "@/console/text";
 import type { Page, ProRow } from "@/console/types";
 import { PageHead } from "@/console/ui";
 import { getTrades } from "@/lib/api";
@@ -31,6 +33,12 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
   const back = `${BASE}?etat=${etat}`;
   const pending = etat === "pending";
 
+  const filters: FilterChip[] = [
+    { name: "q", label: "Recherche", value: params.q },
+    { name: "metier", label: "Métier", value: trades.find((t) => t.slug === params.metier)?.name },
+  ];
+  const filtered = filters.some((x) => params[x.name]);
+
   return (
     <>
       <PageHead
@@ -50,7 +58,11 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
           { value: "tous", label: "Tous" },
         ]}
       />
-      <form className="jf-filters" method="get" action={BASE} role="search">
+      <AutoFilters
+        base={BASE}
+        label="Filtrer les pros"
+        summary={data.count ? plural(data.count, "pro", "pros") : "Aucun résultat"}
+      >
         <input type="hidden" name="etat" value={etat} />
         <div className="ax-field">
           <label className="ax-field__label" htmlFor="q">
@@ -59,6 +71,8 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
           <input
             id="q"
             name="q"
+            type="search"
+            autoComplete="off"
             className="ax-input"
             defaultValue={params.q}
             placeholder="Nom, email, téléphone"
@@ -87,9 +101,27 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
             Filtrer
           </button>
         </div>
-      </form>
+      </AutoFilters>
+      <ActiveFilters base={BASE} params={params} filters={filters} />
 
-      <CardGrid empty={pending ? "Aucun pro en attente de vérification." : "Aucun pro."}>
+      <CardGrid
+        empty={
+          filtered
+            ? "Aucun pro ne correspond à ces filtres."
+            : pending
+              ? "Aucun pro en attente de vérification."
+              : "Aucun pro."
+        }
+        clear={
+          filtered
+            ? withoutFilters(
+                BASE,
+                params,
+                filters.map((x) => x.name),
+              )
+            : undefined
+        }
+      >
         {data.results.map((p) => (
           <ProCard key={p.account.id} p={p} back={back} pending={pending} />
         ))}

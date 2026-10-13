@@ -3,7 +3,9 @@ import Link from "next/link";
 
 import { AuditCard, CardGrid } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
-import { Pager } from "@/console/kit";
+import { AutoFilters } from "@/console/filters";
+import { ActiveFilters, Pager, withoutFilters, type FilterChip } from "@/console/kit";
+import { plural } from "@/console/text";
 import type { AuditRow, Page } from "@/console/types";
 import { PageHead } from "@/console/ui";
 
@@ -35,6 +37,12 @@ const ACTIONS: [string, string][] = [
   ["dispute.update", "Litige mis à jour"],
 ];
 
+const PERIODS: Record<string, string> = {
+  "1": "24 dernières heures",
+  "7": "7 derniers jours",
+  "30": "30 derniers jours",
+};
+
 export default async function AuditPage({ searchParams }: { searchParams: Promise<Query> }) {
   const params = await searchParams;
   const data = await consoleGet<Page<AuditRow>>(BASE, "audit/", {
@@ -44,6 +52,12 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
     days: params.jours,
     page: params.page,
   });
+
+  const filters: FilterChip[] = [
+    { name: "action", label: "Action", value: ACTIONS.find(([v]) => v === params.action)?.[1] },
+    { name: "jours", label: "Période", value: PERIODS[params.jours ?? ""] },
+  ];
+  const filtered = filters.some((x) => params[x.name]);
 
   return (
     <>
@@ -60,7 +74,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           </Link>
         </p>
       )}
-      <form className="jf-filters" method="get" action={BASE}>
+      <AutoFilters
+        base={BASE}
+        label="Filtrer le journal"
+        summary={data.count ? plural(data.count, "action", "actions") : "Aucun résultat"}
+      >
         {params.cible && <input type="hidden" name="cible" value={params.cible} />}
         {params.id && <input type="hidden" name="id" value={params.id} />}
         <div className="ax-field">
@@ -96,12 +114,23 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           <button type="submit" className="ax-btn ax-btn--primary">
             Filtrer
           </button>
-          <Link href={BASE} className="ax-btn ax-btn--ghost">
-            Effacer
-          </Link>
         </div>
-      </form>
-      <CardGrid empty="Aucune action enregistrée pour ces filtres.">
+      </AutoFilters>
+      <ActiveFilters base={BASE} params={params} filters={filters} />
+      <CardGrid
+        empty={
+          filtered ? "Aucune action enregistrée pour ces filtres." : "Aucune action enregistrée."
+        }
+        clear={
+          filtered
+            ? withoutFilters(
+                BASE,
+                params,
+                filters.map((x) => x.name),
+              )
+            : undefined
+        }
+      >
         {data.results.map((row) => (
           <AuditCard key={row.id} row={row} />
         ))}

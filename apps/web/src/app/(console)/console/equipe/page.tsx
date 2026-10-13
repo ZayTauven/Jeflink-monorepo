@@ -50,7 +50,12 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
         title="Équipe et rôles"
         subtitle="Chaque membre voit les rubriques de son rôle. Retirer l'accès déconnecte la personne tout de suite."
         actions={
-          <Modal trigger="Ajouter un membre" triggerClassName="ax-btn ax-btn--primary" title="Ajouter un membre" subtitle="Un mot de passe provisoire est créé : transmettez-le de vive voix.">
+          <Modal
+            trigger="Ajouter un membre"
+            triggerClassName="ax-btn ax-btn--primary"
+            title="Ajouter un membre"
+            subtitle="Un mot de passe provisoire est créé : transmettez-le de vive voix."
+          >
             <ActionForm
               endpoint="/api/console/team/"
               back={BASE}
@@ -64,13 +69,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                 <input id="membre-last_name" name="last_name" className="ax-input" />
               </Field>
               <Field id="membre-email" label="Email" wide>
-                <input
-                  id="membre-email"
-                  name="email"
-                  type="email"
-                  className="ax-input"
-                  required
-                />
+                <input id="membre-email" name="email" type="email" className="ax-input" required />
               </Field>
               <Field id="membre-role" label="Rôle">
                 <select id="membre-role" name="role" className="ax-select" defaultValue="ops">

@@ -14,14 +14,31 @@ import { formatDate, formatRating, formatXOF } from "@/lib/format";
 
 const NBSP = " ";
 
-/** Grille de cartes ; vide → message dans une carte. */
-export function CardGrid({ empty, children }: { empty: string; children: ReactNode[] }) {
+/**
+ * Grille de cartes ; vide → message dans une carte. `clear` : adresse sans les filtres,
+ * proposée quand ce sont eux qui vident la liste.
+ */
+export function CardGrid({
+  empty,
+  clear,
+  children,
+}: {
+  empty: string;
+  clear?: string;
+  children: ReactNode[];
+}) {
   if (children.length === 0) {
     return (
-      <section className="ax-card">
-        <div className="ax-card__body">
-          <p className="jf-muted">{empty}</p>
-        </div>
+      <section className="ax-card jf-empty">
+        <span className="jf-kpi-icon" aria-hidden="true">
+          <i className={`bi ${clear ? "bi-funnel" : "bi-inbox"}`} />
+        </span>
+        <p className="jf-muted">{empty}</p>
+        {clear && (
+          <Link href={clear} className="ax-btn ax-btn--secondary ax-btn--sm" scroll={false}>
+            Effacer les filtres
+          </Link>
+        )}
       </section>
     );
   }

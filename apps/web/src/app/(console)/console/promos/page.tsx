@@ -33,7 +33,13 @@ export default async function CouponsPage({ searchParams }: { searchParams: Prom
         title="Codes promo"
         subtitle={`${plural(live, "code en cours", "codes en cours")}, ${formatXOF(given)} de remises accordées. Les remises sont financées par Jeflink${NBSP}: le pro touche toujours son devis complet.`}
         actions={
-          <Modal trigger="Nouveau code" triggerClassName="ax-btn ax-btn--primary" title="Nouveau code" subtitle="La remise est prise sur la commission de Jeflink." size="lg">
+          <Modal
+            trigger="Nouveau code"
+            triggerClassName="ax-btn ax-btn--primary"
+            title="Nouveau code"
+            subtitle="La remise est prise sur la commission de Jeflink."
+            size="lg"
+          >
             <CouponForm trades={trades} zones={zones} back={BASE} prefix="nouveau" />
           </Modal>
         }

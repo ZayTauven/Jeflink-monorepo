@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 
 import { CardGrid, ClientCard } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
-import { Flash, Pager, Tabs } from "@/console/kit";
+import { AutoFilters } from "@/console/filters";
+import { ActiveFilters, Flash, Pager, Tabs, withoutFilters, type FilterChip } from "@/console/kit";
+import { plural } from "@/console/text";
 import type { ClientRow, Page } from "@/console/types";
 import { PageHead } from "@/console/ui";
 
@@ -17,6 +19,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
     "clients/",
     { status: params.etat, q: params.q, page: params.page },
   );
+
+  const filters: FilterChip[] = [{ name: "q", label: "Recherche", value: params.q }];
 
   return (
     <>
@@ -36,7 +40,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           { value: "suspended", label: "Suspendus", count: data.facets.suspended },
         ]}
       />
-      <form className="jf-filters" method="get" action={BASE} role="search">
+      <AutoFilters
+        base={BASE}
+        label="Rechercher un client"
+        summary={data.count ? plural(data.count, "client", "clients") : "Aucun résultat"}
+      >
         {params.etat && <input type="hidden" name="etat" value={params.etat} />}
         <div className="ax-field">
           <label className="ax-field__label" htmlFor="q">
@@ -45,6 +53,8 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
           <input
             id="q"
             name="q"
+            type="search"
+            autoComplete="off"
             className="ax-input"
             defaultValue={params.q}
             placeholder="Nom, email, téléphone"
@@ -55,9 +65,13 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
             Rechercher
           </button>
         </div>
-      </form>
+      </AutoFilters>
+      <ActiveFilters base={BASE} params={params} filters={filters} />
 
-      <CardGrid empty="Aucun client trouvé.">
+      <CardGrid
+        empty={params.q ? "Aucun client ne correspond à cette recherche." : "Aucun client."}
+        clear={params.q ? withoutFilters(BASE, params, ["q"]) : undefined}
+      >
         {data.results.map((c) => (
           <ClientCard key={c.id} c={c} />
         ))}

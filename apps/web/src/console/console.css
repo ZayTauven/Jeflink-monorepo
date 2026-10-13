@@ -496,6 +496,69 @@
   display: flex;
   gap: 8px;
 }
+/* Filtres automatiques (JavaScript chargé) : le bouton « Filtrer » ne sert plus. */
+.jf-filters[data-auto] .jf-filters__actions {
+  display: none;
+}
+/* Pendant le chargement, la liste s'estompe un peu (lisible, mais plus cliquable). */
+.jf-filters ~ :is(.jf-cards, .jf-pager) {
+  transition: opacity var(--ax-motion-base) var(--ax-ease-standard);
+}
+.jf-filters[aria-busy="true"] ~ :is(.jf-cards, .jf-pager) {
+  opacity: 0.7;
+  pointer-events: none;
+}
+/* Filtres actifs : une puce par filtre, qui le retire */
+.jf-chips-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: calc(-1 * var(--ax-space-2)) 0 var(--ax-space-5);
+}
+.jf-chip {
+  gap: 8px;
+  min-block-size: 32px;
+  padding-inline: 12px 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ax-accent-700);
+  text-decoration: none;
+}
+.jf-chip .bi {
+  font-size: 0.7rem;
+}
+.jf-chip:hover {
+  background: var(--ax-accent-100);
+}
+[data-ax-theme="dark"] .jf-chip {
+  color: var(--ax-link);
+}
+[data-ax-theme="dark"] .jf-chip:hover {
+  background: rgb(245 86 8 / 0.24);
+}
+.jf-chips-bar__clear {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 32px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+@media (max-width: 576px) {
+  .jf-chip,
+  .jf-chips-bar__clear {
+    min-block-size: 44px;
+  }
+}
+/* Liste vide */
+.jf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 24px;
+  text-align: center;
+}
 .jf-checks {
   border: 0;
   margin: 0;

@@ -57,10 +57,7 @@ export function Toaster() {
   return (
     <div className="ax-toast-region ax-toast-region--bottom-end jf-toasts" aria-live="polite">
       {items.map((t) => (
-        <div
-          key={t.id}
-          className={`ax-toast ax-toast--${t.tone}${t.leaving ? " is-leaving" : ""}`}
-        >
+        <div key={t.id} className={`ax-toast ax-toast--${t.tone}${t.leaving ? " is-leaving" : ""}`}>
           <i
             className={`bi ${t.tone === "danger" ? "bi-exclamation-octagon-fill" : "bi-check-circle-fill"} ax-toast__icon`}
             aria-hidden="true"

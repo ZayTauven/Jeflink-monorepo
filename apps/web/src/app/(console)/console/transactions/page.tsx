@@ -3,7 +3,8 @@ import Link from "next/link";
 
 import { CardGrid } from "@/console/cards";
 import { consoleGet, qs, type Query } from "@/console/data";
-import { Pager, Tabs } from "@/console/kit";
+import { AutoFilters } from "@/console/filters";
+import { ActiveFilters, Pager, Tabs, withoutFilters, type FilterChip } from "@/console/kit";
 import { ago, plural } from "@/console/text";
 import type { Page, Totals, Transaction } from "@/console/types";
 import { Kpi, PageHead, Status } from "@/console/ui";
@@ -14,6 +15,12 @@ export const metadata: Metadata = { title: "Transactions" };
 
 const BASE = "/console/transactions";
 const NBSP = " ";
+
+const PERIODS: Record<string, string> = {
+  "7": "7 derniers jours",
+  "30": "30 derniers jours",
+  "90": "90 derniers jours",
+};
 
 export default async function TransactionsPage({ searchParams }: { searchParams: Promise<Query> }) {
   const params = await searchParams;
@@ -32,6 +39,21 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     getTrades(),
   ]);
   const t = data.totals;
+  const chips: FilterChip[] = [
+    { name: "jours", label: "Réservées depuis", value: PERIODS[params.jours ?? ""] },
+    {
+      name: "metier",
+      label: "Métier",
+      value: trades.find((tr) => tr.slug === params.metier)?.name,
+    },
+    {
+      name: "code",
+      label: "Code promo",
+      value: params.code === "*" ? "tous" : params.code?.toUpperCase(),
+    },
+    { name: "pro", label: "Pro", value: params.pro && `n° ${params.pro}` },
+  ];
+  const filtered = chips.some((x) => params[x.name]);
 
   return (
     <>
@@ -59,17 +81,25 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           { value: "booked", label: "En cours" },
         ]}
       />
-      <form className="jf-filters" method="get" action={BASE}>
+      <AutoFilters
+        base={BASE}
+        label="Filtrer les transactions"
+        summary={data.count ? plural(data.count, "mission", "missions") : "Aucun résultat"}
+      >
         {params.statut && <input type="hidden" name="statut" value={params.statut} />}
+        {/* Filtre posé par un lien (pas de champ visible) : gardé quand on change les autres. */}
+        {params.pro && <input type="hidden" name="pro" value={params.pro} />}
         <div className="ax-field">
           <label className="ax-field__label" htmlFor="jours">
             Réservées depuis
           </label>
           <select id="jours" name="jours" className="ax-select" defaultValue={params.jours ?? ""}>
             <option value="">Toujours</option>
-            <option value="7">7 derniers jours</option>
-            <option value="30">30 derniers jours</option>
-            <option value="90">90 derniers jours</option>
+            {Object.entries(PERIODS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
           </select>
         </div>
         {trades.length > 0 && (
@@ -112,11 +142,9 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
           <button type="submit" className="ax-btn ax-btn--primary">
             Filtrer
           </button>
-          <Link href={BASE} className="ax-btn ax-btn--ghost">
-            Effacer
-          </Link>
         </div>
-      </form>
+      </AutoFilters>
+      <ActiveFilters base={BASE} params={params} filters={chips} />
 
       <div className="ax-dash-grid mb-6">
         <Kpi
@@ -150,7 +178,20 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
         />
       </div>
 
-      <CardGrid empty="Aucune mission ne correspond à ces filtres.">
+      <CardGrid
+        empty={
+          filtered ? "Aucune mission ne correspond à ces filtres." : "Aucune mission réservée."
+        }
+        clear={
+          filtered
+            ? withoutFilters(
+                BASE,
+                params,
+                chips.map((x) => x.name),
+              )
+            : undefined
+        }
+      >
         {data.results.map((r) => (
           <article key={r.id} className="ax-card jf-item" aria-label={`Mission ${r.id}`}>
             <div className="jf-item__head">

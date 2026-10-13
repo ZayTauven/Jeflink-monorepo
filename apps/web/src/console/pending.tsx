@@ -1,16 +1,15 @@
 "use client";
 
 /**
- * Barre de progression fine en haut de l'écran pendant qu'un lien de la console charge
- * sa page (`useLinkStatus`). À placer dans un `<Link>`. Elle n'apparaît qu'après un court
- * délai (CSS) : rien ne clignote quand la page est déjà prête.
+ * Barre de progression fine en haut de l'écran pendant qu'une page de la console charge.
+ * `LinkPending` se place dans un `<Link>` (`useLinkStatus`) ; `TopBar` s'affiche tel quel
+ * (filtres automatiques). Elle n'apparaît qu'après un court délai (CSS) : rien ne clignote
+ * quand la page est déjà prête.
  */
 import { useLinkStatus } from "next/link";
 import { createPortal } from "react-dom";
 
-export function LinkPending() {
-  const { pending } = useLinkStatus();
-  if (!pending) return null;
+export function TopBar() {
   return createPortal(
     <div
       className="ax-progress ax-progress--indeterminate ax-progress--xs jf-topbar"
@@ -22,4 +21,9 @@ export function LinkPending() {
     </div>,
     document.body,
   );
+}
+
+export function LinkPending() {
+  const { pending } = useLinkStatus();
+  return pending ? <TopBar /> : null;
 }
