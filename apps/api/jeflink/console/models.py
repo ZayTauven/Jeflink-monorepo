@@ -15,6 +15,8 @@ class AuditLog(models.Model):
         USER_REACTIVATE = "user.reactivate", "Compte réactivé"
         REQUEST_CANCEL = "request.cancel", "Demande annulée par l'équipe"
         REQUEST_NOTE = "request.note", "Note interne modifiée"
+        CANCEL_CONFIRM = "request.cancel_confirm", "Annulation du client confirmée"
+        CANCEL_KEEP = "request.cancel_keep", "Mission maintenue après appel"
         REVIEW_HIDE = "review.hide", "Avis masqué"
         REVIEW_SHOW = "review.show", "Avis rétabli"
         CONTACT_HANDLE = "contact.handle", "Message traité"

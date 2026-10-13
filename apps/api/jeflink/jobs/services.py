@@ -1,6 +1,8 @@
 """Règles métier des demandes. Toute écriture passe par ici ; les vues ne font qu'appeler.
 
-Cycle : open → booked → done, avec annulation possible avant la fin.
+Cycle : open → booked → done, avec annulation possible avant la fin. Mission réservée annulée
+par le client : booked → cancelling (« Annulation demandée »), puis le support confirme
+(cancelled) ou maintient la mission (booked).
 """
 
 from django.db import transaction
@@ -11,6 +13,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from .models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
 
 S = ServiceRequest.Status
+R = ServiceRequest.CancelReason
 
 
 def platform():
@@ -27,7 +30,8 @@ def max_quotes() -> int:
 
 TRANSITIONS = {
     S.OPEN: {S.BOOKED, S.CANCELLED},
-    S.BOOKED: {S.DONE, S.CANCELLED},
+    S.BOOKED: {S.DONE, S.CANCELLING, S.CANCELLED},
+    S.CANCELLING: {S.BOOKED, S.CANCELLED},
     S.DONE: set(),
     S.CANCELLED: set(),
 }
@@ -35,6 +39,7 @@ TRANSITIONS = {
 NOTES = {
     S.OPEN: "Demande publiée",
     S.BOOKED: "Devis accepté, pro réservé",
+    S.CANCELLING: "Annulation demandée par le client",
     S.DONE: "Mission terminée",
     S.CANCELLED: "Demande annulée",
 }
@@ -169,11 +174,30 @@ def complete(actor, req: ServiceRequest) -> ServiceRequest:
 
 
 @transaction.atomic
-def cancel(actor, req: ServiceRequest) -> ServiceRequest:
+def cancel(actor, req: ServiceRequest, reason: str, note: str = "") -> ServiceRequest:
+    """Le client annule, avec un motif (« Autre » : précision obligatoire).
+
+    Demande ouverte : annulée tout de suite. Mission réservée : « Annulation demandée » ;
+    le support Jeflink rappelle le client, puis confirme l'annulation ou maintient la mission
+    (``confirm_cancel`` / ``keep_mission``). D'ici là, la mission reste dans les comptes.
+    """
     req = _locked(req)
     if actor.pk != req.client_id:
         raise PermissionDenied("Seul l'auteur de la demande peut l'annuler.")
-    return transition(req, S.CANCELLED, actor)
+    if reason not in R.values:
+        raise ValidationError({"reason": "Choisissez le motif de l'annulation."})
+    note = note.strip()
+    if reason == R.OTHER and not note:
+        raise ValidationError({"note": "Précisez le motif de l'annulation."})
+    if reason == R.PRO and req.status != S.BOOKED:
+        raise ValidationError({"reason": "Aucun pro n'est encore réservé sur cette demande."})
+    if req.status not in (S.OPEN, S.BOOKED):
+        raise ValidationError(f"Impossible d'annuler une demande « {req.get_status_display()} ».")
+    # Le motif reste sur la demande (client et équipe) ; l'historique, que voit aussi le pro,
+    # garde une note neutre.
+    req.cancel_reason, req.cancel_note = reason, note[:300]
+    req.save(update_fields=["cancel_reason", "cancel_note", "updated_at"])
+    return transition(req, S.CANCELLING if req.status == S.BOOKED else S.CANCELLED, actor)
 
 
 @transaction.atomic
@@ -200,10 +224,47 @@ def staff_cancel(staff, req: ServiceRequest, reason: str) -> ServiceRequest:
     if not reason:
         raise ValidationError("Indiquez le motif de l'annulation.")
     req = _locked(req)
-    if req.coupon_id:  # l'équipe annule : le client retrouve son code promo
+    _release_coupon(req)
+    return transition(req, S.CANCELLED, staff, f"Annulée par l'équipe : {reason}"[:200])
+
+
+def _release_coupon(req: ServiceRequest) -> None:
+    """Mission annulée : le client retrouve son code promo (il n'en a pas profité)."""
+    if req.coupon_id:
         req.coupon, req.discount = None, 0
         req.save(update_fields=["coupon", "discount"])
-    return transition(req, S.CANCELLED, staff, f"Annulée par l'équipe : {reason}"[:200])
+
+
+def _after_call(staff, req: ServiceRequest) -> ServiceRequest:
+    if not staff.is_staff:
+        raise PermissionDenied("Réservé à l'équipe Jeflink.")
+    req = _locked(req)
+    if req.status != S.CANCELLING:
+        raise ValidationError("Aucune annulation n'attend de confirmation sur cette mission.")
+    return req
+
+
+# Après l'appel du support. Notes neutres dans l'historique (le pro le voit) ; ce que le client
+# a dit reste dans le journal de la console (console.services).
+
+
+@transaction.atomic
+def confirm_cancel(staff, req: ServiceRequest) -> ServiceRequest:
+    """Le support a rappelé le client : l'annulation est confirmée, la mission sort des comptes."""
+    req = _after_call(staff, req)
+    _release_coupon(req)
+    return transition(req, S.CANCELLED, staff, "Annulation confirmée par Jeflink")
+
+
+@transaction.atomic
+def keep_mission(staff, req: ServiceRequest) -> ServiceRequest:
+    """Le support a rappelé le client : la mission est maintenue (le pro reste réservé)."""
+    req = _after_call(staff, req)
+    # La demande d'annulation est close : son motif ne doit pas resservir plus tard (fin de
+    # mission, annulation par l'équipe). Il reste dans le journal de la console.
+    req.cancel_reason, req.cancel_note = "", ""
+    req.save(update_fields=["cancel_reason", "cancel_note", "updated_at"])
+    return transition(req, S.BOOKED, staff, "Mission maintenue après l'appel de Jeflink")
 
 
 @transaction.atomic
@@ -214,7 +275,7 @@ def open_dispute(user, req: ServiceRequest, reason: str, description: str) -> Di
         raise PermissionDenied(
             "Seuls le client et le pro de la mission peuvent signaler un problème."
         )
-    if req.status not in (S.BOOKED, S.DONE):
+    if req.status not in (S.BOOKED, S.DONE):  # pas pendant une annulation demandée (en pause)
         raise ValidationError("On signale un problème sur une mission réservée ou terminée.")
     if reason not in Dispute.Reason.values:
         raise ValidationError("Motif inconnu.")
@@ -289,7 +350,8 @@ def coupon_discount(coupon: Coupon, amount: int) -> int:
 def coupon_uses(coupon: Coupon, client=None):
     """Utilisations comptées : toute réservation qui porte le code, même annulée ensuite par le
     client (sinon réserver, payer la remise sur place puis annuler rendrait le code
-    réutilisable). Seule une annulation par l'équipe libère le code (`staff_cancel`)."""
+    réutilisable). Seule une décision de l'équipe libère le code : `staff_cancel`, ou
+    `confirm_cancel` après l'appel du support (qui vérifie que le pro n'est pas passé)."""
     qs = coupon.requests.all()
     return qs.filter(client=client) if client is not None else qs
 

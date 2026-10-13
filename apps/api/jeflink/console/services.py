@@ -123,7 +123,37 @@ def reactivate_user(staff, user: User) -> User:
 # --- Demandes et litiges -------------------------------------------------------------------------
 
 
+def _call_details(req: ServiceRequest, note: str) -> str:
+    """Journal : le motif du client, puis ce qu'il a dit au téléphone (note obligatoire)."""
+    note = note.strip()
+    if not note:
+        raise ValidationError("Notez ce que le client a dit au téléphone.")
+    return f"{req.get_cancel_reason_display() or 'Motif inconnu'} — {note}"
+
+
+@transaction.atomic
+def confirm_cancel(staff, req: ServiceRequest, note: str) -> ServiceRequest:
+    """Le support a rappelé le client et confirme l'annulation (journalisée avec l'appel)."""
+    _staff(staff)
+    details = _call_details(req, note)
+    req = jobs.confirm_cancel(staff, req)
+    log(staff, A.CANCEL_CONFIRM, "request", req.pk, f"#{req.pk} {req.title}", details)
+    return req
+
+
+@transaction.atomic
+def keep_mission(staff, req: ServiceRequest, note: str) -> ServiceRequest:
+    """Le support a rappelé le client : la mission continue (journalisée avec l'appel)."""
+    _staff(staff)
+    details = _call_details(req, note)
+    req = jobs.keep_mission(staff, req)
+    log(staff, A.CANCEL_KEEP, "request", req.pk, f"#{req.pk} {req.title}", details)
+    return req
+
+
+@transaction.atomic
 def cancel_request(staff, req: ServiceRequest, reason: str) -> ServiceRequest:
+    _staff(staff)
     req = jobs.staff_cancel(staff, req, reason)
     log(staff, A.REQUEST_CANCEL, "request", req.pk, f"#{req.pk} {req.title}", reason.strip())
     return req

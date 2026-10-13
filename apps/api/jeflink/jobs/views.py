@@ -11,6 +11,7 @@ from . import services
 from .models import ServiceRequest
 from .serializers import (
     AcceptSerializer,
+    CancelSerializer,
     DisputeCreateSerializer,
     QuoteCreateSerializer,
     QuoteSerializer,
@@ -99,10 +100,14 @@ class RequestViewSet(
     def complete(self, request, pk=None):
         return Response(self._read(services.complete(request.user, self.get_object())))
 
-    @extend_schema(request=None, responses=RequestSerializer)
+    @extend_schema(request=CancelSerializer, responses=RequestSerializer)
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
-        return Response(self._read(services.cancel(request.user, self.get_object())))
+        """Le client annule avec un motif ; mission réservée : en attente du rappel du support."""
+        serializer = CancelSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        req = services.cancel(request.user, self.get_object(), **serializer.validated_data)
+        return Response(self._read(req))
 
     @extend_schema(request=ReviewCreateSerializer, responses={201: ReviewSerializer})
     @action(detail=True, methods=["post"])

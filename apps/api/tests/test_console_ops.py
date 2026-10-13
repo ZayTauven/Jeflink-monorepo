@@ -55,6 +55,54 @@ def world():
     }
 
 
+# --- Annulation demandée par le client --------------------------------------------------------
+
+
+def test_annulation_client_attend_le_rappel_du_support(world):
+    from jeflink.console import finance
+
+    client, pro = world["client"], world["pro"]
+    req = services.create_request(
+        client, trade=world["trade"], zone=world["zone"], title="Clim", description="…"
+    )
+    services.accept_quote(client, req, services.submit_quote(pro, req, 20000).pk)
+    awa, staff = as_user(client), as_user(world["staff"])
+    url = f"/api/requests/{req.pk}/cancel/"
+
+    # Motif obligatoire ; « Autre » demande une précision.
+    assert awa.post(url, {}, format="json").status_code == 400
+    assert awa.post(url, {"reason": "other"}, format="json").status_code == 400
+    res = awa.post(url, {"reason": "other_pro"}, format="json")
+    assert res.status_code == 200 and res.data["status"] == "cancelling"
+    assert res.data["cancellation"]["reason_label"] == "J'ai trouvé quelqu'un d'autre"
+
+    # Le pro voit le statut, ni le motif ni rien dans l'historique.
+    seen = as_user(pro).get(f"/api/requests/{req.pk}/").data
+    assert seen["status"] == "cancelling" and seen["cancellation"] is None
+    assert not any("autre" in e["note"] for e in seen["events"])
+    # En attendant : ni fin de mission, ni seconde annulation ; l'argent reste compté.
+    assert awa.post(f"/api/requests/{req.pk}/complete/").status_code == 400
+    assert awa.post(url, {"reason": "price"}, format="json").status_code == 400
+    assert finance.missions().filter(pk=req.pk).exists()
+
+    # Le support rappelle : la note de l'appel est obligatoire, la mission est maintenue.
+    keep = f"/api/console/requests/{req.pk}/keep/"
+    assert staff.post(keep, {"note": " "}, format="json").status_code == 400
+    res = staff.post(keep, {"note": "Client rassuré, le pro passe demain."}, format="json")
+    assert res.status_code == 200 and res.data["status"] == "booked"
+
+    # Nouvelle demande d'annulation, confirmée cette fois : la mission sort des comptes.
+    awa.post(url, {"reason": "price"}, format="json")
+    confirm = f"/api/console/requests/{req.pk}/confirm-cancel/"
+    res = staff.post(confirm, {"note": "Trop cher, il a vu un voisin."}, format="json")
+    assert res.status_code == 200 and res.data["status"] == "cancelled"
+    assert not finance.missions().filter(pk=req.pk).exists()
+    assert staff.post(confirm, {"note": "bis"}, format="json").status_code == 400
+    assert actions()[-2:] == ["request.cancel_keep", "request.cancel_confirm"]
+    # Réservée deux fois (avant et après le maintien), comptée une seule fois dans les chiffres.
+    assert finance.first_bookings().filter(request_id=req.pk).count() == 1
+
+
 # --- Tri des listes ----------------------------------------------------------------------------
 
 

@@ -199,6 +199,24 @@ class RequestConsoleViewSet(ConsoleViewSet):
     def _reload(self, pk):
         return self.retrieve(self.request, pk)
 
+    @extend_schema(request=s.CallNoteSerializer, responses=s.RequestDetailSerializer)
+    @action(detail=True, methods=["post"], url_path="confirm-cancel")
+    def confirm_cancel(self, request, pk=None):
+        """Annulation demandée par le client : confirmée après l'appel du support."""
+        return self._after_call(request, pk, services.confirm_cancel)
+
+    @extend_schema(request=s.CallNoteSerializer, responses=s.RequestDetailSerializer)
+    @action(detail=True, methods=["post"], url_path="keep")
+    def keep(self, request, pk=None):
+        """Annulation demandée par le client : la mission est maintenue après l'appel."""
+        return self._after_call(request, pk, services.keep_mission)
+
+    def _after_call(self, request, pk, decide):
+        data = s.CallNoteSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        decide(request.user, get_object_or_404(ServiceRequest, pk=pk), data.validated_data["note"])
+        return self._reload(pk)
+
     @extend_schema(request=s.ReasonSerializer, responses=s.RequestDetailSerializer)
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
@@ -936,7 +954,10 @@ class TransactionConsoleViewSet(ConsoleViewSet):
             self.param("pro"),
             self.param("coupon"),
         )
-        if (status := self.param("status")) in ("booked", "done"):
+        if (status := self.param("status")) == "booked":
+            # En cours : y compris une annulation demandée, pas encore confirmée.
+            qs = qs.filter(status__in=[S.BOOKED, S.CANCELLING])
+        elif status == "done":
             qs = qs.filter(status=status)
         return self.sort(qs, TRANSACTION_SORTS, TRANSACTION_SORTS["recent"])
 

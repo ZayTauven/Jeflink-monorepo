@@ -8,7 +8,7 @@ Net pour Jeflink = commission - remise. Solde d'un pro = ce net cumulé, corrig�
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
-from django.db.models import Count, F, Sum
+from django.db.models import Count, F, Min, Sum
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -18,6 +18,26 @@ from jeflink.jobs.models import RequestEvent, ServiceRequest
 from .models import ProSettlement
 
 S = ServiceRequest.Status
+
+
+# Réservée : en cours, en attente de confirmation d'annulation (toujours dans les comptes)
+# ou terminée.
+BOOKED_STATUSES = [S.BOOKED, S.CANCELLING, S.DONE]
+
+
+def first_bookings(start=None, end=None):
+    """Id des demandes réservées pour la première fois dans [start, end[. Une mission maintenue
+    après une annulation demandée repasse par « booked » : elle ne compte qu'une fois."""
+    qs = (
+        RequestEvent.objects.filter(status=S.BOOKED)
+        .values("request_id")
+        .annotate(at=Min("created_at"))
+    )
+    if start is not None:
+        qs = qs.filter(at__gte=start)
+    if end is not None:
+        qs = qs.filter(at__lt=end)
+    return qs
 
 
 def missions():
@@ -125,7 +145,7 @@ def monthly(months: int = 6) -> list[dict]:
             {
                 "month": f"{year:04d}-{month:02d}",
                 "requests": created.count(),
-                "booked": created.filter(status__in=[S.BOOKED, S.DONE]).count(),
+                "booked": created.filter(status__in=BOOKED_STATUSES).count(),
                 **totals(missions().filter(pk__in=done_ids)),
                 "coupons_used": missions().filter(pk__in=done_ids, coupon__isnull=False).count(),
             }
@@ -168,9 +188,7 @@ def by_trade(year: int, month: int) -> list[dict]:
 def period_filter(qs, days: int | None, trade: str = "", pro: str = "", coupon: str = ""):
     """Filtres de la page Transactions (sur la date de réservation)."""
     if days:
-        booked = RequestEvent.objects.filter(
-            status=S.BOOKED, created_at__gte=timezone.now() - timedelta(days=days)
-        ).values("request_id")
+        booked = first_bookings(timezone.now() - timedelta(days=days)).values("request_id")
         qs = qs.filter(pk__in=booked)
     if trade:
         qs = qs.filter(trade__slug=trade)

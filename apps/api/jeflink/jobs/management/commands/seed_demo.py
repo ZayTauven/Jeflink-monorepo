@@ -559,6 +559,18 @@ class Command(BaseCommand):
         services.complete(moussa, clean)
         services.leave_review(moussa, clean, 4, "Très bon travail, un peu de retard le matin.")
 
+        # Réservée puis annulée par le client : le support doit le rappeler (console).
+        tap = services.create_request(
+            moussa,
+            trade=trade["plomberie"],
+            zone=zone["mermoz"],
+            title="Robinet de la salle de bain qui goutte",
+            description="Le mitigeur du lavabo goutte même fermé.",
+        )
+        quote = services.submit_quote(pros["Mamadou"], tap, 10000, "Remplacement de la cartouche.")
+        services.accept_quote(moussa, tap, quote.pk)
+        services.cancel(moussa, tap, "other", "Mon cousin plombier passe finalement ce week-end.")
+
         # Missions terminées et notées par d'autres clients (avis de la page Contact).
         past = [
             (
@@ -721,7 +733,8 @@ class Command(BaseCommand):
                 continue  # Restée sans devis : alerte « demande sans réponse ».
             if roll > 0.88:
                 at = t0 + timedelta(hours=rng.uniform(2, 30))
-                services.cancel(client, req)
+                # Motif choisi sans tirage (le reste de l'historique ne bouge pas).
+                services.cancel(client, req, ("solved", "delay", "mistake")[req.pk % 3])
                 RequestEvent.objects.filter(request=req, status="cancelled").update(created_at=at)
                 ServiceRequest.objects.filter(pk=req.pk).update(updated_at=at)
                 continue

@@ -9,8 +9,20 @@ class ServiceRequest(models.Model):
     class Status(models.TextChoices):
         OPEN = "open", "En attente de devis"
         BOOKED = "booked", "Pro réservé"
+        # Le client a annulé une mission réservée : le support le rappelle, puis confirme
+        # l'annulation ou maintient la mission. L'argent reste compté d'ici là.
+        CANCELLING = "cancelling", "Annulation demandée"
         DONE = "done", "Terminée"
         CANCELLED = "cancelled", "Annulée"
+
+    class CancelReason(models.TextChoices):
+        SOLVED = "solved", "Le problème s'est réglé"
+        OTHER_PRO = "other_pro", "J'ai trouvé quelqu'un d'autre"
+        PRICE = "price", "Le prix ne me convient pas"
+        DELAY = "delay", "Trop d'attente"
+        PRO = "pro", "Un souci avec le pro"
+        MISTAKE = "mistake", "Demande faite par erreur"
+        OTHER = "other", "Autre"
 
     client = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="requests"
@@ -48,6 +60,11 @@ class ServiceRequest(models.Model):
     staff_note = models.TextField(
         "note interne", blank=True, help_text="Visible de l'équipe Jeflink seulement."
     )
+    # Motif donné par le client en annulant (dernière annulation demandée).
+    cancel_reason = models.CharField(
+        "motif d'annulation", max_length=12, choices=CancelReason.choices, blank=True
+    )
+    cancel_note = models.CharField("précision du client", max_length=300, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

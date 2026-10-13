@@ -122,7 +122,11 @@ def test_trois_devis_maximum(catalog):
 def test_transition_interdite(catalog):
     awa, _ = register(email="awa@example.com")
     req_id = publish(awa)
-    assert awa.post(f"/api/requests/{req_id}/cancel/").data["status"] == "cancelled"
+    # Annuler demande un motif ; une demande sans pro réservé est annulée tout de suite.
+    assert awa.post(f"/api/requests/{req_id}/cancel/").status_code == 400
+    res = awa.post(f"/api/requests/{req_id}/cancel/", {"reason": "mistake"}, format="json")
+    assert res.data["status"] == "cancelled"
+    assert res.data["cancellation"]["reason_label"] == "Demande faite par erreur"
     assert awa.post(f"/api/requests/{req_id}/complete/").status_code == 400
 
 

@@ -88,6 +88,7 @@ class RequestSerializer(serializers.ModelSerializer):
     dispute = serializers.SerializerMethodField()
     money = serializers.SerializerMethodField()
     jef = serializers.SerializerMethodField()
+    cancellation = serializers.SerializerMethodField()
     actions = serializers.SerializerMethodField()
 
     class Meta:
@@ -114,6 +115,7 @@ class RequestSerializer(serializers.ModelSerializer):
             "dispute",
             "money",
             "jef",
+            "cancellation",
             "actions",
             "created_at",
         ]
@@ -133,7 +135,7 @@ class RequestSerializer(serializers.ModelSerializer):
 
     def get_contact_phone(self, req) -> str | None:
         """Le numéro de l'autre partie n'apparaît qu'une fois la mission réservée."""
-        if req.status not in (S.BOOKED, S.DONE):
+        if req.status not in (S.BOOKED, S.CANCELLING, S.DONE):
             return None
         user = self._viewer
         if user.pk == req.client_id and req.pro:
@@ -184,6 +186,18 @@ class RequestSerializer(serializers.ModelSerializer):
             for key in ("pro_summary", "pro_details", "pro_bring"):
                 out[key] = brief.get(key, [] if key != "pro_summary" else "")
         return out
+
+    def get_cancellation(self, req) -> dict | None:
+        """Motif de l'annulation, pour le client qui l'a donné (le pro voit seulement le statut)."""
+        if not req.cancel_reason or req.status not in (S.CANCELLING, S.CANCELLED):
+            return None
+        if self._viewer.pk != req.client_id and not self._viewer.is_staff:
+            return None
+        return {
+            "reason": req.cancel_reason,
+            "reason_label": req.get_cancel_reason_display(),
+            "note": req.cancel_note,
+        }
 
     def _dispute(self, req):
         return req.disputes.order_by("-created_at").first()
@@ -261,6 +275,11 @@ class AcceptSerializer(serializers.Serializer):
 class DisputeCreateSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=Dispute.Reason.choices)
     description = serializers.CharField(max_length=2000)
+
+
+class CancelSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=ServiceRequest.CancelReason.choices)
+    note = serializers.CharField(required=False, allow_blank=True, max_length=300, default="")
 
 
 class ReviewCreateSerializer(serializers.Serializer):

@@ -134,8 +134,9 @@ def test_code_limite_au_metier_et_aux_utilisations(world):
     first = booked(world, 20000, "CLIM20")
     with pytest.raises(Exception, match="déjà utilisé"):
         booked(world, 20000, "CLIM20")
-    # Le client annule après avoir réservé : le code reste consommé (pas de remise à répétition).
-    services.cancel(world["client"], first)
+    # Le client demande l'annulation après avoir réservé : en attendant le rappel du support,
+    # le code reste consommé (pas de remise à répétition).
+    services.cancel(world["client"], first, "solved")
     with pytest.raises(Exception, match="déjà utilisé"):
         booked(world, 20000, "CLIM20")
     # Seule une annulation par l'équipe le libère.
@@ -294,3 +295,72 @@ def test_rapport_mensuel(world):
     assert data["months"][0]["count"] == 1 and data["months"][0]["commission"] == 2000
     assert data["by_trade"][0]["trade"] == "Froid et climatisation"
     assert as_user(world["finance"]).get("/api/console/reports/?month=abc").status_code == 400
+
+
+# --- Annulation demandée par le client : droits, code promo, motif ------------------------------
+
+
+def test_seule_l_equipe_operations_decide_apres_l_appel(world):
+    req = booked(world)
+    assert (
+        as_user(world["pro"])
+        .post(f"/api/requests/{req.pk}/cancel/", {"reason": "price"}, format="json")
+        .status_code
+        == 403
+    )
+    other = User.objects.create_user("autre@example.com", PASSWORD)
+    assert (
+        as_user(other)
+        .post(f"/api/requests/{req.pk}/cancel/", {"reason": "price"}, format="json")
+        .status_code
+        == 404
+    )
+    services.cancel(world["client"], req, "price")
+    for role in ("marketing", "finance"):
+        for action in ("confirm-cancel", "keep"):
+            res = as_user(world[role]).post(
+                f"/api/console/requests/{req.pk}/{action}/", {"note": "Appelé."}, format="json"
+            )
+            assert res.status_code == 403
+    too_long = {"note": "x" * 241}
+    res = as_user(world["ops"]).post(
+        f"/api/console/requests/{req.pk}/keep/", too_long, format="json"
+    )
+    assert res.status_code == 400
+
+
+def test_motif_pro_seulement_si_un_pro_est_reserve(world):
+    req = services.create_request(
+        world["client"], trade=world["trade"], zone=world["zone"], title="Clim", description="…"
+    )
+    res = as_user(world["client"]).post(
+        f"/api/requests/{req.pk}/cancel/", {"reason": "pro"}, format="json"
+    )
+    assert res.status_code == 400
+
+
+def test_code_rendu_a_la_confirmation_seulement(world):
+    coupon(max_uses_per_client=1)
+    req = booked(world, 20000, "CLIM20")
+    services.cancel(world["client"], req, "solved")
+    req.refresh_from_db()
+    assert req.coupon_id is not None  # en attente du rappel : le code reste consommé
+    as_user(world["ops"]).post(
+        f"/api/console/requests/{req.pk}/confirm-cancel/", {"note": "Réglé seul."}, format="json"
+    )
+    req.refresh_from_db()
+    assert (req.status, req.coupon_id, req.discount) == ("cancelled", None, 0)
+    assert booked(world, 20000, "CLIM20").discount > 0  # le client peut s'en resservir
+
+
+def test_motif_efface_quand_la_mission_est_maintenue(world):
+    req = booked(world)
+    services.cancel(world["client"], req, "pro")
+    as_user(world["ops"]).post(
+        f"/api/console/requests/{req.pk}/keep/", {"note": "Malentendu."}, format="json"
+    )
+    services.staff_cancel(world["super"], req, "Client injoignable")
+    seen = as_user(world["client"]).get(f"/api/requests/{req.pk}/").data
+    assert seen["status"] == "cancelled" and seen["cancellation"] is None
+    log = AuditLog.objects.filter(action="request.cancel_keep").get()
+    assert log.details.startswith("Un souci avec le pro")

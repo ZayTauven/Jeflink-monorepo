@@ -191,6 +191,7 @@ class RequestDetailSerializer(RequestRowSerializer):
     disputes = DisputeSerializer(many=True)
     can_cancel = serializers.SerializerMethodField()
     can_open_dispute = serializers.SerializerMethodField()
+    cancellation = serializers.SerializerMethodField()
 
     class Meta(RequestRowSerializer.Meta):
         fields = [
@@ -205,6 +206,7 @@ class RequestDetailSerializer(RequestRowSerializer):
             "staff_note",
             "can_cancel",
             "can_open_dispute",
+            "cancellation",
         ]
 
     def get_client(self, req) -> dict:
@@ -218,7 +220,22 @@ class RequestDetailSerializer(RequestRowSerializer):
         return None if review is None else ReviewRowSerializer(review).data
 
     def get_can_cancel(self, req) -> bool:
-        return req.status in (ServiceRequest.Status.OPEN, ServiceRequest.Status.BOOKED)
+        return req.status in (
+            ServiceRequest.Status.OPEN,
+            ServiceRequest.Status.BOOKED,
+            ServiceRequest.Status.CANCELLING,
+        )
+
+    def get_cancellation(self, req) -> dict | None:
+        """Motif donné par le client en annulant ; `awaiting_call` : le support doit le rappeler."""
+        if not req.cancel_reason:
+            return None
+        return {
+            "reason": req.cancel_reason,
+            "reason_label": req.get_cancel_reason_display(),
+            "note": req.cancel_note,
+            "awaiting_call": req.status == ServiceRequest.Status.CANCELLING,
+        }
 
     def get_can_open_dispute(self, req) -> bool:
         return req.status in (
@@ -351,6 +368,12 @@ class ReasonSerializer(serializers.Serializer):
 
 class NoteSerializer(serializers.Serializer):
     note = serializers.CharField(max_length=2000, allow_blank=True)
+
+
+class CallNoteSerializer(serializers.Serializer):
+    """Ce que le client a dit au téléphone : tient dans le journal avec son motif (300)."""
+
+    note = serializers.CharField(max_length=240, allow_blank=True)
 
 
 class DisputeOpenSerializer(serializers.Serializer):

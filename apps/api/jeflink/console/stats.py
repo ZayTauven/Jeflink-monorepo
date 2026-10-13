@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
 from jeflink.catalog.models import Trade, Zone
+from jeflink.console.finance import BOOKED_STATUSES, first_bookings
 from jeflink.console.models import PlatformSettings
 from jeflink.jobs.models import Dispute, Quote, RequestEvent, Review, ServiceRequest
 
@@ -26,9 +27,7 @@ def stale_after() -> timedelta:
 
 def _booked(start, end) -> dict[int, int]:
     """{id de demande: montant du devis accepté} pour les réservations faites dans [start, end[."""
-    ids = RequestEvent.objects.filter(
-        status=S.BOOKED, created_at__gte=start, created_at__lt=end
-    ).values("request_id")
+    ids = first_bookings(start, end).values("request_id")
     return dict(
         Quote.objects.filter(request_id__in=ids, status=Quote.Status.ACCEPTED).values_list(
             "request_id", "amount"
@@ -39,7 +38,7 @@ def _booked(start, end) -> dict[int, int]:
 def _period(start, end) -> dict:
     created = ServiceRequest.objects.filter(created_at__gte=start, created_at__lt=end)
     total = created.count()
-    booked = created.filter(status__in=[S.BOOKED, S.DONE]).count()
+    booked = created.filter(status__in=BOOKED_STATUSES).count()
     hours = [
         (r.first_quote - r.created_at).total_seconds() / 3600
         for r in created.annotate(first_quote=Min("quotes__created_at")).exclude(first_quote=None)
@@ -90,10 +89,7 @@ def overview(days: int = 30) -> dict:
         )
     )
     booked_by_day = Counter(
-        timezone.localdate(d)
-        for d in RequestEvent.objects.filter(status=S.BOOKED, created_at__gte=start).values_list(
-            "created_at", flat=True
-        )
+        timezone.localdate(d) for d in first_bookings(start).values_list("at", flat=True)
     )
     daily = [
         {
@@ -197,6 +193,7 @@ def overview(days: int = 30) -> dict:
             "clients": User.objects.filter(role=User.Role.CLIENT, is_staff=False).count(),
             "open_requests": ServiceRequest.objects.filter(status=S.OPEN).count(),
             "stale_requests": stale.count(),
+            "cancel_requests": ServiceRequest.objects.filter(status=S.CANCELLING).count(),
             "contact_unhandled": ContactMessage.objects.filter(is_handled=False).count(),
         },
         "status_breakdown": [
@@ -248,6 +245,7 @@ def badges() -> dict:
     return {
         "pros_pending": _pending_pros().count(),
         "stale_requests": _stale_requests(timezone.now()).count(),
+        "cancel_requests": ServiceRequest.objects.filter(status=S.CANCELLING).count(),
         "contact_unhandled": ContactMessage.objects.filter(is_handled=False).count(),
         "disputes_active": Dispute.objects.filter(
             status__in=[Dispute.Status.OPEN, Dispute.Status.INVESTIGATING]
