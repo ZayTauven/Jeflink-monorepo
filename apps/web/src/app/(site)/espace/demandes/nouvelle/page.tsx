@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { AccountHero, ErrorAlert } from "@/components/account";
 import { ActionForm } from "@/components/action-form";
 import { CampaignBanner } from "@/components/campaign-banner";
+import { JefAssistant } from "@/components/jef-assistant";
 import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { getSite, getTrades, getZones, requireMe } from "@/lib/api";
@@ -58,8 +59,10 @@ export default async function NewRequestPage({
             ) : (
               <>
                 <CampaignBanner placement="request" />
+                {site.jef_enabled && <JefAssistant />}
                 <ActionForm action="/act/requests" className="jf-form" labels={LABELS}>
                   <ErrorAlert message={erreur} />
+                  <input type="hidden" id="jef_session" name="jef_session" />
                   <div className="row">
                     <div className="col-md-6 mb-20px">
                       <label htmlFor="trade">Métier</label>

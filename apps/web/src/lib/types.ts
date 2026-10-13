@@ -67,6 +67,7 @@ export type SiteSettings = {
   support_whatsapp: string;
   support_email: string;
   max_quotes: number;
+  jef_enabled: boolean;
 };
 
 /** Bandeau de campagne (console › Campagnes). */
@@ -146,6 +147,12 @@ export type ServiceRequest = {
   events: { status: RequestStatus; status_label: string; note: string; created_at: string }[];
   dispute: Dispute | null;
   money: Money | null;
+  /** Fiche Jef selon le lecteur : conseils pour le client, fiche pour les pros. */
+  jef:
+    | ({ mode: JefMode; urgent: boolean } & Partial<
+        Pick<JefBrief, "client_tips" | "pro_summary" | "pro_details" | "pro_bring">
+      >)
+    | null;
   actions: RequestAction[];
   created_at: string;
 };
@@ -158,4 +165,31 @@ export type PublicReview = {
   pro: string;
   trade: string;
   created_at: string;
+};
+
+/** Jef, l'assistant de réservation : mode IA (Claude) ou questions guidées (sans clé). */
+export type JefMode = "ai" | "guide";
+
+export type JefQuestion = { id: string; question: string; choices: string[] };
+
+/** Fiche préparée par Jef : la demande à publier et ce que le pro doit savoir. */
+export type JefBrief = {
+  title: string;
+  description: string;
+  urgent: boolean;
+  client_tips: string[];
+  pro_summary: string;
+  pro_details: string[];
+  pro_bring: string[];
+};
+
+export type JefSession = {
+  id: number;
+  mode: JefMode;
+  trade: { slug: string; name: string } | null;
+  questions: JefQuestion[];
+  /** Gestes de sécurité à montrer tout de suite (vide sans danger). */
+  safety: string[];
+  answers: Record<string, string>;
+  brief: JefBrief | null;
 };

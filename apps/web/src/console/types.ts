@@ -268,8 +268,37 @@ export type PlatformSettings = {
   closed_message: string;
   support_whatsapp: string;
   support_email: string;
+  jef_enabled: boolean;
   updated_at: string;
   updated_by: Ref | null;
+};
+
+/** Un échange avec Jef, relu par l'équipe (rubrique Jef). */
+export type JefExchange = {
+  id: number;
+  client: Ref | null;
+  trade: string;
+  mode: "ai" | "guide";
+  mode_label: string;
+  text: string;
+  questions: { id: string; question: string; choices: string[] }[];
+  answers: Record<string, string>;
+  brief: {
+    title: string;
+    description: string;
+    urgent: boolean;
+    client_tips: string[];
+    pro_summary: string;
+    pro_details: string[];
+    pro_bring: string[];
+  } | null;
+  request: { id: number; title: string; status: string } | null;
+  created_at: string;
+};
+
+export type JefOverview = {
+  status: { enabled: boolean; ai: boolean; model: string; daily_limit: number };
+  stats: { sessions: number; briefs: number; published: number; ai: number; requests: number };
 };
 
 export type StaffRole = "super" | "ops" | "marketing" | "finance";

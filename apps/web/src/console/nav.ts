@@ -178,7 +178,6 @@ export const NAV: NavSection[] = [
         href: "/console/jef",
         label: "Jef",
         icon: "bi-stars",
-        lot: 4,
         summary:
           "L'assistant qui aide le client à décrire son souci et transmet une fiche claire au pro : réglages, conversations, indicateurs.",
         keywords: ["ia", "assistant", "booking"],

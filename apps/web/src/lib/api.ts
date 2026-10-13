@@ -122,6 +122,7 @@ export async function getSite(): Promise<SiteSettings> {
     support_whatsapp: "",
     support_email: "",
     max_quotes: 3,
+    jef_enabled: false,
   };
 }
 

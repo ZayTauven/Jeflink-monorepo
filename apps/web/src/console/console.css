@@ -989,3 +989,26 @@
 .jf-sticky-save .ax-btn {
   box-shadow: var(--ax-shadow-md);
 }
+/* Jef : ce que le client a écrit, puis questions et réponses */
+.jf-quote {
+  margin: 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--ax-accent-500, #f55608);
+  color: var(--ax-text-strong);
+  white-space: pre-line;
+}
+.jf-qa {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.jf-qa dt {
+  font-size: 0.8125rem;
+  color: var(--ax-text-muted);
+  font-weight: 400;
+}
+.jf-qa dd {
+  margin: 0;
+  color: var(--ax-text-strong);
+  font-weight: 500;
+}

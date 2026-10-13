@@ -92,7 +92,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </div>
           </Card>
 
-          <Card className="ax-col--12" title="Support" eyebrow="Contact des clients et des pros">
+          <Card className="ax-col--6" title="Jef" eyebrow="Assistant de réservation">
+            <div className="jf-form">
+              <Check
+                name="jef_enabled"
+                label="Proposer Jef aux clients sur le formulaire de demande"
+                checked={s.jef_enabled}
+                hint="Jef aide à décrire le souci et prépare une fiche pour le pro. Décocher le retire du site ; le formulaire reste disponible."
+              />
+            </div>
+          </Card>
+
+          <Card className="ax-col--6" title="Support" eyebrow="Contact des clients et des pros">
             <div className="jf-form">
               <Field
                 id="whatsapp"

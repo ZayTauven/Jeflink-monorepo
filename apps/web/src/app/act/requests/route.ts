@@ -19,6 +19,9 @@ export async function POST(req: NextRequest) {
       landmark: text(form, "landmark"),
       preferred_date: text(form, "preferred_date") || null,
       is_urgent: form.get("is_urgent") === "on",
+      jef_session: /^\d{1,9}$/.test(text(form, "jef_session"))
+        ? Number(text(form, "jef_session"))
+        : null,
     },
   });
   if (!res.ok) return failure(req, res, "/espace/demandes/nouvelle");

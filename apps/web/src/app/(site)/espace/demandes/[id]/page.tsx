@@ -107,7 +107,8 @@ export default async function RequestPage({ params, searchParams }: Props) {
             </li>
           )}
         </ul>
-        <p className="mb-25px">{req.description}</p>
+        <p className="mb-25px jf-pre-line">{req.description}</p>
+        {req.jef && <JefCard jef={req.jef} isClient={isClient} description={req.description} />}
         {req.pro && (
           <div className="border-top border-color-transparent-dark-light pt-20px mb-25px w-100">
             <span className="d-block fs-14 text-uppercase fw-500 opacity-7 mb-5px">
@@ -353,6 +354,76 @@ function MoneyCard({
             : "L'équipe Jeflink vous contacte après la mission pour régler la différence, par Wave, Orange Money ou en espèces."}
         </p>
       )}
+    </div>
+  );
+}
+
+/** Fiche préparée avec Jef : pour le pro, l'essentiel et le matériel ; pour le client, les conseils. */
+function JefCard({
+  jef,
+  isClient,
+  description,
+}: {
+  jef: NonNullable<ServiceRequest["jef"]>;
+  isClient: boolean;
+  description: string;
+}) {
+  const tips = isClient ? (jef.client_tips ?? []) : [];
+  const bring = jef.pro_bring ?? [];
+  // Les réponses déjà reprises dans la description (mode guidé) ne sont pas répétées.
+  const details = (jef.pro_details ?? []).filter((line) => !description.includes(line));
+  if (isClient && tips.length === 0) return null;
+  return (
+    <div className="jf-jef border-radius-20px p-25px mb-25px w-100">
+      <div className="d-flex align-items-center gap-2 mb-15px">
+        <span className="jf-jef__badge" aria-hidden="true">
+          <i className="bi bi-stars" />
+        </span>
+        <h2 className="h6 alt-font fw-500 mb-0">
+          {isClient ? "Les conseils de Jef" : "Fiche préparée avec Jef"}
+        </h2>
+      </div>
+      {isClient ? (
+        <>
+          <span className="d-block fw-500 text-dark-gray mb-5px">En attendant le pro&nbsp;:</span>
+          <ul className="jf-jef-list">
+            {tips.map((tip) => (
+              <li key={tip}>{tip}</li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <>
+          {jef.urgent && (
+            <span className="status-pill status-open mb-10px d-inline-block">Urgent</span>
+          )}
+          {jef.pro_summary && <p className="fw-500 text-dark-gray mb-10px">{jef.pro_summary}</p>}
+          {details.length > 0 && (
+            <ul className="jf-jef-list">
+              {details.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          )}
+          {bring.length > 0 && (
+            <>
+              <span className="d-block fw-500 text-dark-gray mb-5px">
+                À prévoir (suggestion de Jef, à confirmer sur place)&nbsp;:
+              </span>
+              <ul className="jf-jef-list">
+                {bring.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      )}
+      <p className="jf-note mb-0">
+        {jef.mode === "ai"
+          ? "Préparé avec Jef (assistant IA) à partir des réponses du client."
+          : "Préparé à partir des réponses du client aux questions de Jef."}
+      </p>
     </div>
   );
 }
