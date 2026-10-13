@@ -3,7 +3,15 @@ import type { Metadata } from "next";
 import { CardGrid, RequestCard } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { AutoFilters } from "@/console/filters";
-import { ActiveFilters, Flash, Pager, Tabs, withoutFilters, type FilterChip } from "@/console/kit";
+import {
+  ActiveFilters,
+  Flash,
+  Pager,
+  SortField,
+  Tabs,
+  withoutFilters,
+  type FilterChip,
+} from "@/console/kit";
 import { plural } from "@/console/text";
 import type { Page, RequestRow } from "@/console/types";
 import { PageHead } from "@/console/ui";
@@ -24,6 +32,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
       urgent: params.urgent,
       stale: params.sans_devis,
       dispute: params.litige,
+      sort: params.tri,
       page: params.page,
     }),
     getTrades(),
@@ -122,6 +131,14 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
             ))}
           </select>
         </div>
+        <SortField
+          value={params.tri}
+          options={[
+            ["", "Plus récentes"],
+            ["oldest", "Plus anciennes"],
+            ["amount", "Montant le plus élevé"],
+          ]}
+        />
         <fieldset className="jf-checks">
           <legend className="ax-field__label">Afficher seulement</legend>
           <label>

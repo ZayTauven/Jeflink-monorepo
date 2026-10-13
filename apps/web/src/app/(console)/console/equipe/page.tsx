@@ -54,7 +54,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
             trigger="Ajouter un membre"
             triggerClassName="ax-btn ax-btn--primary"
             title="Ajouter un membre"
-            subtitle="Un mot de passe provisoire est créé : transmettez-le de vive voix."
+            subtitle="Choisissez un mot de passe provisoire, à lui transmettre de vive voix."
           >
             <ActionForm
               endpoint="/api/console/team/"

@@ -3,7 +3,15 @@ import type { Metadata } from "next";
 import { CardGrid, ProCard } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { AutoFilters } from "@/console/filters";
-import { ActiveFilters, Flash, Pager, Tabs, withoutFilters, type FilterChip } from "@/console/kit";
+import {
+  ActiveFilters,
+  Flash,
+  Pager,
+  SortField,
+  Tabs,
+  withoutFilters,
+  type FilterChip,
+} from "@/console/kit";
 import { plural } from "@/console/text";
 import type { Page, ProRow } from "@/console/types";
 import { PageHead } from "@/console/ui";
@@ -24,6 +32,7 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
         status: etat === "tous" ? undefined : etat,
         trade: params.metier,
         q: params.q,
+        sort: params.tri,
         page: params.page,
       },
     ),
@@ -96,6 +105,15 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
             ))}
           </select>
         </div>
+        <SortField
+          value={params.tri}
+          options={[
+            ["", pending ? "Inscrits depuis le plus longtemps" : "Nom (A → Z)"],
+            ...(pending ? ([["name", "Nom (A → Z)"]] as [string, string][]) : []),
+            ["missions", "Plus de missions"],
+            ["recent", "Inscrits récemment"],
+          ]}
+        />
         <div className="jf-filters__actions">
           <button type="submit" className="ax-btn ax-btn--primary">
             Filtrer

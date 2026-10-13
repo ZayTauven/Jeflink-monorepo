@@ -6,7 +6,8 @@
  *
  * Le contenu (souvent un formulaire `ActionForm`) est rendu côté serveur. Après l'envoi,
  * l'action revient sur la page avec un message : la fenêtre se referme et le toast prend
- * le relais. (Next remonte alors la page : en cas d'erreur, la saisie est à refaire.)
+ * le relais. En cas d'erreur, `ActionForm` l'affiche dans le formulaire : la fenêtre reste
+ * ouverte, la saisie intacte.
  * Sans JavaScript, le bouton reste un `<details>` qui déplie le contenu sous lui.
  */
 import { usePathname, useSearchParams } from "next/navigation";

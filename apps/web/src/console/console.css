@@ -1077,6 +1077,14 @@
   }
 }
 
+/* Erreur renvoyée par l'API, affichée dans le formulaire (la saisie reste). */
+.jf-form-error {
+  margin: 0 0 12px;
+}
+:is(.jf-form, .jf-dialog__form) > .jf-form-error {
+  margin: 0;
+}
+
 /* Fenêtres modales : <dialog> natif, fond voilé et flouté (seul flou de la console). */
 .jf-modal-host {
   display: contents;

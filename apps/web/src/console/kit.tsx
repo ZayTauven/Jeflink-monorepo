@@ -5,7 +5,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { consoleAction } from "./actions";
+import { ActionForm } from "./action-form";
 import { qs, type Query } from "./data";
 import { CloseModal, Modal } from "./modal";
 import { LinkPending } from "./pending";
@@ -138,6 +138,29 @@ export function ActiveFilters({
   );
 }
 
+/**
+ * « Trier par » d'une liste (paramètre `tri`, transmis à l'API en `sort`). La première
+ * option, vide, est le tri par défaut ; le tri n'est pas un filtre (pas de puce).
+ */
+export function SortField({ value, options }: { value?: string; options: [string, string][] }) {
+  return (
+    <div className="ax-field">
+      <label className="ax-field__label" htmlFor="tri">
+        Trier par
+      </label>
+      <select id="tri" name="tri" className="ax-select" defaultValue={value ?? ""}>
+        {options.map(([v, l]) => (
+          <option key={v} value={v}>
+            {l}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+export { ActionForm };
+
 const PAGE_SIZE = 20;
 
 export function Pager({ count, base, params }: { count: number; base: string; params: Query }) {
@@ -216,30 +239,6 @@ export function Stars({ rating }: { rating: number }) {
       {"★".repeat(rating)}
       <span className="jf-stars__off">{"★".repeat(5 - rating)}</span>
     </span>
-  );
-}
-
-/** Formulaire d'action de la console (POST via l'action serveur, retour sur `back`). */
-export function ActionForm({
-  endpoint,
-  back,
-  ok,
-  className,
-  children,
-}: {
-  endpoint: string;
-  back: string;
-  ok: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <form action={consoleAction} className={className}>
-      <input type="hidden" name="_endpoint" value={endpoint} />
-      <input type="hidden" name="_back" value={back} />
-      <input type="hidden" name="_ok" value={ok} />
-      {children}
-    </form>
   );
 }
 

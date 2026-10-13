@@ -9,7 +9,7 @@ import { API_URL, getMe, getToken } from "@/lib/api";
 const EXPORTS: Record<string, { path: string; params: string[] }> = {
   transactions: {
     path: "/api/console/transactions/export/",
-    params: ["days", "trade", "pro", "coupon", "status"],
+    params: ["days", "trade", "pro", "coupon", "status", "sort"],
   },
   rapports: { path: "/api/console/reports/export/", params: [] },
 };

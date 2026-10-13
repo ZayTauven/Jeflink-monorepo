@@ -4,7 +4,14 @@ import Link from "next/link";
 import { CardGrid } from "@/console/cards";
 import { consoleGet, qs, type Query } from "@/console/data";
 import { AutoFilters } from "@/console/filters";
-import { ActiveFilters, Pager, Tabs, withoutFilters, type FilterChip } from "@/console/kit";
+import {
+  ActiveFilters,
+  Pager,
+  SortField,
+  Tabs,
+  withoutFilters,
+  type FilterChip,
+} from "@/console/kit";
 import { ago, plural } from "@/console/text";
 import type { Page, Totals, Transaction } from "@/console/types";
 import { Kpi, PageHead, Status } from "@/console/ui";
@@ -30,6 +37,7 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
     trade: params.metier,
     coupon: params.code,
     pro: params.pro,
+    sort: params.tri,
   };
   const [data, trades] = await Promise.all([
     consoleGet<Page<Transaction> & { totals: Totals }>(BASE, "transactions/", {
@@ -138,6 +146,13 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
             «{NBSP}*{NBSP}» pour toutes les missions avec un code.
           </p>
         </div>
+        <SortField
+          value={params.tri}
+          options={[
+            ["", "Plus récentes"],
+            ["amount", "Montant le plus élevé"],
+          ]}
+        />
         <div className="jf-filters__actions">
           <button type="submit" className="ax-btn ax-btn--primary">
             Filtrer

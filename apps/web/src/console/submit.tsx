@@ -1,7 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
+
+import { Sending } from "./action-form";
 
 /**
  * Bouton d'envoi : pendant l'envoi, un spinner remplace le libellé (sans changer la largeur
@@ -14,7 +16,9 @@ export function Submit({
   children: ReactNode;
   className?: string;
 }) {
-  const { pending } = useFormStatus();
+  const status = useFormStatus();
+  const sending = useContext(Sending);
+  const pending = status.pending || sending;
   return (
     <button
       type="submit"
