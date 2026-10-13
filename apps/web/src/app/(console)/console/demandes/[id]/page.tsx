@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { DisputeCard } from "@/console/blocks";
 import { consoleGet, type Query } from "@/console/data";
 import { ActionForm, Facts, Flash, ReasonAction, Stars } from "@/console/kit";
+import { CloseModal, Modal } from "@/console/modal";
 import { Submit } from "@/console/submit";
 import { ago } from "@/console/text";
 import type { Contact, RequestDetail } from "@/console/types";
@@ -192,51 +193,60 @@ export default async function RequestDetailPage({ params, searchParams }: Props)
             <Card title="Actions" eyebrow="Équipe">
               <div className="jf-stack jf-stack--tight">
                 {r.can_open_dispute && (
-                  <details className="jf-reason" suppressHydrationWarning>
-                    <summary className="ax-btn ax-btn--sm ax-btn--secondary">
-                      Ouvrir un litige…
-                    </summary>
+                  <Modal
+                    trigger="Ouvrir un litige…"
+                    title="Ouvrir un litige"
+                    subtitle={`#${r.id} ${r.title}`}
+                    icon="bi-exclamation-triangle"
+                  >
                     <ActionForm
                       endpoint={endpoint("disputes")}
                       back={here}
                       ok="Litige ouvert."
-                      className="jf-reason__form"
+                      className="jf-dialog__form"
                     >
-                      <label className="ax-field__label" htmlFor="dispute-reason">
-                        Motif
-                      </label>
-                      <select
-                        id="dispute-reason"
-                        name="reason"
-                        className="ax-select"
-                        required
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          Choisir…
-                        </option>
-                        {REASONS.map(([v, l]) => (
-                          <option key={v} value={v}>
-                            {l}
+                      <div className="ax-field">
+                        <label className="ax-field__label" htmlFor="dispute-reason">
+                          Motif
+                        </label>
+                        <select
+                          id="dispute-reason"
+                          name="reason"
+                          className="ax-select"
+                          required
+                          defaultValue=""
+                        >
+                          <option value="" disabled>
+                            Choisir…
                           </option>
-                        ))}
-                      </select>
-                      <label className="ax-field__label" htmlFor="dispute-description">
-                        Ce que dit la personne qui appelle
-                      </label>
-                      <textarea
-                        id="dispute-description"
-                        name="description"
-                        className="ax-textarea"
-                        rows={3}
-                        required
-                        maxLength={2000}
-                      />
-                      <Submit className="ax-btn ax-btn--sm ax-btn--primary">
-                        Ouvrir le litige
-                      </Submit>
+                          {REASONS.map(([v, l]) => (
+                            <option key={v} value={v}>
+                              {l}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="ax-field">
+                        <label className="ax-field__label" htmlFor="dispute-description">
+                          Ce que dit la personne qui appelle
+                        </label>
+                        <textarea
+                          id="dispute-description"
+                          name="description"
+                          className="ax-textarea"
+                          rows={4}
+                          required
+                          maxLength={2000}
+                        />
+                      </div>
+                      <div className="jf-dialog__actions">
+                        <CloseModal />
+                        <Submit className="ax-btn ax-btn--sm ax-btn--primary">
+                          Ouvrir le litige
+                        </Submit>
+                      </div>
                     </ActionForm>
-                  </details>
+                  </Modal>
                 )}
                 {r.can_cancel && (
                   <ReasonAction
@@ -244,6 +254,7 @@ export default async function RequestDetailPage({ params, searchParams }: Props)
                     back={here}
                     ok="Demande annulée."
                     label="Annuler la demande…"
+                    subject={`#${r.id} ${r.title}`}
                     confirm="Confirmer l'annulation"
                     placeholder="Ex. : doublon de la demande #12, client prévenu."
                   />

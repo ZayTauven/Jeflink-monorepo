@@ -5,6 +5,7 @@ import { CardGrid } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { TradeForm } from "@/console/forms";
 import { Flash } from "@/console/kit";
+import { Modal } from "@/console/modal";
 import { plural } from "@/console/text";
 import type { TradeAdmin } from "@/console/types";
 import { PageHead } from "@/console/ui";
@@ -25,14 +26,9 @@ export default async function TradesPage({ searchParams }: { searchParams: Promi
         title="Métiers"
         subtitle={`${plural(active, "métier proposé", "métiers proposés")} sur le site. Un métier se masque, il ne se supprime pas : les demandes passées gardent leur métier.`}
         actions={
-          <details className="jf-reason jf-new" suppressHydrationWarning>
-            <summary className="ax-btn ax-btn--primary">Nouveau métier</summary>
-            <div className="ax-card jf-new__panel">
-              <div className="ax-card__body">
-                <TradeForm back={BASE} prefix="nouveau" />
-              </div>
-            </div>
-          </details>
+          <Modal trigger="Nouveau métier" triggerClassName="ax-btn ax-btn--primary" title="Nouveau métier" subtitle="Il apparaît sur le site dès qu'il est proposé." size="lg">
+            <TradeForm back={BASE} prefix="nouveau" />
+          </Modal>
         }
       />
       <Flash ok={params.ok} erreur={params.erreur} />

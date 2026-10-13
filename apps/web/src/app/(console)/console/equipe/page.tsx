@@ -4,6 +4,7 @@ import { CardGrid } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { Field } from "@/console/forms";
 import { ActionButton, ActionForm, Avatar, Flash, ReasonAction } from "@/console/kit";
+import { Modal } from "@/console/modal";
 import { Submit } from "@/console/submit";
 import { ago } from "@/console/text";
 import type { Member, StaffRole } from "@/console/types";
@@ -49,62 +50,57 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
         title="Équipe et rôles"
         subtitle="Chaque membre voit les rubriques de son rôle. Retirer l'accès déconnecte la personne tout de suite."
         actions={
-          <details className="jf-reason jf-new" suppressHydrationWarning>
-            <summary className="ax-btn ax-btn--primary">Ajouter un membre</summary>
-            <div className="ax-card jf-new__panel">
-              <div className="ax-card__body">
-                <ActionForm
-                  endpoint="/api/console/team/"
-                  back={BASE}
-                  ok="Membre ajouté. Transmettez-lui son mot de passe provisoire de vive voix."
-                  className="jf-form"
-                >
-                  <Field id="membre-first_name" label="Prénom">
-                    <input id="membre-first_name" name="first_name" className="ax-input" required />
-                  </Field>
-                  <Field id="membre-last_name" label="Nom">
-                    <input id="membre-last_name" name="last_name" className="ax-input" />
-                  </Field>
-                  <Field id="membre-email" label="Email" wide>
-                    <input
-                      id="membre-email"
-                      name="email"
-                      type="email"
-                      className="ax-input"
-                      required
-                    />
-                  </Field>
-                  <Field id="membre-role" label="Rôle">
-                    <select id="membre-role" name="role" className="ax-select" defaultValue="ops">
-                      {ROLES.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field
-                    id="password"
-                    label="Mot de passe provisoire"
-                    hint="10 caractères au moins, pas un mot courant."
-                  >
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      className="ax-input"
-                      minLength={10}
-                      required
-                      autoComplete="new-password"
-                    />
-                  </Field>
-                  <div className="jf-form__wide">
-                    <Submit>Ajouter à l&apos;équipe</Submit>
-                  </div>
-                </ActionForm>
+          <Modal trigger="Ajouter un membre" triggerClassName="ax-btn ax-btn--primary" title="Ajouter un membre" subtitle="Un mot de passe provisoire est créé : transmettez-le de vive voix.">
+            <ActionForm
+              endpoint="/api/console/team/"
+              back={BASE}
+              ok="Membre ajouté. Transmettez-lui son mot de passe provisoire de vive voix."
+              className="jf-form"
+            >
+              <Field id="membre-first_name" label="Prénom">
+                <input id="membre-first_name" name="first_name" className="ax-input" required />
+              </Field>
+              <Field id="membre-last_name" label="Nom">
+                <input id="membre-last_name" name="last_name" className="ax-input" />
+              </Field>
+              <Field id="membre-email" label="Email" wide>
+                <input
+                  id="membre-email"
+                  name="email"
+                  type="email"
+                  className="ax-input"
+                  required
+                />
+              </Field>
+              <Field id="membre-role" label="Rôle">
+                <select id="membre-role" name="role" className="ax-select" defaultValue="ops">
+                  {ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                id="password"
+                label="Mot de passe provisoire"
+                hint="10 caractères au moins, pas un mot courant."
+              >
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  className="ax-input"
+                  minLength={10}
+                  required
+                  autoComplete="new-password"
+                />
+              </Field>
+              <div className="jf-form__wide">
+                <Submit>Ajouter à l&apos;équipe</Submit>
               </div>
-            </div>
-          </details>
+            </ActionForm>
+          </Modal>
         }
       />
       <Flash ok={params.ok} erreur={params.erreur} />
@@ -175,6 +171,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                           back={BASE}
                           ok="Accès retiré : la personne est déconnectée."
                           label="Retirer l'accès…"
+                          subject={m.name}
                           confirm="Retirer l'accès"
                           field="note"
                           placeholder={`Pour le journal, ex. : fin de contrat.`}

@@ -4,6 +4,7 @@ import { CardGrid } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { CampaignForm } from "@/console/forms";
 import { Flash } from "@/console/kit";
+import { Modal } from "@/console/modal";
 import { plural } from "@/console/text";
 import type { CampaignAdmin } from "@/console/types";
 import { PageHead } from "@/console/ui";
@@ -24,14 +25,9 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
         title="Campagnes"
         subtitle={`${plural(live, "campagne visible", "campagnes visibles")} sur le site en ce moment. Trois bandeaux au plus par emplacement ; au-delà, seuls les plus récents s'affichent.`}
         actions={
-          <details className="jf-reason jf-new" suppressHydrationWarning>
-            <summary className="ax-btn ax-btn--primary">Nouvelle campagne</summary>
-            <div className="ax-card jf-new__panel">
-              <div className="ax-card__body">
-                <CampaignForm back={BASE} prefix="nouvelle" />
-              </div>
-            </div>
-          </details>
+          <Modal trigger="Nouvelle campagne" triggerClassName="ax-btn ax-btn--primary" title="Nouvelle campagne" subtitle="Un bandeau sur le site, sur une période." size="lg">
+            <CampaignForm back={BASE} prefix="nouvelle" />
+          </Modal>
         }
       />
       <Flash ok={params.ok} erreur={params.erreur} />
@@ -78,12 +74,14 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
                 )}
               </dl>
               <div className="jf-item__actions">
-                <details className="jf-reason" suppressHydrationWarning>
-                  <summary className="ax-btn ax-btn--secondary ax-btn--sm">Modifier</summary>
-                  <div className="jf-reason__form jf-reason__form--wide">
-                    <CampaignForm campaign={c} back={BASE} prefix={`campagne-${c.id}`} />
-                  </div>
-                </details>
+                <Modal
+                  trigger="Modifier"
+                  title="Modifier la campagne"
+                  subtitle={c.title}
+                  size="lg"
+                >
+                  <CampaignForm campaign={c} back={BASE} prefix={`campagne-${c.id}`} />
+                </Modal>
               </div>
             </div>
           </article>

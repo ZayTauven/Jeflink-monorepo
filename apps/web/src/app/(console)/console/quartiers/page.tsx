@@ -4,6 +4,7 @@ import { CardGrid } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { ZoneForm } from "@/console/forms";
 import { Flash } from "@/console/kit";
+import { Modal } from "@/console/modal";
 import { plural } from "@/console/text";
 import type { ZoneAdmin } from "@/console/types";
 import { PageHead } from "@/console/ui";
@@ -23,14 +24,9 @@ export default async function ZonesPage({ searchParams }: { searchParams: Promis
         title="Quartiers"
         subtitle={`${plural(served, "quartier desservi", "quartiers desservis")}. Fermer un quartier le retire des nouvelles demandes ; les demandes passées restent.`}
         actions={
-          <details className="jf-reason jf-new" suppressHydrationWarning>
-            <summary className="ax-btn ax-btn--primary">Ajouter un quartier</summary>
-            <div className="ax-card jf-new__panel">
-              <div className="ax-card__body">
-                <ZoneForm back={BASE} prefix="nouveau" />
-              </div>
-            </div>
-          </details>
+          <Modal trigger="Ajouter un quartier" triggerClassName="ax-btn ax-btn--primary" title="Ajouter un quartier">
+            <ZoneForm back={BASE} prefix="nouveau" />
+          </Modal>
         }
       />
       <Flash ok={params.ok} erreur={params.erreur} />
@@ -62,12 +58,9 @@ export default async function ZonesPage({ searchParams }: { searchParams: Promis
                 </div>
               </dl>
               <div className="jf-item__actions">
-                <details className="jf-reason" suppressHydrationWarning>
-                  <summary className="ax-btn ax-btn--secondary ax-btn--sm">Modifier</summary>
-                  <div className="jf-reason__form">
-                    <ZoneForm zone={z} back={BASE} prefix={`zone-${z.id}`} />
-                  </div>
-                </details>
+                <Modal trigger="Modifier" title="Modifier le quartier" subtitle={z.name}>
+                  <ZoneForm zone={z} back={BASE} prefix={`zone-${z.id}`} />
+                </Modal>
               </div>
             </div>
           </article>

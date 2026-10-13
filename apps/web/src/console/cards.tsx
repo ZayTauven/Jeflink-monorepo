@@ -176,6 +176,8 @@ export function ProCard({ p, back, pending }: { p: ProRow; back: string; pending
               back={back}
               ok={`Refus enregistré${NBSP}: le pro voit le motif dans son espace.`}
               label="Refuser…"
+              title="Refuser la vérification"
+              subject={a.name}
               confirm="Confirmer le refus"
               placeholder={`Ce qui manque, ex.${NBSP}: pièce d'identité illisible.`}
             />
@@ -278,6 +280,8 @@ export function ReviewCard({ r, back }: { r: ReviewRow; back: string }) {
             back={back}
             ok={`Avis masqué${NBSP}: il sort du site et de la note du pro.`}
             label="Masquer…"
+            title="Masquer l'avis"
+            subject={`${r.rating}/5 de ${r.client.name}${r.pro ? ` pour ${r.pro.name}` : ""}`}
             confirm="Masquer l'avis"
             placeholder={`Ex.${NBSP}: insultes, numéro de téléphone dans le texte.`}
           />

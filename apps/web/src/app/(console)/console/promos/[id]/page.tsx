@@ -7,7 +7,7 @@ import { consoleGet, type Query } from "@/console/data";
 import { CouponForm } from "@/console/forms";
 import { Facts, Flash } from "@/console/kit";
 import type { CouponAdmin, TradeAdmin, ZoneAdmin } from "@/console/types";
-import { Card, PageHead } from "@/console/ui";
+import { Card, Meter, PageHead } from "@/console/ui";
 import { formatXOF } from "@/lib/format";
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Query> };
@@ -52,7 +52,14 @@ export default async function CouponPage({ params, searchParams }: Props) {
           <Card title="Utilisation" eyebrow="Résultats">
             <Facts
               items={[
-                ["Réservations", `${c.uses}${c.max_uses ? ` sur ${c.max_uses} prévues` : ""}`],
+                [
+                  "Réservations",
+                  <>
+                    {c.uses}
+                    {c.max_uses ? ` sur ${c.max_uses} prévues` : ""}
+                    {c.max_uses ? <Meter value={c.uses} max={c.max_uses} /> : null}
+                  </>,
+                ],
                 ["Remises accordées", formatXOF(c.discount_total)],
               ]}
             />

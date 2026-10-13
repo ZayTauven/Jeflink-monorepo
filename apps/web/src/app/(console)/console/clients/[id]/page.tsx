@@ -125,6 +125,7 @@ export default async function ClientPage({ params, searchParams }: Props) {
                 back={here}
                 ok="Compte suspendu : le client est déconnecté."
                 label="Suspendre le compte…"
+                subject={c.name}
                 confirm="Confirmer la suspension"
                 placeholder="Ex. : fausses demandes répétées."
               />

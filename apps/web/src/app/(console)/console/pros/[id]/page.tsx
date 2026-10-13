@@ -164,6 +164,8 @@ export default async function ProPage({ params, searchParams }: Props) {
                   back={here}
                   ok={`${p.is_verified ? "Vérification retirée" : "Refus enregistré"} : le pro voit le motif dans son espace.`}
                   label={p.is_verified ? "Retirer la vérification…" : "Refuser…"}
+                  title={p.is_verified ? "Retirer la vérification" : "Refuser la vérification"}
+                  subject={a.name}
                   confirm="Confirmer"
                   placeholder="Ce qui manque, ex. : attestation de formation."
                   danger={false}
@@ -175,6 +177,7 @@ export default async function ProPage({ params, searchParams }: Props) {
                   back={here}
                   ok="Compte suspendu : le pro est déconnecté."
                   label="Suspendre le compte…"
+                  subject={a.name}
                   confirm="Confirmer la suspension"
                   placeholder="Ex. : deux litiges graves, en attente d'explications."
                 />

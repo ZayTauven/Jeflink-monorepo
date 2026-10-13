@@ -5,7 +5,8 @@
  * vireo garde sa structure, ses composants et ses comportements. Crafto lui donne son allure :
  * orange #f55608, Funnel Display pour les titres et les chiffres, Inter pour le texte, fond
  * « narvik » #edece3, cartes blanches mates à 20 px, boutons pilules. On retire tout l'effet
- * « Aurora » : halos, verre dépoli, dégradés et lueurs.
+ * « Aurora » : halos, verre dépoli, dégradés et lueurs. Seule exception : le voile flouté
+ * derrière les fenêtres modales.
  *
  * Ces règles ne sont dans aucune @layer : elles passent devant les composants de vireo.
  */
@@ -538,27 +539,6 @@
   opacity: 0.35;
 }
 
-/* Action avec motif : bouton qui déplie un petit formulaire */
-.jf-reason > summary {
-  list-style: none;
-  cursor: pointer;
-}
-.jf-reason > summary::-webkit-details-marker {
-  display: none;
-}
-.jf-reason__form {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  margin-block-start: 10px;
-  min-inline-size: min(320px, 80vw);
-}
-.jf-reason__form .ax-textarea,
-.jf-reason__form .ax-select {
-  inline-size: 100%;
-}
-
 /* Fiches : libellé / valeur */
 .jf-facts {
   display: grid;
@@ -640,37 +620,6 @@
 }
 .ax-btn--danger.ax-btn--primary:hover {
   background: #912018;
-}
-
-/* Dans une carte de liste, le motif s'ouvre en surimpression sous le bouton (rien ne bouge). */
-.jf-item .jf-reason {
-  position: relative;
-}
-.jf-item .jf-reason__form {
-  position: absolute;
-  inset-inline-end: 0;
-  inset-block-start: calc(100% + 6px);
-  z-index: 20;
-  inline-size: min(340px, 85vw);
-  padding: 14px;
-  border-radius: var(--ax-radius-md);
-  background: var(--ax-surface-overlay);
-  border: 1px solid var(--ax-border-strong);
-  box-shadow: var(--ax-shadow-md);
-}
-.ax-card:has(.jf-reason[open]) {
-  overflow: visible;
-}
-/* Téléphone : le motif se déplie sous le bouton, en pleine largeur, sans déborder. */
-@media (max-width: 576px) {
-  .jf-item .jf-reason {
-    inline-size: 100%;
-  }
-  .jf-item .jf-reason__form {
-    position: static;
-    inline-size: 100%;
-    box-shadow: none;
-  }
 }
 
 /* ── Listes en cartes (Demandes, Pros, Clients, Avis, Messages), comme les litiges ─ */
@@ -795,34 +744,6 @@
 }
 .jf-check .ax-field__hint {
   margin: 4px 0 0 26px;
-}
-
-/* Bouton « Nouveau… » de l'en-tête : le formulaire s'ouvre en panneau sous le bouton. */
-.jf-new {
-  position: relative;
-}
-.jf-new__panel {
-  position: absolute;
-  inset-inline-end: 0;
-  inset-block-start: calc(100% + 8px);
-  z-index: 30;
-  inline-size: min(640px, calc(100vw - 32px));
-  border: 1px solid var(--ax-border-strong);
-  box-shadow: var(--ax-shadow-lg);
-}
-.ax-page-head:has(.jf-new[open]) {
-  position: relative;
-  z-index: 30;
-}
-@media (max-width: 576px) {
-  .jf-new {
-    inline-size: 100%;
-  }
-  .jf-new__panel {
-    position: static;
-    inline-size: 100%;
-    margin-block-start: 8px;
-  }
 }
 
 /* Prestations d'un métier (pastilles) */
@@ -971,9 +892,6 @@
 [data-ax-theme="dark"] .jf-campaign-preview {
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
 }
-.jf-reason__form--wide {
-  inline-size: min(560px, calc(100vw - 32px));
-}
 .jf-form--single {
   grid-template-columns: 1fr;
 }
@@ -1011,4 +929,345 @@
   margin: 0;
   color: var(--ax-text-strong);
   font-weight: 500;
+}
+
+/* ── Composants vireo : toasts, fenêtres, progression, squelettes, envoi ───────── */
+@keyframes jf-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+/* Toasts : mats, en bas à droite ; compte à rebours en pause au survol et au clavier. */
+.ax-toast {
+  align-items: center;
+  border-color: var(--ax-border-strong);
+  box-shadow: 0 12px 32px rgb(18 18 18 / 0.14);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: jf-toast-in var(--ax-motion-base) var(--ax-ease-standard);
+}
+.ax-toast--success {
+  --_t-500: var(--ax-delta-up);
+}
+.ax-toast--danger {
+  --_t-500: var(--ax-delta-down);
+  border-color: color-mix(in srgb, var(--ax-delta-down) 40%, transparent);
+}
+.ax-toast__icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.ax-toast__title {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+.ax-toast__dismiss {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 32px;
+  block-size: 32px;
+  margin: -6px -6px -6px 0;
+  border-radius: 50%;
+  opacity: 1;
+}
+.ax-toast__dismiss:hover {
+  background: var(--ax-fill-hover);
+  color: var(--ax-text-strong);
+}
+.jf-toast-timer {
+  animation: jf-toast-timer 7s linear forwards;
+}
+.ax-toast:hover .jf-toast-timer,
+.ax-toast:focus-within .jf-toast-timer {
+  animation-play-state: paused;
+}
+@keyframes jf-toast-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@keyframes jf-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+/* Mouvement réduit : la barre ne bouge plus, mais le délai de 7 s court toujours. */
+@keyframes jf-toast-wait {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ax-toast {
+    animation: none;
+  }
+  .jf-toast-timer {
+    animation-name: jf-toast-wait;
+  }
+}
+
+/* Fenêtres modales : <dialog> natif, fond voilé et flouté (seul flou de la console). */
+.jf-modal-host {
+  display: contents;
+}
+.jf-modal-fallback > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.jf-modal-fallback > summary::-webkit-details-marker {
+  display: none;
+}
+dialog.jf-dialog {
+  /* vireo met position: relative (couche) : on rend au dialogue sa position fixe. */
+  position: fixed;
+  inline-size: calc(100% - 32px);
+  max-block-size: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--ax-radius-xl);
+  color: var(--ax-text);
+  background: var(--ax-surface);
+  box-shadow: 0 24px 64px rgb(18 18 18 / 0.22);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition:
+    opacity var(--ax-motion-base) var(--ax-ease-standard),
+    transform var(--ax-motion-base) var(--ax-ease-standard),
+    overlay var(--ax-motion-base) allow-discrete,
+    display var(--ax-motion-base) allow-discrete;
+}
+dialog.jf-dialog:not([open]) {
+  display: none;
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+}
+@starting-style {
+  dialog.jf-dialog[open] {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+dialog.jf-dialog::backdrop {
+  background: rgb(18 18 18 / 0.3);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition:
+    opacity var(--ax-motion-base) var(--ax-ease-standard),
+    overlay var(--ax-motion-base) allow-discrete,
+    display var(--ax-motion-base) allow-discrete;
+}
+@starting-style {
+  dialog.jf-dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+[data-ax-theme="dark"] dialog.jf-dialog {
+  background: var(--ax-surface-overlay);
+  border: 1px solid var(--ax-border);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
+}
+[data-ax-theme="dark"] dialog.jf-dialog::backdrop {
+  background: rgb(0 0 0 / 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog.jf-dialog,
+  dialog.jf-dialog::backdrop {
+    transition: none;
+  }
+}
+/* Page figée derrière la fenêtre, sans saut quand la barre de défilement disparaît. */
+html {
+  scrollbar-gutter: stable;
+}
+html:has(dialog.jf-dialog[open]) {
+  overflow: hidden;
+}
+.jf-dialog .ax-modal__header {
+  align-items: center;
+  gap: 14px;
+  padding: 20px 20px 16px 24px;
+}
+.jf-dialog__titles {
+  flex: 1;
+  min-inline-size: 0;
+}
+.jf-dialog .ax-modal__title {
+  font-weight: 500;
+  font-size: 1.375rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.jf-dialog__subtitle {
+  margin: 2px 0 0;
+  font-size: 0.875rem;
+  color: var(--ax-text-muted);
+  overflow-wrap: anywhere;
+}
+.jf-dialog__status {
+  flex: 0 0 auto;
+  inline-size: 44px;
+  block-size: 44px;
+  font-size: 1.15rem;
+  color: var(--ax-accent-700);
+}
+.jf-dialog .ax-modal__status--danger {
+  background: #fdecea;
+  color: #b42318;
+}
+[data-ax-theme="dark"] .jf-dialog__status {
+  color: var(--ax-link);
+}
+[data-ax-theme="dark"] .jf-dialog .ax-modal__status--danger {
+  background: rgb(249 112 102 / 0.14);
+  color: #f97066;
+}
+.jf-dialog .ax-modal__close {
+  align-self: flex-start;
+  place-items: center;
+  display: inline-grid;
+  inline-size: 36px;
+  block-size: 36px;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+.jf-dialog .ax-modal__close:hover {
+  background: var(--ax-fill-hover);
+}
+.jf-dialog .ax-modal__body {
+  padding: 20px 24px 24px;
+}
+.jf-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.jf-dialog__form .ax-field {
+  margin: 0;
+}
+.jf-dialog__form .ax-textarea,
+.jf-dialog__form .ax-select {
+  inline-size: 100%;
+}
+.jf-dialog__form .ax-field__hint {
+  margin: 6px 0 0;
+  font-size: 0.8125rem;
+  color: var(--ax-text-muted);
+}
+.jf-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* Sans JavaScript : le bouton déplie le contenu de la fenêtre juste dessous. */
+.jf-modal-host:has(> details[open]) > dialog.jf-dialog {
+  display: flex;
+  position: static;
+  inline-size: min(640px, calc(100vw - 32px));
+  margin: 10px 0 0;
+  opacity: 1;
+  transform: none;
+  box-shadow: var(--ax-shadow-md);
+}
+.jf-modal-host:has(> details[open]) :is(.ax-modal__close, .jf-dialog__cancel) {
+  display: none;
+}
+
+/* Téléphone : boutons de fermeture à 44 px. */
+@media (max-width: 576px) {
+  .ax-toast__dismiss,
+  .jf-dialog .ax-modal__close {
+    inline-size: 44px;
+    block-size: 44px;
+  }
+}
+
+/* Barre de chargement d'une page, en haut de l'écran (après un court délai). */
+.jf-topbar {
+  --_p-h: 3px;
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: var(--ax-z-command);
+  pointer-events: none;
+  opacity: 0;
+  animation: jf-fade-in var(--ax-motion-fast) 150ms forwards;
+}
+.jf-topbar .ax-progress__track {
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Anneau d'un indicateur (taux de réservation) et jauge fine (utilisations d'un code). */
+.jf-ring {
+  flex: 0 0 auto;
+}
+.jf-ring svg {
+  display: block;
+  inline-size: 44px;
+  block-size: 44px;
+  max-inline-size: none;
+}
+.jf-ring .ax-progress__ring-track {
+  stroke: var(--ax-accent-wash);
+}
+.jf-meter {
+  margin-block-start: 6px;
+  min-inline-size: 80px;
+}
+
+/* Squelettes : n'apparaissent qu'après un court délai (pas de flash si la page est prête). */
+.jf-skel {
+  opacity: 0;
+  animation: jf-fade-in var(--ax-motion-base) 120ms forwards;
+}
+.jf-bone {
+  display: block;
+}
+.jf-skel-head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.jf-skel-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-end: var(--ax-space-5);
+}
+.jf-skel-grow {
+  flex: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jf-skel {
+    animation-duration: 1ms;
+  }
+}
+
+/* Bouton pendant l'envoi : spinner à la place du libellé, même largeur. */
+.jf-busy {
+  position: relative;
+}
+.jf-busy:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+.jf-busy > .jf-busy__label {
+  opacity: 0;
+}
+.jf-busy__spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  color: currentColor;
 }

@@ -7,6 +7,7 @@
  * Champs réservés : _endpoint (action API, liste blanche), _back (page de retour, /console…),
  * _ok (message de réussite). Les autres champs texte forment le corps JSON.
  */
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { api, requireStaff } from "@/lib/api";
@@ -58,7 +59,12 @@ export async function consoleAction(form: FormData) {
     }
   }
   const res = await api(endpoint, { method: "POST", token, body });
-  if (res.ok) done(back, "ok", String(form.get("_ok") || "C'est fait."));
+  if (res.ok) {
+    // Sans cela, revenir sur une adresse déjà visitée (même message) peut réafficher
+    // l'ancienne version de la page gardée par le routeur.
+    revalidatePath(back.pathname);
+    done(back, "ok", String(form.get("_ok") || "C'est fait."));
+  }
   done(
     back,
     "erreur",

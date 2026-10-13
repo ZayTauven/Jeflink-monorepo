@@ -6,30 +6,32 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { consoleAction } from "./actions";
-import { Announce } from "./announce";
 import { qs, type Query } from "./data";
+import { CloseModal, Modal } from "./modal";
+import { LinkPending } from "./pending";
 import { Submit } from "./submit";
 
-/** Message après une action (?ok= / ?erreur=), annoncé aux lecteurs d'écran. */
+/**
+ * Message après une action (?ok= / ?erreur=). Avec JavaScript, c'est un toast (`Toaster`,
+ * monté par la coque) ; sans JavaScript, cette alerte en haut de la page.
+ */
 export function Flash({ ok, erreur }: { ok?: string; erreur?: string }) {
-  if (erreur) {
-    return (
-      <Announce className="ax-alert ax-alert--danger mb-6" role="alert">
-        <i className="bi bi-exclamation-triangle ax-alert__icon" aria-hidden="true" />
-        <div className="ax-alert__content">
-          <p className="ax-alert__message">{erreur}</p>
-        </div>
-      </Announce>
-    );
-  }
-  if (!ok) return null;
+  if (!ok && !erreur) return null;
   return (
-    <Announce className="ax-alert ax-alert--success mb-6" role="status">
-      <i className="bi bi-check2-circle ax-alert__icon" aria-hidden="true" />
-      <div className="ax-alert__content">
-        <p className="ax-alert__message">{ok}</p>
+    <noscript>
+      <div
+        className={`ax-alert ${erreur ? "ax-alert--danger" : "ax-alert--success"} mb-6`}
+        role={erreur ? "alert" : "status"}
+      >
+        <i
+          className={`bi ${erreur ? "bi-exclamation-triangle" : "bi-check2-circle"} ax-alert__icon`}
+          aria-hidden="true"
+        />
+        <div className="ax-alert__content">
+          <p className="ax-alert__message">{erreur || ok}</p>
+        </div>
       </div>
-    </Announce>
+    </noscript>
   );
 }
 
@@ -63,6 +65,7 @@ export function Tabs({
               aria-current={active ? "page" : undefined}
             >
               <span>{t.label}</span>
+              <LinkPending />
               {t.count !== undefined && (
                 <span className="ax-badge ax-badge--neutral ax-badge--pill ax-badge--sm ax-num ax-tabs__badge">
                   {t.count}
@@ -94,6 +97,7 @@ export function Pager({ count, base, params }: { count: number; base: string; pa
           {page > 1 ? (
             <Link className="ax-pagination__prev" href={at(page - 1)} aria-label="Page précédente">
               <i className="bi bi-chevron-left" aria-hidden="true" />
+              <LinkPending />
             </Link>
           ) : (
             <span className="ax-pagination__prev" aria-hidden="true">
@@ -103,6 +107,7 @@ export function Pager({ count, base, params }: { count: number; base: string; pa
           {page < pages ? (
             <Link className="ax-pagination__next" href={at(page + 1)} aria-label="Page suivante">
               <i className="bi bi-chevron-right" aria-hidden="true" />
+              <LinkPending />
             </Link>
           ) : (
             <span className="ax-pagination__next" aria-hidden="true">
@@ -201,8 +206,9 @@ export function ActionButton({
 }
 
 /**
- * Action qui demande un motif (suspendre, refuser, masquer, annuler) : le formulaire se déplie,
- * le motif est obligatoire et sert de confirmation.
+ * Action qui demande un motif (suspendre, refuser, masquer, annuler) : une fenêtre de
+ * confirmation s'ouvre, le motif est obligatoire et sert de confirmation. `subject` rappelle
+ * sur quoi porte l'action (nom du pro, auteur de l'avis…).
  */
 export function ReasonAction({
   endpoint,
@@ -210,6 +216,8 @@ export function ReasonAction({
   ok,
   label,
   confirm,
+  title,
+  subject,
   field = "reason",
   placeholder,
   danger = true,
@@ -219,35 +227,52 @@ export function ReasonAction({
   ok: string;
   label: string;
   confirm: string;
+  /** Titre de la fenêtre ; par défaut le libellé du bouton. */
+  title?: string;
+  subject?: ReactNode;
   field?: string;
   placeholder: string;
   danger?: boolean;
 }) {
+  const id = `${endpoint.replace(/\W+/g, "-")}${field}`;
   return (
-    <details className="jf-reason" suppressHydrationWarning>
-      <summary
-        className={`ax-btn ax-btn--sm ${danger ? "ax-btn--soft-danger" : "ax-btn--secondary"}`}
-      >
-        {label}
-      </summary>
-      <ActionForm endpoint={endpoint} back={back} ok={ok} className="jf-reason__form">
-        <label className="ax-field__label" htmlFor={`${endpoint.replace(/\W+/g, "-")}${field}`}>
-          Motif (obligatoire)
-        </label>
-        <textarea
-          id={`${endpoint.replace(/\W+/g, "-")}${field}`}
-          name={field}
-          className="ax-textarea"
-          rows={2}
-          required
-          maxLength={300}
-          placeholder={placeholder}
-        />
-        <Submit className={`ax-btn ax-btn--sm ax-btn--primary${danger ? " ax-btn--danger" : ""}`}>
-          {confirm}
-        </Submit>
+    <Modal
+      trigger={label}
+      triggerClassName={`ax-btn ax-btn--sm ${danger ? "ax-btn--soft-danger" : "ax-btn--secondary"}`}
+      title={title ?? label.replace(/…$/, "")}
+      subtitle={subject}
+      icon={danger ? "bi-exclamation-triangle" : "bi-info-circle"}
+      danger={danger}
+      size="sm"
+      closeOnBackdrop
+    >
+      <ActionForm endpoint={endpoint} back={back} ok={ok} className="jf-dialog__form">
+        <div className="ax-field">
+          <label className="ax-field__label" htmlFor={id}>
+            Motif (obligatoire)
+          </label>
+          <textarea
+            id={id}
+            name={field}
+            className="ax-textarea"
+            rows={3}
+            required
+            maxLength={300}
+            placeholder={placeholder}
+            aria-describedby={`${id}-aide`}
+          />
+          <p className="ax-field__hint" id={`${id}-aide`}>
+            Il reste dans le journal de la console.
+          </p>
+        </div>
+        <div className="jf-dialog__actions">
+          <CloseModal />
+          <Submit className={`ax-btn ax-btn--sm ax-btn--primary${danger ? " ax-btn--danger" : ""}`}>
+            {confirm}
+          </Submit>
+        </div>
       </ActionForm>
-    </details>
+    </Modal>
   );
 }
 

@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 
 import type { RequestStatus } from "@/lib/types";
 
+import { LinkPending } from "./pending";
+
 export function PageHead({
   title,
   subtitle,
@@ -90,11 +92,51 @@ export function Delta({
   );
 }
 
+/** Anneau de progression (pourcentage), à la place de l'icône d'un indicateur. */
+function Ring({ percent }: { percent: number }) {
+  const r = 18;
+  const length = 2 * Math.PI * r;
+  const p = Math.min(100, Math.max(0, percent));
+  return (
+    <span className="ax-progress ax-progress--circle jf-ring" aria-hidden="true">
+      <svg width="44" height="44" viewBox="0 0 44 44">
+        <circle className="ax-progress__ring-track" cx="22" cy="22" r={r} strokeWidth="4" />
+        <circle
+          className="ax-progress__ring-fill"
+          cx="22"
+          cy="22"
+          r={r}
+          strokeWidth="4"
+          strokeDasharray={length}
+          strokeDashoffset={length * (1 - p / 100)}
+          transform="rotate(-90 22 22)"
+        />
+      </svg>
+    </span>
+  );
+}
+
+/** Jauge fine (utilisations d'un code promo…), le chiffre exact est affiché à côté. */
+export function Meter({ value, max }: { value: number; max: number }) {
+  const p = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+  return (
+    <div
+      className={`ax-progress ax-progress--xs jf-meter${p >= 90 ? " ax-progress--warning" : ""}`}
+      aria-hidden="true"
+    >
+      <div className="ax-progress__track">
+        <div className="ax-progress__fill" style={{ width: `${p}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export function Kpi({
   label,
   value,
   unit,
   icon,
+  ring,
   delta,
   foot,
   dark = false,
@@ -104,6 +146,8 @@ export function Kpi({
   value: string;
   unit?: string;
   icon: string;
+  /** Pourcentage : affiché en anneau à la place de l'icône. */
+  ring?: number | null;
   delta?: ReactNode;
   foot?: ReactNode;
   dark?: boolean;
@@ -113,9 +157,13 @@ export function Kpi({
     <div className={`ax-card ax-kpi ${className}`} role="group" aria-label={label}>
       <div className="ax-card__body">
         <div className="ax-kpi__top">
-          <span className={`jf-kpi-icon${dark ? " jf-kpi-icon--dark" : ""}`} aria-hidden="true">
-            <i className={`bi ${icon}`} />
-          </span>
+          {ring !== undefined && ring !== null ? (
+            <Ring percent={ring} />
+          ) : (
+            <span className={`jf-kpi-icon${dark ? " jf-kpi-icon--dark" : ""}`} aria-hidden="true">
+              <i className={`bi ${icon}`} />
+            </span>
+          )}
           {delta}
         </div>
         <div className="ax-kpi__label">{label}</div>
@@ -160,6 +208,7 @@ export function PeriodSwitch({ days, base }: { days: number; base: string }) {
           aria-current={d === days ? "true" : undefined}
         >
           {d} jours
+          <LinkPending />
         </Link>
       ))}
     </div>

@@ -62,6 +62,7 @@ export default async function DashboardPage({
         <Kpi
           label="Taux de réservation"
           icon="bi-patch-check"
+          ring={now.booking_rate}
           value={now.booking_rate === null ? "—" : String(now.booking_rate)}
           unit={now.booking_rate === null ? undefined : "%"}
           delta={<Delta now={now.booking_rate} before={before.booking_rate} unit="pts" />}

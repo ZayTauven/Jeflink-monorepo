@@ -6,9 +6,10 @@ import { COUPON_STATE, couponRules, couponValue } from "@/console/coupons";
 import { consoleGet, type Query } from "@/console/data";
 import { CouponForm } from "@/console/forms";
 import { Flash } from "@/console/kit";
+import { Modal } from "@/console/modal";
 import { plural } from "@/console/text";
 import type { CouponAdmin, TradeAdmin, ZoneAdmin } from "@/console/types";
-import { PageHead } from "@/console/ui";
+import { Meter, PageHead } from "@/console/ui";
 import { formatDate, formatXOF } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Codes promo" };
@@ -32,14 +33,9 @@ export default async function CouponsPage({ searchParams }: { searchParams: Prom
         title="Codes promo"
         subtitle={`${plural(live, "code en cours", "codes en cours")}, ${formatXOF(given)} de remises accordées. Les remises sont financées par Jeflink${NBSP}: le pro touche toujours son devis complet.`}
         actions={
-          <details className="jf-reason jf-new" suppressHydrationWarning>
-            <summary className="ax-btn ax-btn--primary">Nouveau code</summary>
-            <div className="ax-card jf-new__panel">
-              <div className="ax-card__body">
-                <CouponForm trades={trades} zones={zones} back={BASE} prefix="nouveau" />
-              </div>
-            </div>
-          </details>
+          <Modal trigger="Nouveau code" triggerClassName="ax-btn ax-btn--primary" title="Nouveau code" subtitle="La remise est prise sur la commission de Jeflink." size="lg">
+            <CouponForm trades={trades} zones={zones} back={BASE} prefix="nouveau" />
+          </Modal>
         }
       />
       <Flash ok={params.ok} erreur={params.erreur} />
@@ -76,6 +72,7 @@ export default async function CouponsPage({ searchParams }: { searchParams: Prom
                     <dd className="ax-num">
                       {c.uses}
                       {c.max_uses ? ` / ${c.max_uses}` : ""}
+                      {c.max_uses ? <Meter value={c.uses} max={c.max_uses} /> : null}
                     </dd>
                   </div>
                   <div>

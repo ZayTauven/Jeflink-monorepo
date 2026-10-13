@@ -7,15 +7,17 @@
  */
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { LogoMark } from "@/components/logo";
 import type { Me } from "@/lib/types";
 
 import { navFor, type NavItem } from "./nav";
+import { LinkPending } from "./pending";
 import { COLLAPSED_KEY, THEME_KEY } from "./theme";
 import type { Badges } from "./types";
 import { plural } from "./text";
+import { Toaster } from "./toaster";
 
 const PHONE = "(max-width: 767.98px)";
 
@@ -292,6 +294,9 @@ export function ConsoleShell({
           </footer>
         </div>
       </div>
+      <Suspense fallback={null}>
+        <Toaster />
+      </Suspense>
       {search && (
         <SearchDialog
           items={nav.flatMap((section) => section.items)}
@@ -313,6 +318,7 @@ function NavLink({ item, active, count }: { item: NavItem; active: boolean; coun
       <span className="ax-nav__bar" aria-hidden="true" />
       <i className={`bi ${item.icon} ax-nav__icon`} aria-hidden="true" />
       <span className="ax-nav__label">{item.label}</span>
+      <LinkPending />
       {count > 0 ? (
         <span className="ax-nav__badge ax-nav__badge--count">{count}</span>
       ) : item.lot ? (
