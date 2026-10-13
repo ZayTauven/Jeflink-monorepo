@@ -112,7 +112,11 @@ export function ConsoleShell({
   const nav = navFor(me.console_sections);
   const ops = me.console_sections.includes("operations");
   const pending =
-    badges.pros_pending + badges.stale_requests + badges.contact_unhandled + badges.disputes_active;
+    badges.pros_pending +
+    badges.stale_requests +
+    badges.cancel_requests +
+    badges.contact_unhandled +
+    badges.disputes_active;
   const fullName = `${me.first_name} ${me.last_name}`.trim();
 
   return (
@@ -152,7 +156,7 @@ export function ConsoleShell({
                     key={item.href}
                     item={item}
                     active={isActive(pathname, item.href)}
-                    count={item.badge ? badges[item.badge] : 0}
+                    count={[item.badge ?? []].flat().reduce((n, key) => n + badges[key], 0)}
                   />
                 ))}
               </div>
@@ -234,6 +238,13 @@ export function ConsoleShell({
                 <ul className="ax-notif__list">
                   <Todo href="/console/pros" icon="bi-person-badge">
                     {plural(badges.pros_pending, "pro à vérifier", "pros à vérifier")}
+                  </Todo>
+                  <Todo href="/console/demandes?statut=cancelling" icon="bi-telephone">
+                    {plural(
+                      badges.cancel_requests,
+                      "annulation à confirmer par téléphone",
+                      "annulations à confirmer par téléphone",
+                    )}
                   </Todo>
                   <Todo href="/console/demandes?sans_devis=1" icon="bi-hourglass-split">
                     {plural(

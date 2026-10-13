@@ -351,6 +351,24 @@
   background: #eeeeee;
   color: #5a5a5a;
 }
+/* Annulation demandée par le client : à confirmer par téléphone. */
+.jf-status--cancelling {
+  background: #fff4d6;
+  color: #7a4f00;
+}
+[data-ax-theme="dark"] .jf-status--cancelling {
+  background: rgba(245, 86, 8, 0.2);
+  color: #f9a774;
+}
+.jf-call {
+  box-shadow: inset 4px 0 0 #e0a100;
+}
+.jf-call__body .jf-inline {
+  margin-block-start: 4px;
+}
+.jf-call__check {
+  margin: 0 0 12px;
+}
 [data-ax-theme="dark"] .jf-status--cancelled {
   background: rgba(255, 255, 255, 0.08);
   color: var(--ax-text-muted);

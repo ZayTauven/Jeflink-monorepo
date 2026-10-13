@@ -11,7 +11,7 @@ const BODIES: Record<string, (form: FormData) => unknown> = {
   }),
   accept: (form) => ({ quote_id: Number(text(form, "quote_id")), coupon: text(form, "coupon") }),
   complete: () => ({}),
-  cancel: () => ({}),
+  cancel: (form) => ({ reason: text(form, "reason"), note: text(form, "note") }),
   review: (form) => ({ rating: Number(text(form, "rating")), comment: text(form, "comment") }),
   report: (form) => ({ reason: text(form, "reason"), description: text(form, "description") }),
 };

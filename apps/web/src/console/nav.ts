@@ -10,7 +10,8 @@ export type NavItem = {
   href: string;
   label: string;
   icon: string; // classe Bootstrap Icons (police d'icônes Crafto)
-  badge?: keyof Badges;
+  /** Pastille : un compteur, ou la somme de plusieurs. */
+  badge?: keyof Badges | (keyof Badges)[];
   lot?: number;
   summary?: string;
   keywords?: string[];
@@ -49,7 +50,7 @@ export const NAV: NavSection[] = [
         href: "/console/demandes",
         label: "Demandes",
         icon: "bi-inbox",
-        badge: "stale_requests",
+        badge: ["cancel_requests", "stale_requests"],
         summary:
           "Toutes les demandes, filtrées par statut, métier, quartier et date ; historique, devis et note interne.",
         keywords: ["missions", "devis", "réservations"],

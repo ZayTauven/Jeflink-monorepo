@@ -70,6 +70,11 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           { value: "", label: "Toutes", count: total },
           { value: "open", label: "En attente de devis", count: f.open ?? 0 },
           { value: "booked", label: "Pro réservé", count: f.booked ?? 0 },
+          {
+            value: "cancelling",
+            label: "Annulation à confirmer",
+            count: f.cancelling ?? 0,
+          },
           { value: "done", label: "Terminées", count: f.done ?? 0 },
           { value: "cancelled", label: "Annulées", count: f.cancelled ?? 0 },
         ]}

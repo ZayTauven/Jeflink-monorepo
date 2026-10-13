@@ -18,7 +18,7 @@ import { api, requireStaff } from "@/lib/api";
 // campagne), réglages, commissions.
 const ENDPOINT = new RegExp(
   "^/api/console/(?:" +
-    "(?:requests|disputes|pros|clients|reviews|messages|trades|zones|team|coupons|campaigns|balances)/\\d+/[a-z]+/" +
+    "(?:requests|disputes|pros|clients|reviews|messages|trades|zones|team|coupons|campaigns|balances)/\\d+/(?:[a-z]+|confirm-cancel)/" +
     "|(?:trades|zones|team|coupons|campaigns)/" +
     "|settings/|commissions/" +
     ")$",

@@ -64,6 +64,44 @@
   background: #eeeeee;
   color: #5a5a5a;
 }
+/* Annulation demandée par le client, en attente du rappel du support. */
+.status-cancelling {
+  background: #fff4d6;
+  color: #7a4f00;
+}
+
+/* Motifs à choisir (annulation) : une option par ligne, cible tactile confortable. */
+.jf-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.jf-form .jf-choices label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--dark-gray);
+  cursor: pointer;
+}
+.jf-form .jf-choices label:hover {
+  background: #f6f5f0;
+}
+.jf-form .jf-choices label:has(input:checked) {
+  background: #fff1e8;
+  font-weight: 500;
+}
+.jf-choices input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--base-color);
+}
 
 /* Formulaires de l'espace (style du formulaire de contact Crafto) */
 .jf-form label {

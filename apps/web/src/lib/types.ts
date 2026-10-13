@@ -57,7 +57,7 @@ export type Me = {
   } | null;
 };
 
-export type RequestStatus = "open" | "booked" | "done" | "cancelled";
+export type RequestStatus = "open" | "booked" | "cancelling" | "done" | "cancelled";
 export type ConsoleSection =
   "dashboard" | "operations" | "catalog" | "marketing" | "finance" | "admin";
 
@@ -153,6 +153,8 @@ export type ServiceRequest = {
         Pick<JefBrief, "client_tips" | "pro_summary" | "pro_details" | "pro_bring">
       >)
     | null;
+  /** Motif d'annulation donné par le client (visible du client seulement). */
+  cancellation: { reason: string; reason_label: string; note: string } | null;
   actions: RequestAction[];
   created_at: string;
 };

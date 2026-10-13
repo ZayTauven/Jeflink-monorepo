@@ -62,6 +62,9 @@ export default async function RequestPage({ params, searchParams }: Props) {
             {req.money && (
               <MoneyCard money={req.money} isClient={isClient} isPro={me.id === req.pro?.id} />
             )}
+            {req.status === "cancelling" && (
+              <CancellingCard isClient={isClient} reason={req.cancellation} />
+            )}
             {req.dispute && <DisputeCard dispute={req.dispute} />}
             {can("report") && <ReportForm act={act} isClient={isClient} />}
             <div className="bg-white border-radius-20px p-30px">
@@ -135,14 +138,15 @@ export default async function RequestPage({ params, searchParams }: Props) {
               />
             </form>
           )}
-          {can("cancel") && (
-            <form action={act("cancel")} method="post">
-              <button type="submit" className="btn btn-link p-0 fs-15 fw-500 text-dark-gray">
-                Annuler la demande
-              </button>
-            </form>
-          )}
         </div>
+        {can("cancel") && (
+          <CancelForm
+            act={act}
+            booked={req.status === "booked"}
+            quotes={req.quotes.length}
+            phone={me.phone}
+          />
+        )}
         <a href="/espace" className="fs-15 fw-500 mt-25px">
           ← Retour à mon espace
         </a>
@@ -424,6 +428,131 @@ function JefCard({
           ? "Préparé avec Jef (assistant IA) à partir des réponses du client."
           : "Préparé à partir des réponses du client aux questions de Jef."}
       </p>
+    </div>
+  );
+}
+
+// Mêmes valeurs que jobs.models.ServiceRequest.CancelReason ; l'API refuse tout autre motif.
+const CANCEL_REASONS: [string, string][] = [
+  ["solved", "Le problème s'est réglé"],
+  ["other_pro", "J'ai trouvé quelqu'un d'autre"],
+  ["price", "Le prix ne me convient pas"],
+  ["delay", "Trop d'attente"],
+  ["pro", "Un souci avec le pro"],
+  ["mistake", "Demande faite par erreur"],
+  ["other", "Autre"],
+];
+
+/**
+ * Annulation par le client, avec un motif. Pro déjà réservé : l'annulation est demandée, le
+ * support Jeflink rappelle le client pour la confirmer (la mission reste prévue d'ici là).
+ */
+function CancelForm({
+  act,
+  booked,
+  quotes,
+  phone,
+}: {
+  act: (a: string) => string;
+  booked: boolean;
+  quotes: number;
+  phone: string;
+}) {
+  return (
+    <details className="w-100 mt-20px">
+      <summary className="fs-15 fw-500 text-dark-gray jf-summary">
+        {booked ? "Demander l'annulation" : "Annuler la demande"}
+      </summary>
+      {/* Ce qui va se passer, avant de choisir. */}
+      <p className="mt-15px mb-0 fs-15">
+        {booked ? (
+          <>
+            Jeflink vous appelle{phone ? <> au {phone}</> : null} pour confirmer. En attendant, la
+            mission est en pause&nbsp;: votre pro ne se déplace pas.
+          </>
+        ) : quotes > 0 ? (
+          <>Votre demande est annulée tout de suite. Les devis reçus ({quotes}) seront perdus.</>
+        ) : (
+          <>Votre demande est annulée tout de suite.</>
+        )}
+      </p>
+      <ActionForm
+        action={act("cancel")}
+        className="jf-form mt-20px"
+        labels={{ reason: "Raison", note: "Quelques mots" }}
+      >
+        <fieldset className="border-0 p-0 mb-20px">
+          <legend className="fs-14 fw-500 text-dark-gray mb-10px">
+            Pourquoi annulez-vous&nbsp;?
+          </legend>
+          <div className="jf-choices">
+            {CANCEL_REASONS.filter(([value]) => booked || value !== "pro").map(([value, label]) => (
+              <label key={value}>
+                <input type="radio" name="reason" value={value} required />
+                {label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div className="mb-25px">
+          <label htmlFor="cancel-note">
+            Dites-nous en quelques mots (obligatoire si vous cochez «&nbsp;Autre&nbsp;»)
+          </label>
+          <textarea
+            id="cancel-note"
+            name="note"
+            rows={2}
+            maxLength={300}
+            className="form-control"
+          />
+          {booked && (
+            <div className="hint">
+              Un problème avec le pro (retard, dégât, comportement)&nbsp;? Utilisez plutôt
+              «&nbsp;Signaler un problème&nbsp;»&nbsp;: Jeflink examine chaque signalement.
+            </div>
+          )}
+        </div>
+        <SwitchSubmit
+          label={booked ? "Demander l'annulation" : "Annuler la demande"}
+          icon="icon-feather-x"
+          className="btn-medium btn-dark-gray btn-rounded btn-box-shadow"
+        />
+      </ActionForm>
+    </details>
+  );
+}
+
+/** Mission réservée dont le client a demandé l'annulation : en attente du rappel du support. */
+function CancellingCard({
+  isClient,
+  reason,
+}: {
+  isClient: boolean;
+  reason: ServiceRequest["cancellation"];
+}) {
+  return (
+    <div className="bg-white border-radius-20px p-30px mb-30px border border-2 border-color-base-color">
+      <h2 className="h5 alt-font fw-500 mb-10px">Annulation demandée</h2>
+      {/* Une seule règle, dite aux deux : mission en pause, le pro ne se déplace pas. */}
+      {isClient ? (
+        <>
+          <p className="mb-10px">
+            Jeflink va vous appeler pour confirmer. En attendant, la mission est en pause&nbsp;:
+            votre pro ne se déplace pas. Vous avez changé d&apos;avis&nbsp;? Dites-le-nous au
+            téléphone.
+          </p>
+          {reason && (
+            <p className="mb-0 fs-15 opacity-7">
+              Votre raison&nbsp;: {reason.reason === "other" ? reason.note : reason.reason_label}
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="mb-0">
+          Ne vous déplacez pas pour l&apos;instant. Le client a demandé l&apos;annulation&nbsp;:
+          Jeflink vérifie avec lui et la mission est en pause.
+        </p>
+      )}
     </div>
   );
 }

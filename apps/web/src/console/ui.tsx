@@ -184,6 +184,7 @@ export function Kpi({
 const STATUS_CLASS: Record<RequestStatus, string> = {
   open: "jf-status--open",
   booked: "jf-status--booked",
+  cancelling: "jf-status--cancelling",
   done: "jf-status--done",
   cancelled: "jf-status--cancelled",
 };

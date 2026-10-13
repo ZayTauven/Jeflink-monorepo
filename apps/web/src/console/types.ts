@@ -5,6 +5,8 @@ import type { RequestStatus } from "@/lib/types";
 export type Badges = {
   pros_pending: number;
   stale_requests: number;
+  /** Missions dont le client a demandé l'annulation : le support doit le rappeler. */
+  cancel_requests: number;
   contact_unhandled: number;
   disputes_active: number;
 };
@@ -160,6 +162,13 @@ export type RequestDetail = Omit<RequestRow, "client" | "pro"> & {
   staff_note: string;
   can_cancel: boolean;
   can_open_dispute: boolean;
+  /** Motif donné par le client ; `awaiting_call` : annulation à confirmer par téléphone. */
+  cancellation: {
+    reason: string;
+    reason_label: string;
+    note: string;
+    awaiting_call: boolean;
+  } | null;
 };
 
 export type Account = {

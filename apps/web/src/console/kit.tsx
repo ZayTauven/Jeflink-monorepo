@@ -277,6 +277,9 @@ export function ReasonAction({
   title,
   subject,
   field = "reason",
+  fieldLabel = "Motif (obligatoire)",
+  maxLength = 300,
+  hint = "Il reste dans le journal de la console.",
   placeholder,
   danger = true,
 }: {
@@ -289,6 +292,9 @@ export function ReasonAction({
   title?: string;
   subject?: ReactNode;
   field?: string;
+  fieldLabel?: string;
+  maxLength?: number;
+  hint?: string;
   placeholder: string;
   danger?: boolean;
 }) {
@@ -307,7 +313,7 @@ export function ReasonAction({
       <ActionForm endpoint={endpoint} back={back} ok={ok} className="jf-dialog__form">
         <div className="ax-field">
           <label className="ax-field__label" htmlFor={id}>
-            Motif (obligatoire)
+            {fieldLabel}
           </label>
           <textarea
             id={id}
@@ -315,12 +321,12 @@ export function ReasonAction({
             className="ax-textarea"
             rows={3}
             required
-            maxLength={300}
+            maxLength={maxLength}
             placeholder={placeholder}
             aria-describedby={`${id}-aide`}
           />
           <p className="ax-field__hint" id={`${id}-aide`}>
-            Il reste dans le journal de la console.
+            {hint}
           </p>
         </div>
         <div className="jf-dialog__actions">

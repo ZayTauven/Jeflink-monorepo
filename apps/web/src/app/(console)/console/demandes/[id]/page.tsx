@@ -56,6 +56,16 @@ export default async function RequestDetailPage({ params, searchParams }: Props)
         }
       />
       <Flash ok={flash.ok} erreur={flash.erreur} />
+      {r.cancellation?.awaiting_call && (
+        <CancelCall
+          request={r}
+          back={here}
+          endpoint={endpoint}
+          reason={r.cancellation.reason}
+          reasonLabel={r.cancellation.reason_label}
+          note={r.cancellation.note}
+        />
+      )}
 
       <div className="ax-dash-grid">
         <div className="ax-col--8 jf-stack">
@@ -66,6 +76,16 @@ export default async function RequestDetailPage({ params, searchParams }: Props)
                 ["Repère", r.landmark],
                 ["Date souhaitée", r.preferred_date && formatDate(r.preferred_date)],
                 ["Dernière mise à jour", ago(r.updated_at)],
+                ...(r.cancellation && !r.cancellation.awaiting_call
+                  ? ([
+                      [
+                        "Motif d'annulation du client",
+                        [r.cancellation.reason_label, r.cancellation.note]
+                          .filter(Boolean)
+                          .join(" · "),
+                      ],
+                    ] as [string, string][])
+                  : []),
               ]}
             />
           </Card>
@@ -265,6 +285,106 @@ export default async function RequestDetailPage({ params, searchParams }: Props)
         </div>
       </div>
     </>
+  );
+}
+
+/** Le client a annulé une mission réservée : le support le rappelle, puis décide. */
+function CancelCall({
+  request: r,
+  back,
+  endpoint,
+  reason,
+  reasonLabel,
+  note,
+}: {
+  request: RequestDetail;
+  back: string;
+  endpoint: (action: string) => string;
+  reason: string;
+  reasonLabel: string;
+  note: string;
+}) {
+  // Depuis quand le client attend l'appel (dernière demande d'annulation).
+  const asked = [...r.events].reverse().find((e) => e.status === "cancelling");
+  // Motifs qui peuvent cacher un arrangement direct avec le même pro (hors Jeflink).
+  const check = reason === "other_pro" || reason === "price";
+  return (
+    <section className="ax-card jf-call mb-6" aria-label="Annulation à confirmer">
+      <div className="ax-card__header">
+        <div className="ax-card__titles">
+          <span className="ax-card__eyebrow">Annulation demandée par le client</span>
+          <h2 className="ax-card__title">À confirmer par téléphone</h2>
+          <p className="ax-card__subtitle">
+            Rappelez le client avant de décider. En attendant, la mission est en pause (le pro ne se
+            déplace pas) mais compte toujours dans les soldes.
+          </p>
+        </div>
+      </div>
+      <div className="ax-card__body jf-call__body" style={{ paddingTop: 0 }}>
+        <Facts
+          items={[
+            ["Demandée", asked ? ago(asked.created_at) : ""],
+            ["Motif du client", reasonLabel],
+            ["Précision", note],
+            [
+              "Client",
+              <>
+                {r.client.name}
+                {r.client.phone && (
+                  <>
+                    {" · "}
+                    <a href={`tel:${r.client.phone}`} className="jf-link">
+                      {r.client.phone}
+                    </a>
+                  </>
+                )}
+              </>,
+            ],
+            ["Pro réservé", r.pro?.name],
+          ]}
+        />
+        {check && (
+          <p className="ax-alert ax-alert--warning jf-call__check">
+            <i className="bi bi-exclamation-triangle ax-alert__icon" aria-hidden="true" />
+            <span className="ax-alert__message">
+              À vérifier au téléphone&nbsp;: est-ce avec le même pro, en dehors de Jeflink&nbsp;?
+              Rappelez au client qu&apos;un arrangement direct n&apos;est plus garanti.
+            </span>
+          </p>
+        )}
+        <div className="jf-inline">
+          <ReasonAction
+            endpoint={endpoint("confirm-cancel")}
+            back={back}
+            ok="Annulation confirmée : la mission sort des soldes."
+            label="Confirmer l'annulation…"
+            title="Confirmer l'annulation"
+            subject={`#${r.id} ${r.title}`}
+            confirm="Confirmer l'annulation"
+            field="note"
+            fieldLabel="Ce que le client a dit au téléphone"
+            maxLength={240}
+            hint="Gardé dans le journal de la console (le client et le pro ne le voient pas)."
+            placeholder="Ex. : il a trouvé un voisin, il ne souhaite plus l'intervention."
+          />
+          <ReasonAction
+            endpoint={endpoint("keep")}
+            back={back}
+            ok="Mission maintenue : le pro reste réservé."
+            label="Maintenir la mission…"
+            title="Maintenir la mission"
+            subject={`#${r.id} ${r.title}`}
+            confirm="Maintenir la mission"
+            field="note"
+            fieldLabel="Ce que le client a dit au téléphone"
+            maxLength={240}
+            hint="Gardé dans le journal de la console (le client et le pro ne le voient pas)."
+            placeholder="Ex. : erreur de manipulation, le pro passe comme prévu."
+            danger={false}
+          />
+        </div>
+      </div>
+    </section>
   );
 }
 
