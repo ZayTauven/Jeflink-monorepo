@@ -73,6 +73,7 @@ def test_pastilles_du_menu(staff, mission):
     assert res.data == {
         "pros_pending": 1,
         "stale_requests": 0,
+        "cancel_requests": 0,
         "contact_unhandled": 0,
         "disputes_active": 0,
     }
