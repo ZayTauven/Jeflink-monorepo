@@ -36,6 +36,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
         aside={
           <div>
             <ErrorAlert message={erreur} />
+            {isClient && req.status === "open" && <PromoCard code={req.promo_code} act={act} />}
             <Quotes req={req} isClient={isClient} act={act} canAccept={can("accept")} />
             {can("quote") && <QuoteForm act={act} />}
             {req.status === "open" && !isClient && !can("quote") && req.quotes.length === 0 && (
@@ -156,6 +157,54 @@ export default async function RequestPage({ params, searchParams }: Props) {
   );
 }
 
+/**
+ * Code promo de la demande, avant de choisir un devis : ajouté (ou retiré) ici, vérifié tout
+ * de suite ; chaque devis affiche alors le prix après remise, appliqué au devis choisi.
+ */
+function PromoCard({ code, act }: { code: string; act: (a: string) => string }) {
+  return (
+    <div className="bg-white border-radius-20px p-30px sm-p-25px mb-30px">
+      <h2 className="h5 alt-font fw-500 mb-10px">Code promo</h2>
+      {code ? (
+        <ActionForm action={act("code")} className="jf-form">
+          <p className="mb-15px">
+            Code <span className="jf-code-chip">{code}</span> ajouté. La remise s&apos;applique au
+            devis que vous choisirez.
+          </p>
+          <input type="hidden" name="code" value="" />
+          <button type="submit" className="btn btn-link p-0 fs-15 fw-500 text-dark-gray">
+            Retirer le code
+          </button>
+        </ActionForm>
+      ) : (
+        <ActionForm action={act("code")} className="jf-form" labels={{ code: "Code promo" }}>
+          <label htmlFor="promo-code">
+            Vous avez un code ? Ajoutez-le avant de choisir un devis.
+          </label>
+          <div className="d-flex flex-wrap gap-2">
+            <input
+              id="promo-code"
+              name="code"
+              className="form-control jf-code-input flex-grow-1 w-auto"
+              maxLength={20}
+              required
+              autoCapitalize="characters"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+            />
+            <SwitchSubmit
+              label="Ajouter"
+              icon="icon-feather-tag"
+              className="btn-medium btn-dark-gray btn-rounded btn-box-shadow"
+            />
+          </div>
+        </ActionForm>
+      )}
+    </div>
+  );
+}
+
 function Quotes({
   req,
   isClient,
@@ -195,6 +244,17 @@ function Quotes({
               <span className="alt-font fs-30 fw-600 ls-minus-1px d-block">
                 {formatXOF(q.amount)}
               </span>
+              {q.with_code && "client_pays" in q.with_code && (
+                <span className="d-block fw-500 text-base-color mb-5px">
+                  Avec {q.with_code.code}&nbsp;: {formatXOF(q.with_code.client_pays)} à payer (−
+                  {formatXOF(q.with_code.discount)})
+                </span>
+              )}
+              {q.with_code && "error" in q.with_code && (
+                <span className="d-block fs-14 opacity-7 mb-5px">
+                  Code {q.with_code.code}&nbsp;: {q.with_code.error}
+                </span>
+              )}
               <span className="fw-500 text-dark-gray">{q.pro.name}</span>
               {q.pro_headline && <span className="opacity-7"> · {q.pro_headline}</span>}
               <span className="d-block fs-14 opacity-7">
@@ -213,27 +273,6 @@ function Quotes({
               labels={{ coupon: "Code promo" }}
             >
               <input type="hidden" name="quote_id" value={q.id} />
-              <details className="mb-15px">
-                <summary className="fw-500 text-dark-gray jf-summary">
-                  J&apos;ai un code promo
-                </summary>
-                <div className="mt-15px">
-                  <label htmlFor={`coupon-${q.id}`}>Code promo</label>
-                  <input
-                    id={`coupon-${q.id}`}
-                    name="coupon"
-                    className="form-control"
-                    maxLength={20}
-                    autoCapitalize="characters"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                  />
-                  <div className="hint">
-                    À saisir maintenant : on ne peut plus l&apos;ajouter une fois le devis choisi.
-                  </div>
-                </div>
-              </details>
               <SwitchSubmit
                 label="Choisir ce devis"
                 icon="icon-feather-check"

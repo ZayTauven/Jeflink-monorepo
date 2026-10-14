@@ -17,15 +17,22 @@ const LABELS = {
   description: "Description",
   landmark: "Repère",
   preferred_date: "Date souhaitée",
+  promo_code: "Code promo",
 };
 
 export default async function NewRequestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ metier?: string; erreur?: string }>;
+  searchParams: Promise<{ metier?: string; erreur?: string; code?: string }>;
 }) {
-  const { metier, erreur } = await searchParams;
-  const here = `/espace/demandes/nouvelle${metier ? `?metier=${encodeURIComponent(metier)}` : ""}`;
+  const { metier, erreur, code: rawCode } = await searchParams;
+  // Code venu d'un bandeau de campagne (?code=CLIM20) : déjà saisi, le client n'a rien à retenir.
+  const code = (rawCode ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, "")
+    .slice(0, 20);
+  const query = new URLSearchParams({ ...(metier ? { metier } : {}), ...(code ? { code } : {}) });
+  const here = `/espace/demandes/nouvelle${query.size ? `?${query}` : ""}`;
   const { me } = await requireMe(here);
   const [trades, zones, site] = await Promise.all([getTrades(), getZones(), getSite()]);
   const today = new Date().toISOString().slice(0, 10);
@@ -145,13 +152,37 @@ export default async function NewRequestPage({
                         className="form-control"
                       />
                     </div>
-                    <div className="col-12 mb-30px">
+                    <div className="col-12 mb-20px">
                       <div className="jf-checks">
                         <label>
                           <input type="checkbox" name="is_urgent" />
                           <span>C&apos;est urgent</span>
                         </label>
                       </div>
+                    </div>
+                    <div className="col-12 mb-30px">
+                      <details open={Boolean(code)}>
+                        <summary className="fw-500 text-dark-gray jf-summary">
+                          J&apos;ai un code promo
+                        </summary>
+                        <div className="mt-15px">
+                          <label htmlFor="promo_code">Code promo</label>
+                          <input
+                            id="promo_code"
+                            name="promo_code"
+                            className="form-control jf-code-input"
+                            defaultValue={code}
+                            maxLength={20}
+                            autoCapitalize="characters"
+                            autoComplete="off"
+                            autoCorrect="off"
+                            spellCheck={false}
+                          />
+                          <div className="hint">
+                            Vérifié tout de suite. Chaque devis affichera le prix après remise.
+                          </div>
+                        </div>
+                      </details>
                     </div>
                   </div>
                   <SwitchSubmit

@@ -10,8 +10,15 @@ function terms(c: Campaign): string {
   if (t.max_discount) parts.push(`Remise de ${formatXOF(t.max_discount)} au maximum.`);
   if (t.first_order_only) parts.push("Première mission sur Jeflink seulement.");
   if (t.ends_on) parts.push(`Jusqu'au ${formatDate(t.ends_on)}.`);
-  if (c.coupon_code) parts.push("Saisissez le code au moment de choisir votre devis.");
+  if (c.coupon_code)
+    parts.push("Ajoutez le code en publiant votre demande, ou ensuite sur sa page.");
   return parts.join(" ");
+}
+
+/** Vers une nouvelle demande : le code y arrive déjà saisi (?code=…). */
+function withCode(url: string, code: string): string {
+  if (!code || !url.startsWith("/espace/demandes/nouvelle")) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}code=${encodeURIComponent(code)}`;
 }
 
 /** Lien interne seulement (même règle que l'API) : jamais « //autre-site » ni « javascript: ». */
@@ -57,7 +64,7 @@ export async function CampaignBanner({
             )}
             {c.cta_label && internal(c.cta_url) && (
               <a
-                href={c.cta_url}
+                href={withCode(c.cta_url, c.coupon_code)}
                 className="btn btn-medium btn-base-color btn-rounded btn-box-shadow align-self-start align-self-md-center"
               >
                 {c.cta_label}

@@ -64,6 +64,27 @@
   background: #eeeeee;
   color: #5a5a5a;
 }
+/* Code promo : saisi en majuscules, affiché en pastille pointillée (comme les bandeaux). */
+.jf-code-input {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.jf-code-input::placeholder {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.jf-code-chip {
+  display: inline-block;
+  padding: 1px 10px;
+  border: 1px dashed var(--base-color);
+  border-radius: 50px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #b33c00;
+}
+
 /* Annulation demandée par le client, en attente du rappel du support. */
 .status-cancelling {
   background: #fff4d6;

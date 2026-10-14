@@ -123,6 +123,11 @@ export type Quote = {
   message: string;
   status: "pending" | "accepted" | "declined";
   status_label: string;
+  /** Pour le client : ce que donne le code promo de sa demande sur ce devis. */
+  with_code:
+    | { code: string; discount: number; client_pays: number }
+    | { code: string; error: string }
+    | null;
   created_at: string;
 };
 
@@ -155,6 +160,8 @@ export type ServiceRequest = {
     | null;
   /** Motif d'annulation donné par le client (visible du client seulement). */
   cancellation: { reason: string; reason_label: string; note: string } | null;
+  /** Code promo ajouté à la demande (visible du client seulement). */
+  promo_code: string;
   actions: RequestAction[];
   created_at: string;
 };
