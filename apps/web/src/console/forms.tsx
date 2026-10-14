@@ -4,7 +4,7 @@ import { cloneElement, isValidElement, type ReactElement, type ReactNode } from 
 import { ActionForm } from "./kit";
 import { Submit } from "./submit";
 import { TagsField } from "./tags-field";
-import type { CampaignAdmin, CouponAdmin, TradeAdmin, ZoneAdmin } from "./types";
+import type { CampaignAdmin, CityAdmin, CouponAdmin, TradeAdmin, ZoneAdmin } from "./types";
 
 const NBSP = " ";
 
@@ -202,10 +202,12 @@ export function TradeForm({
 
 export function ZoneForm({
   zone,
+  cities,
   back,
   prefix,
 }: {
   zone?: ZoneAdmin;
+  cities: CityAdmin[];
   back: string;
   prefix: string;
 }) {
@@ -228,14 +230,19 @@ export function ZoneForm({
         />
       </Field>
       <Field id={id("city")} label="Ville">
-        <input
+        <select
           id={id("city")}
           name="city"
-          className="ax-input"
+          className="ax-select"
           required
-          maxLength={80}
-          defaultValue={zone?.city ?? "Dakar"}
-        />
+          defaultValue={zone?.city_id ?? cities.find((c) => c.slug === "dakar")?.id}
+        >
+          {cities.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name} ({c.region_label}){c.is_active ? "" : " · fermée"}
+            </option>
+          ))}
+        </select>
       </Field>
       <Field id={id("position")} label="Ordre d'affichage">
         <input
@@ -252,6 +259,92 @@ export function ZoneForm({
       <div className="jf-form__wide">
         <Submit className="ax-btn ax-btn--primary ax-btn--sm">
           {zone ? "Enregistrer" : "Ajouter le quartier"}
+        </Submit>
+      </div>
+    </ActionForm>
+  );
+}
+
+// Mêmes valeurs que catalog.models.City.Region (les 14 régions du Sénégal).
+const REGIONS: [string, string][] = [
+  ["dakar", "Dakar"],
+  ["thies", "Thiès"],
+  ["saint-louis", "Saint-Louis"],
+  ["diourbel", "Diourbel"],
+  ["louga", "Louga"],
+  ["fatick", "Fatick"],
+  ["kaolack", "Kaolack"],
+  ["kaffrine", "Kaffrine"],
+  ["matam", "Matam"],
+  ["tambacounda", "Tambacounda"],
+  ["kedougou", "Kédougou"],
+  ["kolda", "Kolda"],
+  ["sedhiou", "Sédhiou"],
+  ["ziguinchor", "Ziguinchor"],
+];
+
+export function CityForm({
+  city,
+  back,
+  prefix,
+}: {
+  city?: CityAdmin;
+  back: string;
+  prefix: string;
+}) {
+  const id = (name: string) => `${prefix}-${name}`;
+  return (
+    <ActionForm
+      endpoint={city ? `/api/console/cities/${city.id}/update/` : "/api/console/cities/"}
+      back={back}
+      ok={city ? "Ville enregistrée." : "Ville ajoutée."}
+      className="jf-form"
+    >
+      <Field id={id("name")} label="Ville">
+        <input
+          id={id("name")}
+          name="name"
+          className="ax-input"
+          required
+          maxLength={80}
+          defaultValue={city?.name}
+        />
+      </Field>
+      <Field id={id("region")} label="Région">
+        <select
+          id={id("region")}
+          name="region"
+          className="ax-select"
+          required
+          defaultValue={city?.region ?? "dakar"}
+        >
+          {REGIONS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field id={id("position")} label="Ordre d'affichage">
+        <input
+          id={id("position")}
+          name="position"
+          type="number"
+          min={0}
+          max={999}
+          className="ax-input"
+          defaultValue={city?.position ?? 0}
+        />
+      </Field>
+      <Check
+        name="is_active"
+        label="Ville ouverte"
+        checked={city?.is_active ?? false}
+        hint={`Fermée${NBSP}: ses quartiers n'apparaissent ni sur le site, ni dans les demandes.`}
+      />
+      <div className="jf-form__wide">
+        <Submit className="ax-btn ax-btn--primary ax-btn--sm">
+          {city ? "Enregistrer" : "Ajouter la ville"}
         </Submit>
       </div>
     </ActionForm>

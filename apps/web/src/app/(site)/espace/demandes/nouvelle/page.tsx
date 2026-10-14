@@ -7,6 +7,7 @@ import { JefAssistant } from "@/components/jef-assistant";
 import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { getSite, getTrades, getZones, requireMe } from "@/lib/api";
+import { zonesByCity } from "@/lib/zones";
 
 export const metadata: Metadata = { title: "Nouvelle demande" };
 
@@ -36,6 +37,7 @@ export default async function NewRequestPage({
   const { me } = await requireMe(here);
   const [trades, zones, site] = await Promise.all([getTrades(), getZones(), getSite()]);
   const today = new Date().toISOString().slice(0, 10);
+  const byCity = zonesByCity(zones);
 
   return (
     <PageShell actions={false}>
@@ -102,11 +104,21 @@ export default async function NewRequestPage({
                         <option value="" disabled>
                           Choisir…
                         </option>
-                        {zones.map((z) => (
-                          <option key={z.slug} value={z.slug}>
-                            {z.name}
-                          </option>
-                        ))}
+                        {byCity.length > 1
+                          ? byCity.map((g) => (
+                              <optgroup key={g.city} label={g.city}>
+                                {g.zones.map((z) => (
+                                  <option key={z.slug} value={z.slug}>
+                                    {z.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))
+                          : zones.map((z) => (
+                              <option key={z.slug} value={z.slug}>
+                                {z.name}
+                              </option>
+                            ))}
                       </select>
                     </div>
                     <div className="col-12 mb-20px">

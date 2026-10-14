@@ -116,10 +116,10 @@ export const NAV: NavSection[] = [
       },
       {
         href: "/console/quartiers",
-        label: "Quartiers",
+        label: "Villes et quartiers",
         icon: "bi-geo-alt",
-        summary: "Quartiers et communes desservis, ouverture d'une nouvelle zone.",
-        keywords: ["zones", "villes"],
+        summary: "Villes (par région) et quartiers desservis, ouverture d'une nouvelle ville.",
+        keywords: ["zones", "villes", "régions", "quartiers"],
       },
     ],
   },

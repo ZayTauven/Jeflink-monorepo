@@ -5,6 +5,7 @@ import { ActionForm } from "@/components/action-form";
 import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { getTrades, getZones } from "@/lib/api";
+import { zonesByCity } from "@/lib/zones";
 
 export const metadata: Metadata = { title: "Créer un compte" };
 
@@ -151,14 +152,23 @@ export default async function SignupPage({
                     <div className="hint mb-10px mt-0">
                       Aucun coché : vous voyez les demandes de toute la zone.
                     </div>
-                    <div className="jf-checks">
-                      {zones.map((z) => (
-                        <label key={z.slug}>
-                          <input type="checkbox" name="zones" value={z.slug} />
-                          <span>{z.name}</span>
-                        </label>
-                      ))}
-                    </div>
+                    {zonesByCity(zones).map((g, _, all) => (
+                      <div key={g.city} className="mb-10px">
+                        {all.length > 1 && (
+                          <span className="d-block fs-14 fw-500 text-dark-gray mb-5px">
+                            {g.city}
+                          </span>
+                        )}
+                        <div className="jf-checks">
+                          {g.zones.map((z) => (
+                            <label key={z.slug}>
+                              <input type="checkbox" name="zones" value={z.slug} />
+                              <span>{z.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </fieldset>
                 </>
               )}

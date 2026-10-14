@@ -10,7 +10,7 @@ export type Trade = {
   pros_count: number;
 };
 
-export type Zone = { slug: string; name: string; city: string };
+export type Zone = { slug: string; name: string; city: string; city_slug: string };
 
 export type Rating = { average: number | null; count: number };
 

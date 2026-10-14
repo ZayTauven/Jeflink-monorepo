@@ -14,6 +14,8 @@ Next.js (App Router), **template Crafto « Marketing strategy » pris tel quel**
 - Formulaires : `<ActionForm action="/act/…">` (client) → route handler dans `src/app/act/` → API Django → JSON (avec JS) ou redirection 303 (sans JS).
 - Pages : `/`, `/a-propos`, `/services` (comment ça marche), `/metiers`, `/metiers/[slug]`, `/contact`, `/connexion`, `/inscription`, `/espace`, `/espace/demandes/nouvelle`, `/espace/demandes/[id]`.
 - Montants via `formatXOF`, dates via `formatDate` (heure de Dakar).
+- Quartiers : `zonesByCity()` (`lib/zones.ts`) ; regroupés par ville (optgroup, intitulés) seulement quand plusieurs villes sont ouvertes.
+- Code promo : champ « J'ai un code promo » à la publication (pré-rempli par `?code=`, que posent les bandeaux de campagne), carte « Code promo » sur la demande ouverte, prix après remise sur chaque devis (`with_code`).
 - Jef : `components/jef-assistant.tsx` (client, au-dessus du formulaire de nouvelle demande) appelle `/act/jef` puis `/act/jef/[id]` en JSON, puis remplit les champs du formulaire et `jef_session` ; sans JavaScript, le formulaire classique reste disponible.
 
 ## Console (`/console`)

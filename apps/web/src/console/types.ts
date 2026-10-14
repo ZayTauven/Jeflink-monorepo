@@ -259,11 +259,24 @@ export type TradeAdmin = {
   requests_total: number;
 };
 
+export type CityAdmin = {
+  id: number;
+  slug: string;
+  name: string;
+  region: string;
+  region_label: string;
+  position: number;
+  is_active: boolean;
+  zones_count: number;
+  zones_open: number;
+};
+
 export type ZoneAdmin = {
   id: number;
   slug: string;
   name: string;
   city: string;
+  city_id: number;
   position: number;
   is_active: boolean;
   pros_count: number;
