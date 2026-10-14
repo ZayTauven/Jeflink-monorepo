@@ -5,6 +5,7 @@ import { Fragment } from "react";
 import { AccountHero, ErrorAlert, StatusPill } from "@/components/account";
 import { ActionForm } from "@/components/action-form";
 import { SwitchSubmit } from "@/components/crafto";
+import { JefFacts } from "@/components/jef-facts";
 import { PageShell } from "@/components/page-shell";
 import { getRequest, requireMe } from "@/lib/api";
 import { formatDate, formatRating, formatXOF } from "@/lib/format";
@@ -374,7 +375,7 @@ function JefCard({
 }) {
   const tips = isClient ? (jef.client_tips ?? []) : [];
   const bring = jef.pro_bring ?? [];
-  // Les réponses déjà reprises dans la description (mode guidé) ne sont pas répétées.
+  // Anciennes fiches : les réponses étaient recopiées dans la description, pas de doublon.
   const details = (jef.pro_details ?? []).filter((line) => !description.includes(line));
   if (isClient && tips.length === 0) return null;
   return (
@@ -402,13 +403,7 @@ function JefCard({
             <span className="status-pill status-open mb-10px d-inline-block">Urgent</span>
           )}
           {jef.pro_summary && <p className="fw-500 text-dark-gray mb-10px">{jef.pro_summary}</p>}
-          {details.length > 0 && (
-            <ul className="jf-jef-list">
-              {details.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          )}
+          <JefFacts lines={details} />
           {bring.length > 0 && (
             <>
               <span className="d-block fw-500 text-dark-gray mb-5px">

@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import type { JefSession } from "@/lib/types";
 
+import { JefFacts } from "./jef-facts";
+
 type Reply = { ok: true; session: JefSession } | { ok: false; error: string };
 type Step = "describe" | "questions" | "brief" | "done";
 
@@ -323,13 +325,16 @@ export function JefAssistant() {
             <p className="mb-0 jf-pre-line">{session.brief.description}</p>
           </div>
           <List title={"En attendant le pro :"} items={session.brief.client_tips} />
-          {(session.brief.pro_summary || session.brief.pro_bring.length > 0) && (
+          {(session.brief.pro_summary ||
+            session.brief.pro_details.length > 0 ||
+            session.brief.pro_bring.length > 0) && (
             <details className="mb-20px">
               <summary className="fw-500 text-dark-gray jf-summary">Ce que le pro verra</summary>
               <div className="mt-10px">
                 {session.brief.pro_summary && (
                   <p className="mb-10px">{session.brief.pro_summary}</p>
                 )}
+                <JefFacts lines={session.brief.pro_details} />
                 <List
                   title={"À prévoir (suggestion, à confirmer sur place) :"}
                   items={session.brief.pro_bring}

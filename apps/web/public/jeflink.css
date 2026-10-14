@@ -540,3 +540,38 @@
 .jf-jef-list li + li {
   margin-top: 4px;
 }
+/* Fiche Jef : les faits en tableau libellé / valeur (« Endroit — Cuisine ») */
+.jf-jef-facts {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 15px;
+}
+.jf-jef-facts div {
+  display: grid;
+  grid-template-columns: minmax(110px, 38%) 1fr;
+  gap: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(18, 18, 18, 0.12);
+}
+.jf-jef-facts div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.jf-jef-facts dt {
+  font-weight: 400;
+  color: var(--medium-gray);
+}
+.jf-jef-facts dd {
+  margin: 0;
+  font-weight: 500;
+  color: var(--dark-gray);
+}
+.jf-jef-facts div:not(:has(dt)) dd {
+  grid-column: 1 / -1;
+}
+@media (max-width: 575px) {
+  .jf-jef-facts div {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
