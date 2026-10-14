@@ -178,6 +178,99 @@ GENERIC: Q = [
     FLOOR,
 ]
 
+# Fiche du pro : chaque question a un libellé court, et certaines réponses sont reformulées
+# en fait (une réponse « Oui » ne dit rien sans sa question). None = réponse non reprise.
+# Les réponses « Je ne sais pas » ne sont jamais reprises.
+Fact = tuple[str, dict[str, str | None]]
+FACTS: dict[str, dict[str, Fact]] = {
+    "plomberie": {
+        "q1": ("Problème", {}),
+        "q2": ("Endroit", {}),
+        "q3": (
+            "Évolution",
+            {
+                "Oui, ça coule beaucoup ou ça déborde": "S'aggrave (coule beaucoup ou déborde)",
+                "Non, c'est stable": "Stable",
+            },
+        ),
+    },
+    "electricite": {
+        "q1": ("Panne", {}),
+        "q2": (
+            "Signes de danger",
+            {
+                "Oui": "Chaleur, odeur de brûlé ou étincelles",
+                "Non": "Aucun (ni chaleur, ni odeur, ni étincelles)",
+            },
+        ),
+        "q3": (
+            "Voisins",
+            {
+                "Oui": "Ont du courant (panne propre au logement)",
+                "Non": "Sans courant aussi (coupure du quartier probable)",
+            },
+        ),
+    },
+    "climatisation": {
+        "q1": ("Souci", {}),
+        "q2": ("Appareil", {}),
+        "q3": ("Nombre", {}),
+        "q4": (
+            "Bloc extérieur",
+            {
+                "Oui, au sol ou sur un balcon": "Facile d'accès (sol ou balcon)",
+                "En hauteur, il faut une échelle": "En hauteur (prévoir une échelle)",
+            },
+        ),
+    },
+    "electromenager": {
+        "q1": ("Appareil", {}),
+        "q2": ("Panne", {}),
+        "q3": ("Marque", {"Autre ou je ne sais pas": None}),
+    },
+    "menage": {
+        "q1": ("Prestation", {}),
+        "q2": ("Logement", {}),
+        "q3": (
+            "Produits et matériel",
+            {
+                "Oui": "Fournis par le client",
+                "Non, à apporter": "À apporter",
+                "En partie": "En partie fournis",
+            },
+        ),
+        "q4": ("Fréquence", {}),
+    },
+    "petits-travaux": {
+        "q1": ("Travail", {}),
+        "q2": (
+            "Matériel",
+            {"Oui": "Déjà acheté", "Non, à prévoir": "À prévoir", "En partie": "En partie acheté"},
+        ),
+        "q3": ("Quantité", {}),
+    },
+    "": {  # questions génériques (métier sans questions propres)
+        "q1": ("Depuis", {}),
+        "q2": ("Évolution", {"Oui": "S'aggrave", "Non": "Stable"}),
+    },
+}
+COMMON_FACTS: dict[str, Fact] = {"q9": ("Étage", {})}
+
+
+def fact(trade_slug: str, qid: str, answer: str) -> tuple[str, str] | None:
+    """(libellé, valeur) d'une réponse pour la fiche du pro, ou None si elle n'apprend rien."""
+    if not answer or answer == NO_IDEA:
+        return None
+    facts = FACTS.get(trade_slug if trade_slug in QUESTIONS else "", {})
+    label, say = facts.get(qid) or COMMON_FACTS.get(qid) or ("Précision", {})
+    value = say.get(answer, answer)
+    return None if value is None else (label, value)
+
+
+def fact_line(label: str, value: str) -> str:
+    return f"{label} : {value}"
+
+
 # Mots et radicaux (texte sans accents ni majuscules), avec un poids : 3 = mot qui désigne le
 # métier à coup sûr, 1 = indice. Les mots wolof courants sont repris tels qu'on les écrit.
 KEYWORDS: dict[str, dict[str, int]] = {
@@ -479,18 +572,21 @@ def _bring(trade_slug: str, a: dict) -> list[str]:
 
 
 def brief(text: str, trade_slug: str, trade_name: str, qs: Q, answers: dict) -> dict:
-    """Fiche du mode guidé : le texte du client, ses réponses, conseils et matériel adaptés."""
-    lines = [f"{q['question']} {answers[q['id']]}" for q in qs if answers.get(q["id"])]
+    """Fiche du mode guidé : le texte du client, ses réponses interprétées (« Endroit : cuisine »,
+    jamais « question réponse »), conseils et matériel adaptés. Même format que le mode IA."""
+    facts = [f for q in qs if (f := fact(trade_slug, q["id"], answers.get(q["id"], "")))]
+    lines = [fact_line(label, value) for label, value in facts]
     urgent = danger(text) or any(answers.get(q["id"]) in q.get("urgent", ()) for q in qs)
+    # La description reste les mots du client ; les faits vont dans la fiche du pro (pas de
+    # doublon). En mode IA, la description intègre les réponses en phrases.
     description = text.strip()
-    if lines:
-        description += "\n\n" + "\n".join(f"• {line}" for line in lines)
     return {
         "title": _title(text),
         "description": description,
         "urgent": urgent,
         "client_tips": _tips(trade_slug, answers, text),
-        "pro_summary": "",  # le titre et la description suffisent en mode guidé
+        # Résumé : les deux premiers faits (souvent le problème et l'endroit).
+        "pro_summary": " · ".join(value for _, value in facts[:2]),
         "pro_details": lines,
         "pro_bring": _bring(trade_slug, answers),
     }

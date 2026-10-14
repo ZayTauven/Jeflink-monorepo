@@ -34,8 +34,12 @@ def _mask(text: str) -> str:
     return text
 
 
+# Espaces à réduire : tous sauf l'espace insécable (typographie française : « Endroit : … »).
+SPACES = re.compile(r"[^\S\u00a0]+")
+
+
 def _line(value, limit: int) -> str:
-    return _mask(" ".join(str(value or "").split()))[:limit]
+    return _mask(SPACES.sub(" ", str(value or "")).strip())[:limit]
 
 
 def _lines(values, count: int, limit: int) -> list[str]:

@@ -74,7 +74,15 @@ def test_la_fiche_reprend_les_reponses_et_suit_la_demande(world):
     brief = res.data["brief"]
     assert res.status_code == 200 and brief["urgent"] is True
     assert brief["title"].startswith("Fuite sous l'évier")
-    assert "Que se passe-t-il ? Fuite d'eau" in brief["description"]
+    # Réponses interprétées (« Libellé : valeur »), jamais « question réponse ».
+    # La description garde les mots du client ; les faits sont dans la fiche du pro.
+    assert "Que se passe-t-il" not in brief["description"]
+    assert "Problème" not in brief["description"]
+    assert brief["pro_details"] == [
+        "Problème : Fuite d'eau",
+        "Évolution : S'aggrave (coule beaucoup ou déborde)",
+    ]
+    assert brief["pro_summary"] == "Fuite d'eau · S'aggrave (coule beaucoup ou déborde)"
     assert set(res.data["answers"]) == {"q1", "q3"}
     assert brief["client_tips"] and brief["pro_bring"]
 
@@ -94,7 +102,7 @@ def test_la_fiche_reprend_les_reponses_et_suit_la_demande(world):
     assert "pro_bring" not in mine
     # Le pro lit la fiche, sans les conseils au client ni la version proposée par Jef.
     seen = as_user(world["pro"]).get(f"/api/requests/{req.data['id']}/").data["jef"]
-    assert seen["pro_details"][0] == "Que se passe-t-il ? Fuite d'eau" and seen["urgent"]
+    assert seen["pro_details"][0] == "Problème : Fuite d'eau" and seen["urgent"]
     assert "client_tips" not in seen and "description" not in seen
 
 
@@ -286,3 +294,14 @@ def test_plafond_global_de_l_ia(world, settings, monkeypatch):
     settings.JEF_AI_DAILY_LIMIT = 0
     monkeypatch.setattr(ai, "_ask", lambda *a, **k: pytest.fail("l'IA ne doit pas être appelée"))
     assert start(world).data["mode"] == "guide"
+
+
+def test_reponses_vagues_omises_et_oui_non_reformules():
+    from jeflink.jef import guide
+
+    qs = guide.questions("electricite")
+    brief = guide.brief(
+        "Ma prise chauffe", "electricite", "Électricité", qs, {"q2": "Oui", "q3": guide.NO_IDEA}
+    )
+    assert brief["pro_details"] == ["Signes de danger : Chaleur, odeur de brûlé ou étincelles"]
+    assert brief["urgent"] is True
