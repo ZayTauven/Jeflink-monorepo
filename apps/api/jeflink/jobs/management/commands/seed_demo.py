@@ -13,7 +13,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
-from jeflink.catalog.models import Campaign, Trade, Zone
+from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.console.models import AuditLog, ProSettlement
 from jeflink.jef.models import JefSession
 from jeflink.jobs import services
@@ -421,9 +421,23 @@ class Command(BaseCommand):
             Trade.objects.update_or_create(
                 slug=data["slug"], defaults={**data, "position": position}
             )
+        # La démo couvre Dakar ; Thiès existe, fermée (rien sur le site), pour montrer les villes.
+        dakar, _ = City.objects.update_or_create(
+            slug="dakar", defaults={"name": "Dakar", "region": City.Region.DAKAR, "position": 0}
+        )
+        City.objects.update_or_create(
+            slug="thies",
+            defaults={
+                "name": "Thiès",
+                "region": City.Region.THIES,
+                "position": 1,
+                "is_active": False,
+            },
+        )
         for position, name in enumerate(ZONES):
             Zone.objects.update_or_create(
-                slug=slugify_zone(name), defaults={"name": name, "position": position}
+                slug=slugify_zone(name),
+                defaults={"name": name, "position": position, "city": dakar},
             )
 
         admin = self._user(ADMIN, is_staff=True, is_superuser=True, staff_role="super")

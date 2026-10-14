@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User, normalize_phone
-from jeflink.catalog.models import Campaign, Trade, Zone
+from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.jef.models import JefSession
 from jeflink.jobs import services as jobs_services
 from jeflink.jobs.models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
@@ -460,6 +460,8 @@ class TradeInputSerializer(serializers.Serializer):
 class ZoneConsoleSerializer(serializers.ModelSerializer):
     pros_count = serializers.SerializerMethodField()
     requests_30d = serializers.IntegerField(source="n_recent", default=0)
+    city = serializers.CharField(source="city.name", read_only=True)
+    city_id = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Zone
@@ -468,6 +470,7 @@ class ZoneConsoleSerializer(serializers.ModelSerializer):
             "slug",
             "name",
             "city",
+            "city_id",
             "position",
             "is_active",
             "pros_count",
@@ -485,7 +488,34 @@ class ZoneConsoleSerializer(serializers.ModelSerializer):
 
 class ZoneInputSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=80)
-    city = serializers.CharField(max_length=80, default="Dakar")
+    city = serializers.PrimaryKeyRelatedField(queryset=City.objects.all())
+    position = serializers.IntegerField(min_value=0, max_value=999, default=0)
+    is_active = serializers.BooleanField(default=True)
+
+
+class CityConsoleSerializer(serializers.ModelSerializer):
+    region_label = serializers.CharField(source="get_region_display", read_only=True)
+    zones_count = serializers.IntegerField(source="n_zones", default=0)
+    zones_open = serializers.IntegerField(source="n_open", default=0)
+
+    class Meta:
+        model = City
+        fields = [
+            "id",
+            "slug",
+            "name",
+            "region",
+            "region_label",
+            "position",
+            "is_active",
+            "zones_count",
+            "zones_open",
+        ]
+
+
+class CityInputSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=80)
+    region = serializers.ChoiceField(choices=City.Region.choices)
     position = serializers.IntegerField(min_value=0, max_value=999, default=0)
     is_active = serializers.BooleanField(default=True)
 

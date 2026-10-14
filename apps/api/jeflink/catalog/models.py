@@ -39,12 +39,60 @@ class Trade(models.Model):
         return self.name
 
 
-class Zone(models.Model):
-    """Un quartier ou une commune desservie."""
+class City(models.Model):
+    """Ville desservie, rattachée à une des 14 régions du Sénégal. Une ville fermée retire ses
+    quartiers du site (la démo n'ouvre que Dakar)."""
+
+    class Region(models.TextChoices):
+        DAKAR = "dakar", "Dakar"
+        THIES = "thies", "Thiès"
+        SAINT_LOUIS = "saint-louis", "Saint-Louis"
+        DIOURBEL = "diourbel", "Diourbel"
+        LOUGA = "louga", "Louga"
+        FATICK = "fatick", "Fatick"
+        KAOLACK = "kaolack", "Kaolack"
+        KAFFRINE = "kaffrine", "Kaffrine"
+        MATAM = "matam", "Matam"
+        TAMBACOUNDA = "tambacounda", "Tambacounda"
+        KEDOUGOU = "kedougou", "Kédougou"
+        KOLDA = "kolda", "Kolda"
+        SEDHIOU = "sedhiou", "Sédhiou"
+        ZIGUINCHOR = "ziguinchor", "Ziguinchor"
 
     slug = models.SlugField(unique=True)
     name = models.CharField("nom", max_length=80)
-    city = models.CharField("ville", max_length=80, default="Dakar")
+    region = models.CharField("région", max_length=12, choices=Region.choices)
+    position = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField("ouverte", default=True)
+
+    class Meta:
+        ordering = ["position", "name"]
+        verbose_name = "ville"
+
+    def __str__(self):
+        return self.name
+
+
+def default_city() -> int:
+    """Dakar par défaut : la démo ne couvre que Dakar (créée au besoin)."""
+    city, _ = City.objects.get_or_create(
+        slug="dakar", defaults={"name": "Dakar", "region": City.Region.DAKAR}
+    )
+    return city.pk
+
+
+class Zone(models.Model):
+    """Un quartier ou une commune desservie, dans une ville."""
+
+    slug = models.SlugField(unique=True)
+    name = models.CharField("nom", max_length=80)
+    city = models.ForeignKey(
+        City,
+        on_delete=models.PROTECT,
+        related_name="zones",
+        verbose_name="ville",
+        default=default_city,
+    )
     position = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField("actif", default=True)
 
@@ -54,6 +102,15 @@ class Zone(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_served(self) -> bool:
+        return self.is_active and self.city.is_active
+
+
+def served_zones():
+    """Quartiers ouverts dans une ville ouverte : ceux du site, des demandes et des pros."""
+    return Zone.objects.filter(is_active=True, city__is_active=True).select_related("city")
 
 
 class Campaign(models.Model):

@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
-from jeflink.catalog.models import Trade, Zone
+from jeflink.catalog.models import Trade, served_zones
 
 from .models import ContactMessage, ProProfile, User, normalize_phone
 
@@ -64,7 +64,7 @@ class RegisterSerializer(serializers.Serializer):
         slug_field="slug", queryset=Trade.objects.filter(is_active=True), many=True, required=False
     )
     zones = serializers.SlugRelatedField(
-        slug_field="slug", queryset=Zone.objects.filter(is_active=True), many=True, required=False
+        slug_field="slug", queryset=served_zones(), many=True, required=False
     )
     headline = serializers.CharField(max_length=120, required=False, allow_blank=True)
 

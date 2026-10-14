@@ -27,6 +27,8 @@ class AuditLog(models.Model):
         TRADE_UPDATE = "trade.update", "Métier modifié"
         ZONE_CREATE = "zone.create", "Quartier ajouté"
         ZONE_UPDATE = "zone.update", "Quartier modifié"
+        CITY_CREATE = "city.create", "Ville ajoutée"
+        CITY_UPDATE = "city.update", "Ville modifiée"
         SETTINGS_UPDATE = "settings.update", "Réglages modifiés"
         TEAM_ADD = "team.add", "Membre de l'équipe ajouté"
         TEAM_ROLE = "team.role", "Rôle modifié"

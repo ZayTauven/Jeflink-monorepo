@@ -13,6 +13,7 @@ router.register("messages", views.ContactConsoleViewSet, basename="console-messa
 router.register("audit", views.AuditConsoleViewSet, basename="console-audit")
 router.register("trades", views.TradeConsoleViewSet, basename="console-trade")
 router.register("zones", views.ZoneConsoleViewSet, basename="console-zone")
+router.register("cities", views.CityConsoleViewSet, basename="console-city")
 router.register("team", views.TeamConsoleViewSet, basename="console-team")
 router.register("coupons", views.CouponConsoleViewSet, basename="console-coupon")
 router.register("campaigns", views.CampaignConsoleViewSet, basename="console-campaign")

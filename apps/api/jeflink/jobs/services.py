@@ -101,7 +101,7 @@ def create_request(client, **data) -> ServiceRequest:
             settings.closed_message
             or "Jeflink ne prend pas de nouvelles demandes pour le moment. Revenez bientôt."
         )
-    if not data["trade"].is_active or not data["zone"].is_active:
+    if not data["trade"].is_active or not data["zone"].is_served:
         raise ValidationError("Ce métier ou ce quartier n'est pas ouvert pour le moment.")
     req = ServiceRequest.objects.create(client=client, **data)
     RequestEvent.objects.create(request=req, status=S.OPEN, actor=client, note=NOTES[S.OPEN])

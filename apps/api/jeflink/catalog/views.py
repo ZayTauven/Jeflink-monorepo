@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from jeflink.accounts.models import ProProfile
 from jeflink.jobs.models import Review, ServiceRequest
 
-from .models import Trade, Zone
+from .models import Trade, Zone, served_zones
 
 
 class TradeSerializer(serializers.ModelSerializer):
@@ -44,9 +44,12 @@ class TradeRefSerializer(serializers.ModelSerializer):
 
 
 class ZoneSerializer(serializers.ModelSerializer):
+    city = serializers.CharField(source="city.name", read_only=True)
+    city_slug = serializers.CharField(source="city.slug", read_only=True)
+
     class Meta:
         model = Zone
-        fields = ["slug", "name", "city"]
+        fields = ["slug", "name", "city", "city_slug"]
 
 
 class PublicProSerializer(serializers.ModelSerializer):
@@ -119,7 +122,8 @@ class TradeDetail(generics.RetrieveAPIView):
 class ZoneList(generics.ListAPIView):
     permission_classes = [AllowAny]
     serializer_class = ZoneSerializer
-    queryset = Zone.objects.filter(is_active=True)
+    # Groupés par ville (le site les range par ville dès qu'il y en a plusieurs).
+    queryset = served_zones().order_by("city__position", "city__name", "position", "name")
 
 
 @extend_schema(
@@ -255,7 +259,7 @@ def stats(request):
         {
             "pros": ProProfile.objects.filter(is_verified=True, user__is_active=True).count(),
             "trades": Trade.objects.filter(is_active=True).count(),
-            "zones": Zone.objects.filter(is_active=True).count(),
+            "zones": served_zones().count(),
             "missions_done": ServiceRequest.objects.filter(status="done").count(),
             "average_rating": round(avg, 1) if avg else None,
         }

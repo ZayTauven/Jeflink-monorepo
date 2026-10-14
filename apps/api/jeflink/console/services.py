@@ -12,7 +12,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
-from jeflink.catalog.models import Campaign, Trade, Zone
+from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.jobs import services as jobs
 from jeflink.jobs.models import Coupon, Dispute, Quote, Review, ServiceRequest
 
@@ -279,7 +279,7 @@ def save_trade(staff, data: dict, trade: Trade | None = None) -> Trade:
 def save_zone(staff, data: dict, zone: Zone | None = None) -> Zone:
     _staff(staff, "catalog")
     if zone is None:
-        if Zone.objects.filter(name__iexact=data["name"], city__iexact=data["city"]).exists():
+        if Zone.objects.filter(name__iexact=data["name"], city=data["city"]).exists():
             raise ValidationError("Ce quartier existe déjà.")
         zone = Zone(slug=_unique_slug(Zone, data["name"]))
         details, action = "", A.ZONE_CREATE
@@ -290,8 +290,28 @@ def save_zone(staff, data: dict, zone: Zone | None = None) -> Zone:
     for key, value in data.items():
         setattr(zone, key, value)
     zone.save()
-    log(staff, action, "zone", zone.pk, f"{zone.name} ({zone.city})", details)
+    log(staff, action, "zone", zone.pk, f"{zone.name} ({zone.city.name})", details)
     return zone
+
+
+@transaction.atomic
+def save_city(staff, data: dict, city: City | None = None) -> City:
+    """Ajouter ou modifier une ville. Fermée : ses quartiers sortent du site et des demandes."""
+    _staff(staff, "catalog")
+    if city is None:
+        if City.objects.filter(name__iexact=data["name"]).exists():
+            raise ValidationError("Cette ville existe déjà.")
+        city = City(slug=_unique_slug(City, data["name"]))
+        details, action = "", A.CITY_CREATE
+    else:
+        details, action = _changes(city, data), A.CITY_UPDATE
+        if not details:
+            raise ValidationError("Aucune modification.")
+    for key, value in data.items():
+        setattr(city, key, value)
+    city.save()
+    log(staff, action, "city", city.pk, f"{city.name} ({city.get_region_display()})", details)
+    return city
 
 
 # --- Réglages de la plateforme -------------------------------------------------------------------

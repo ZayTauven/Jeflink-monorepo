@@ -123,12 +123,48 @@ def test_desactiver_un_metier_le_retire_du_site(team, catalog):
 
 def test_quartiers(team, catalog):
     api = as_user(team["marketing"])
-    assert api.post("/api/console/zones/", {"name": "ouakam", "city": "Dakar"}).status_code == 400
-    res = api.post("/api/console/zones/", {"name": "Rufisque", "city": "Rufisque"})
+    dakar = catalog[1].city_id
+    assert api.post("/api/console/zones/", {"name": "ouakam", "city": dakar}).status_code == 400
+    res = api.post("/api/console/zones/", {"name": "Rufisque", "city": dakar})
     assert res.status_code == 201 and res.data["slug"] == "rufisque"
+    assert res.data["city"] == "Dakar"
     zone_id = res.data["id"]
-    api.post(f"/api/console/zones/{zone_id}/update/", {"name": "Rufisque", "is_active": "0"})
+    api.post(
+        f"/api/console/zones/{zone_id}/update/",
+        {"name": "Rufisque", "city": dakar, "is_active": "0"},
+    )
     assert "rufisque" not in [z["slug"] for z in APIClient().get("/api/zones/").data]
+
+
+def test_villes_et_regions(team, catalog):
+    api = as_user(team["marketing"])
+    res = api.post("/api/console/cities/", {"name": "Thiès", "region": "thies", "is_active": "0"})
+    assert res.status_code == 201 and res.data["region_label"] == "Thiès"
+    thies = res.data["id"]
+    assert api.post("/api/console/cities/", {"name": "thiès", "region": "thies"}).status_code == 400
+    assert api.post("/api/console/cities/", {"name": "X", "region": "paris"}).status_code == 400
+    api.post("/api/console/zones/", {"name": "Grand Thiès", "city": thies})
+
+    # Ville fermée : ses quartiers ne sont ni sur le site, ni ouverts aux demandes.
+    zones = APIClient().get("/api/zones/").data
+    assert [z["slug"] for z in zones] == ["ouakam"] and zones[0]["city"] == "Dakar"
+    client = User.objects.create_user("awa@example.com", PASSWORD)
+    data = {"trade": "plomberie", "zone": "grand-thies", "title": "Fuite", "description": "…"}
+    assert as_user(client).post("/api/requests/", data).status_code == 400
+
+    # Ouverte : ses quartiers apparaissent, rangés après ceux de Dakar.
+    api.post(
+        f"/api/console/cities/{thies}/update/",
+        {"name": "Thiès", "region": "thies", "position": 1, "is_active": "1"},
+    )
+    zones = APIClient().get("/api/zones/").data
+    assert [(z["slug"], z["city_slug"]) for z in zones] == [
+        ("ouakam", "dakar"),
+        ("grand-thies", "thies"),
+    ]
+    assert as_user(client).post("/api/requests/", data).status_code == 201
+    assert as_user(team["finance"]).get("/api/console/cities/").status_code == 403
+    assert actions()[-2:] == ["zone.create", "city.update"]
 
 
 # --- Réglages ----------------------------------------------------------------------------------

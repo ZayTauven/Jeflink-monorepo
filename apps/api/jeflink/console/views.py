@@ -23,7 +23,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from jeflink.accounts.models import ContactMessage, ProProfile, User
-from jeflink.catalog.models import Campaign, Trade, Zone
+from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.jef import ai as jef_ai
 from jeflink.jef.models import JefSession
 from jeflink.jobs.models import Coupon, Dispute, Quote, Review, ServiceRequest
@@ -682,16 +682,22 @@ class ZoneConsoleViewSet(ConsoleViewSet):
     pagination_class = None
 
     def get_queryset(self):
-        return Zone.objects.annotate(
-            n_pros=Count(
-                "pros", filter=Q(pros__is_verified=True, pros__user__is_active=True), distinct=True
-            ),
-            n_recent=Count(
-                "servicerequest",
-                filter=Q(servicerequest__created_at__gte=_recent()),
-                distinct=True,
-            ),
-        ).order_by("city", "position", "name")
+        return (
+            Zone.objects.annotate(
+                n_pros=Count(
+                    "pros",
+                    filter=Q(pros__is_verified=True, pros__user__is_active=True),
+                    distinct=True,
+                ),
+                n_recent=Count(
+                    "servicerequest",
+                    filter=Q(servicerequest__created_at__gte=_recent()),
+                    distinct=True,
+                ),
+            )
+            .select_related("city")
+            .order_by("city__position", "city__name", "position", "name")
+        )
 
     def list(self, request):
         return Response(s.ZoneConsoleSerializer(self.get_queryset(), many=True).data)
@@ -712,6 +718,41 @@ class ZoneConsoleViewSet(ConsoleViewSet):
         zone = get_object_or_404(Zone, pk=pk)
         services.save_zone(request.user, data.validated_data, zone)
         return Response(s.ZoneConsoleSerializer(self.get_queryset().get(pk=zone.pk)).data)
+
+
+class CityConsoleViewSet(ConsoleViewSet):
+    """Villes desservies (rattachées à leur région) : ajout, modification, ouverture."""
+
+    console_section = "catalog"
+    serializer_class = s.CityConsoleSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return City.objects.annotate(
+            n_zones=Count("zones", distinct=True),
+            n_open=Count("zones", filter=Q(zones__is_active=True), distinct=True),
+        )
+
+    def list(self, request):
+        return Response(s.CityConsoleSerializer(self.get_queryset(), many=True).data)
+
+    @extend_schema(request=s.CityInputSerializer, responses={201: s.CityConsoleSerializer})
+    def create(self, request):
+        data = s.CityInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        city = services.save_city(request.user, data.validated_data)
+        return Response(
+            s.CityConsoleSerializer(self.get_queryset().get(pk=city.pk)).data, status=201
+        )
+
+    @extend_schema(request=s.CityInputSerializer, responses=s.CityConsoleSerializer)
+    @action(detail=True, methods=["post"], url_path="update")
+    def edit(self, request, pk=None):
+        data = s.CityInputSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        city = get_object_or_404(City, pk=pk)
+        services.save_city(request.user, data.validated_data, city)
+        return Response(s.CityConsoleSerializer(self.get_queryset().get(pk=city.pk)).data)
 
 
 # --- Réglages de la plateforme -----------------------------------------------------------------
