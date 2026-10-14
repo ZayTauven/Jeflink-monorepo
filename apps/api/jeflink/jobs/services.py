@@ -147,7 +147,8 @@ def accept_quote(
         raise ValidationError(
             "Ce pro n'est plus disponible sur Jeflink. Choisissez un autre devis."
         )
-    coupon, discount = check_coupon(coupon_code, client, req, quote.amount)
+    # Le code saisi au choix du devis, sinon celui que le client a ajouté à sa demande.
+    coupon, discount = check_coupon(coupon_code or req.promo_code, client, req, quote.amount)
     req.pro = quote.pro
     req.price = quote.amount
     req.coupon = coupon
@@ -356,39 +357,86 @@ def coupon_uses(coupon: Coupon, client=None):
     return qs.filter(client=client) if client is not None else qs
 
 
+UNKNOWN_CODE = "Ce code n'est pas reconnu. Vérifiez les lettres."
+
+
+def normalize_code(code: str) -> str:
+    return (code or "").strip().upper()
+
+
+def coupon_problem(coupon: Coupon, client, req: ServiceRequest, amount: int | None = None):
+    """Pourquoi ce code ne s'applique pas (None s'il s'applique). Sans montant : les règles
+    qui ne dépendent pas du devis (au moment où le client ajoute le code à sa demande)."""
+    now = timezone.now()
+    if coupon.starts_at and coupon.starts_at > now:
+        return "Ce code n'est pas encore valable."
+    if coupon.ends_at and coupon.ends_at < now:
+        return "Ce code a expiré."
+    if amount is not None and coupon.min_amount and amount < coupon.min_amount:
+        return (
+            f"Ce code est valable pour un devis d'au moins {xof(coupon.min_amount)}. "
+            f"Ce devis est de {xof(amount)}."
+        )
+    if coupon.trades.exists() and not coupon.trades.filter(pk=req.trade_id).exists():
+        return "Ce code n'est pas valable pour ce métier."
+    if coupon.zones.exists() and not coupon.zones.filter(pk=req.zone_id).exists():
+        return "Ce code n'est pas valable dans ce quartier."
+    if coupon.max_uses is not None and coupon_uses(coupon).count() >= coupon.max_uses:
+        return "Ce code n'est plus disponible."
+    if coupon_uses(coupon, client).count() >= coupon.max_uses_per_client:
+        return "Vous avez déjà utilisé ce code."
+    if coupon.first_order_only and (
+        ServiceRequest.objects.filter(client=client, pro__isnull=False).exclude(pk=req.pk).exists()
+    ):
+        return "Ce code est réservé à une première mission sur Jeflink."
+    return None
+
+
 def check_coupon(code: str, client, req: ServiceRequest, amount: int):
     """(code promo, remise) si le code s'applique à cette réservation ; sinon un motif clair."""
-    code = (code or "").strip().upper()
+    code = normalize_code(code)
     if not code:
         return None, 0
     # Verrous (effectifs sous Postgres) : deux réservations simultanées ne dépassent pas les
     # limites du code, ni celles du client.
     coupon = Coupon.objects.select_for_update().filter(code=code, is_active=True).first()
     if coupon is None:
-        raise ValidationError(_refused("Ce code n'est pas reconnu. Vérifiez les lettres."))
-    now = timezone.now()
-    if coupon.starts_at and coupon.starts_at > now:
-        raise ValidationError(_refused("Ce code n'est pas encore valable."))
-    if coupon.ends_at and coupon.ends_at < now:
-        raise ValidationError(_refused("Ce code a expiré."))
-    if coupon.min_amount and amount < coupon.min_amount:
-        raise ValidationError(
-            _refused(
-                f"Ce code est valable pour un devis d'au moins {xof(coupon.min_amount)}. "
-                f"Ce devis est de {xof(amount)}."
-            )
-        )
-    if coupon.trades.exists() and not coupon.trades.filter(pk=req.trade_id).exists():
-        raise ValidationError(_refused("Ce code n'est pas valable pour ce métier."))
-    if coupon.zones.exists() and not coupon.zones.filter(pk=req.zone_id).exists():
-        raise ValidationError(_refused("Ce code n'est pas valable dans ce quartier."))
-    if coupon.max_uses is not None and coupon_uses(coupon).count() >= coupon.max_uses:
-        raise ValidationError(_refused("Ce code n'est plus disponible."))
+        raise ValidationError(_refused(UNKNOWN_CODE))
     type(client).objects.select_for_update().filter(pk=client.pk).first()
-    if coupon_uses(coupon, client).count() >= coupon.max_uses_per_client:
-        raise ValidationError(_refused("Vous avez déjà utilisé ce code."))
-    if coupon.first_order_only and (
-        ServiceRequest.objects.filter(client=client, pro__isnull=False).exclude(pk=req.pk).exists()
-    ):
-        raise ValidationError(_refused("Ce code est réservé à une première mission sur Jeflink."))
+    if problem := coupon_problem(coupon, client, req, amount):
+        raise ValidationError(_refused(problem))
     return coupon, coupon_discount(coupon, amount)
+
+
+@transaction.atomic
+def set_promo_code(client, req: ServiceRequest, code: str, field: str = "code") -> ServiceRequest:
+    """Le client ajoute (ou retire, code vide) un code promo à sa demande, avant de réserver.
+    Vérifié tout de suite pour ce qui ne dépend pas du devis ; le montant minimum l'est sur
+    chaque devis (aperçu), puis au moment de réserver."""
+    req = _locked(req)
+    if req.client_id != client.pk:
+        raise PermissionDenied("Seul l'auteur de la demande peut y ajouter un code.")
+    if req.status != S.OPEN:
+        raise ValidationError({field: "Un code s'ajoute avant de choisir un devis."})
+    code = normalize_code(code)
+    if code:
+        coupon = Coupon.objects.filter(code=code, is_active=True).first()
+        problem = UNKNOWN_CODE if coupon is None else coupon_problem(coupon, client, req)
+        if problem:
+            raise ValidationError({field: problem})
+    req.promo_code = code
+    req.save(update_fields=["promo_code", "updated_at"])
+    return req
+
+
+def code_preview(req: ServiceRequest, client, amount: int) -> dict | None:
+    """Ce que donnerait le code de la demande sur un devis : remise et prix, ou pourquoi non."""
+    if not req.promo_code:
+        return None
+    coupon = Coupon.objects.filter(code=req.promo_code, is_active=True).first()
+    problem = "Ce code n'est plus valable." if coupon is None else None
+    problem = problem or coupon_problem(coupon, client, req, amount)
+    if problem:
+        return {"code": req.promo_code, "error": problem}
+    discount = coupon_discount(coupon, amount)
+    return {"code": coupon.code, "discount": discount, "client_pays": amount - discount}

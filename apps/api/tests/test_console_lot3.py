@@ -364,3 +364,60 @@ def test_motif_efface_quand_la_mission_est_maintenue(world):
     assert seen["status"] == "cancelled" and seen["cancellation"] is None
     log = AuditLog.objects.filter(action="request.cancel_keep").get()
     assert log.details.startswith("Un souci avec le pro")
+
+
+# --- Code promo côté client : saisi sur la demande, aperçu sur chaque devis -----------------
+
+
+def test_code_saisi_a_la_publication(world):
+    coupon()
+    awa = as_user(world["client"])
+    data = {"trade": "climatisation", "zone": "ouakam", "title": "Clim", "description": "…"}
+    before = ServiceRequest.objects.count()
+    res = awa.post("/api/requests/", {**data, "promo_code": "NIMPORTE"}, format="json")
+    assert res.status_code == 400 and "promo_code" in res.data
+    assert ServiceRequest.objects.count() == before  # rien de créé : le client corrige
+    res = awa.post("/api/requests/", {**data, "promo_code": " clim20 "}, format="json")
+    assert res.status_code == 201 and res.data["promo_code"] == "CLIM20"
+
+
+def test_apercu_du_code_sur_chaque_devis_puis_application(world):
+    coupon(min_amount=10000)
+    client, pro = world["client"], world["pro"]
+    req = services.create_request(
+        client, trade=world["trade"], zone=world["zone"], title="Clim", description="…"
+    )
+    awa = as_user(client)
+    assert (
+        awa.post(f"/api/requests/{req.pk}/code/", {"code": "CLIM20"}, format="json").status_code
+        == 200
+    )
+    services.submit_quote(pro, req, 20000)
+    other = User.objects.create_user("pro2@example.com", PASSWORD, role=User.Role.PRO)
+    ProProfile.objects.create(user=other, is_verified=True).trades.add(world["trade"])
+    services.submit_quote(other, req, 8000)
+    quotes = {
+        q["amount"]: q["with_code"] for q in awa.get(f"/api/requests/{req.pk}/").data["quotes"]
+    }
+    assert quotes[20000] == {"code": "CLIM20", "discount": 3000, "client_pays": 17000}
+    assert "au moins" in quotes[8000]["error"]
+    # Le pro ne voit ni le code ni l'aperçu.
+    seen = as_user(pro).get(f"/api/requests/{req.pk}/").data
+    assert seen["promo_code"] == "" and all(q["with_code"] is None for q in seen["quotes"])
+    # Le client choisit le devis sans ressaisir le code : il est appliqué.
+    quote = req.quotes.get(amount=20000)
+    res = awa.post(f"/api/requests/{req.pk}/accept/", {"quote_id": quote.pk}, format="json")
+    assert res.status_code == 200 and res.data["money"]["discount"] == 3000
+
+
+def test_code_refuse_ou_retire(world):
+    coupon()
+    req = services.create_request(
+        world["client"], trade=world["trade"], zone=world["zone"], title="Clim", description="…"
+    )
+    awa = as_user(world["client"])
+    url = f"/api/requests/{req.pk}/code/"
+    assert awa.post(url, {"code": "INCONNU"}, format="json").data["code"]
+    assert awa.post(url, {"code": "CLIM20"}, format="json").data["promo_code"] == "CLIM20"
+    assert awa.post(url, {"code": ""}, format="json").data["promo_code"] == ""
+    assert as_user(world["pro"]).post(url, {"code": "CLIM20"}, format="json").status_code == 403

@@ -19,6 +19,7 @@ class QuoteSerializer(serializers.ModelSerializer):
     pro_headline = serializers.CharField(source="pro.pro_profile.headline", read_only=True)
     pro_rating = serializers.SerializerMethodField()
     status_label = serializers.CharField(source="get_status_display", read_only=True)
+    with_code = serializers.SerializerMethodField()
 
     class Meta:
         model = Quote
@@ -31,11 +32,21 @@ class QuoteSerializer(serializers.ModelSerializer):
             "message",
             "status",
             "status_label",
+            "with_code",
             "created_at",
         ]
 
     def get_pro_rating(self, quote) -> dict:
         return quote.pro.pro_profile.rating()
+
+    def get_with_code(self, quote) -> dict | None:
+        """Pour le client, sur un devis à choisir : ce que donne le code promo de sa demande."""
+        req, request = quote.request, self.context.get("request")
+        if request is None or request.user.pk != req.client_id:
+            return None
+        if req.status != S.OPEN or quote.status != Quote.Status.PENDING:
+            return None
+        return services.code_preview(req, request.user, quote.amount)
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -89,6 +100,7 @@ class RequestSerializer(serializers.ModelSerializer):
     money = serializers.SerializerMethodField()
     jef = serializers.SerializerMethodField()
     cancellation = serializers.SerializerMethodField()
+    promo_code = serializers.SerializerMethodField()
     actions = serializers.SerializerMethodField()
 
     class Meta:
@@ -116,6 +128,7 @@ class RequestSerializer(serializers.ModelSerializer):
             "money",
             "jef",
             "cancellation",
+            "promo_code",
             "actions",
             "created_at",
         ]
@@ -186,6 +199,10 @@ class RequestSerializer(serializers.ModelSerializer):
             for key in ("pro_summary", "pro_details", "pro_bring"):
                 out[key] = brief.get(key, [] if key != "pro_summary" else "")
         return out
+
+    def get_promo_code(self, req) -> str:
+        """Code promo ajouté à la demande (le client seulement)."""
+        return req.promo_code if self._viewer.pk == req.client_id else ""
 
     def get_cancellation(self, req) -> dict | None:
         """Motif de l'annulation, pour le client qui l'a donné (le pro voit seulement le statut)."""
@@ -259,7 +276,9 @@ class RequestCreateSerializer(serializers.ModelSerializer):
             "preferred_date",
             "is_urgent",
             "jef_session",
+            "promo_code",
         ]
+        extra_kwargs = {"promo_code": {"required": False, "allow_blank": True}}
 
 
 class QuoteCreateSerializer(serializers.Serializer):
@@ -275,6 +294,10 @@ class AcceptSerializer(serializers.Serializer):
 class DisputeCreateSerializer(serializers.Serializer):
     reason = serializers.ChoiceField(choices=Dispute.Reason.choices)
     description = serializers.CharField(max_length=2000)
+
+
+class PromoCodeSerializer(serializers.Serializer):
+    code = serializers.CharField(max_length=20, allow_blank=True)
 
 
 class CancelSerializer(serializers.Serializer):

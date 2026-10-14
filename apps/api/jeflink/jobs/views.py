@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import Q
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import mixins, status, viewsets
@@ -13,6 +14,7 @@ from .serializers import (
     AcceptSerializer,
     CancelSerializer,
     DisputeCreateSerializer,
+    PromoCodeSerializer,
     QuoteCreateSerializer,
     QuoteSerializer,
     RequestCreateSerializer,
@@ -66,9 +68,15 @@ class RequestViewSet(
         serializer.is_valid(raise_exception=True)
         data = dict(serializer.validated_data)
         jef_session = data.pop("jef_session", None)
-        req = services.create_request(request.user, **data)
-        if jef_session:
-            jef_services.attach(request.user, req, jef_session)
+        code = data.pop("promo_code", "")
+        # Une seule transaction : un code refusé annule la création (le client corrige le code
+        # et republie, sans doublon).
+        with transaction.atomic():
+            req = services.create_request(request.user, **data)
+            if code:
+                services.set_promo_code(request.user, req, code, field="promo_code")
+            if jef_session:
+                jef_services.attach(request.user, req, jef_session)
         return Response(self._read(req), status=status.HTTP_201_CREATED)
 
     @extend_schema(request=QuoteCreateSerializer, responses={201: QuoteSerializer})
@@ -99,6 +107,17 @@ class RequestViewSet(
     @action(detail=True, methods=["post"])
     def complete(self, request, pk=None):
         return Response(self._read(services.complete(request.user, self.get_object())))
+
+    @extend_schema(request=PromoCodeSerializer, responses=RequestSerializer)
+    @action(detail=True, methods=["post"])
+    def code(self, request, pk=None):
+        """Le client ajoute un code promo à sa demande (vide : le retire)."""
+        serializer = PromoCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        req = services.set_promo_code(
+            request.user, self.get_object(), serializer.validated_data["code"]
+        )
+        return Response(self._read(req))
 
     @extend_schema(request=CancelSerializer, responses=RequestSerializer)
     @action(detail=True, methods=["post"])

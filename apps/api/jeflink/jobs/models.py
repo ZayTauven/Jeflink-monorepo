@@ -55,6 +55,8 @@ class ServiceRequest(models.Model):
         related_name="requests",
         verbose_name="code promo",
     )
+    # Code promo choisi par le client avant de réserver (appliqué au devis qu'il choisit).
+    promo_code = models.CharField("code promo choisi", max_length=20, blank=True)
     commission_rate = models.PositiveSmallIntegerField("taux de commission (%)", default=0)
     commission = models.PositiveIntegerField("commission Jeflink", default=0)
     staff_note = models.TextField(
