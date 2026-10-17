@@ -90,8 +90,17 @@ def save_document(upload, field: str = "file") -> tuple[str, str]:
     return private_storage().save(f"documents/{name}", content), kind
 
 
+def save_private_photo(upload, folder: str, field: str = "photo") -> str:
+    """Photo privée (ex. : photos d'une demande) : réduite, sans métadonnées, en WebP, hors de
+    /media/. Renvoie son chemin privé."""
+    _check_size(upload, field, "Choisissez une photo.")
+    data = _encode(upload, field, 1600)
+    return private_storage().save(f"{folder}/{uuid4().hex}.webp", ContentFile(data))
+
+
 def delete_document(path: str) -> None:
-    if re.fullmatch(r"documents/[0-9a-f]{32}\.(webp|pdf)", path or ""):
+    """Supprime un fichier privé tiré par ce module (documents des pros, photos de demande)."""
+    if re.fullmatch(r"(documents|demandes)/[0-9a-f]{32}\.(webp|pdf)", path or ""):
         with suppress(OSError):
             private_storage().delete(path)
 

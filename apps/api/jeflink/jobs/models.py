@@ -193,6 +193,36 @@ class RequestEvent(models.Model):
         return f"{self.request_id} → {self.status}"
 
 
+class RequestMedia(models.Model):
+    """Média joint à une demande par le client. Le site n'envoie que des photos ; le mémo
+    vocal et la vidéo viendront avec l'app mobile (même modèle, autre `kind`).
+
+    Privé : fichier hors de /media/, lu seulement par le client, les pros qui voient la demande
+    et l'équipe Opérations (jobs.services.can_see_media).
+    """
+
+    MAX_PHOTOS = 3
+
+    class Kind(models.TextChoices):
+        PHOTO = "photo", "Photo"
+        AUDIO = "audio", "Mémo vocal"
+        VIDEO = "video", "Vidéo"
+
+    request = models.ForeignKey(ServiceRequest, on_delete=models.CASCADE, related_name="media")
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.PHOTO)
+    file = models.CharField("fichier", max_length=120, help_text="Chemin dans PRIVATE_ROOT.")
+    content_type = models.CharField(max_length=40)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "média d'une demande"
+        verbose_name_plural = "médias des demandes"
+
+    def __str__(self):
+        return f"{self.get_kind_display()} — demande {self.request_id}"
+
+
 class Coupon(models.Model):
     """Code promo : réduit ce que le client paie. La remise est financée par Jeflink."""
 

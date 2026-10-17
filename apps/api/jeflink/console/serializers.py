@@ -192,6 +192,7 @@ class RequestDetailSerializer(RequestRowSerializer):
     can_cancel = serializers.SerializerMethodField()
     can_open_dispute = serializers.SerializerMethodField()
     cancellation = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
 
     class Meta(RequestRowSerializer.Meta):
         fields = [
@@ -207,7 +208,12 @@ class RequestDetailSerializer(RequestRowSerializer):
             "can_cancel",
             "can_open_dispute",
             "cancellation",
+            "photos",
         ]
+
+    def get_photos(self, req) -> list[int]:
+        """Identifiants des photos du client (fichier : /api/requests/<id>/photos/<pk>/file/)."""
+        return [m.pk for m in req.media.all() if m.kind == m.Kind.PHOTO]
 
     def get_client(self, req) -> dict:
         return person(req.client)

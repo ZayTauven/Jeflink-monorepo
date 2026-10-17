@@ -101,6 +101,7 @@ class RequestSerializer(serializers.ModelSerializer):
     pro = PersonSerializer(read_only=True, allow_null=True)
     contact_phone = serializers.SerializerMethodField()
     contact = serializers.SerializerMethodField()
+    photos = serializers.SerializerMethodField()
     quotes = serializers.SerializerMethodField()
     quotes_count = serializers.IntegerField(source="quotes.count", read_only=True)
     quotes_max = serializers.SerializerMethodField()
@@ -130,6 +131,7 @@ class RequestSerializer(serializers.ModelSerializer):
             "pro",
             "contact_phone",
             "contact",
+            "photos",
             "quotes",
             "quotes_count",
             "quotes_max",
@@ -187,6 +189,14 @@ class RequestSerializer(serializers.ModelSerializer):
             "prefers": other.get_contact_pref_display(),
             "hours": other.get_contact_hours_display(),
         }
+
+    def get_photos(self, req) -> list[dict]:
+        """Photos jointes par le client ; le fichier se lit par /photos/<id>/file/."""
+        return [
+            {"id": m.pk, "created_at": m.created_at}
+            for m in req.media.all()
+            if m.kind == m.Kind.PHOTO
+        ]
 
     def get_quotes(self, req) -> list:
         user = self._viewer

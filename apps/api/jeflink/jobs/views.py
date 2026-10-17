@@ -1,13 +1,19 @@
 from django.db import transaction
 from django.db.models import Q
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import mixins, status, viewsets
+from rest_framework import serializers as drf
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
 from jeflink.accounts.models import save_address
 from jeflink.jef import services as jef_services
+from jeflink.media import private_storage
 
 from . import services
 from .models import ServiceRequest
@@ -152,6 +158,49 @@ class RequestViewSet(
         req = self.get_object()
         services.open_dispute(request.user, req, **serializer.validated_data)
         return Response(self._read(req), status=status.HTTP_201_CREATED)
+
+    # --- Photos (privées) ------------------------------------------------------------------
+
+    @extend_schema(
+        request={
+            "multipart/form-data": inline_serializer("RequestPhoto", {"photo": drf.ImageField()})
+        },
+        responses={201: RequestSerializer},
+    )
+    @action(detail=True, methods=["post"], parser_classes=[MultiPartParser])
+    def photos(self, request, pk=None):
+        """Le client ajoute une photo (3 au plus), tant que la demande est ouverte ou réservée."""
+        req = self.get_object()
+        services.add_photo(request.user, req, request.FILES.get("photo"))
+        return Response(self._read(req), status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=None, responses=RequestSerializer)
+    @action(detail=True, methods=["delete"], url_path=r"photos/(?P<media_id>[0-9]+)")
+    def remove_photo(self, request, pk=None, media_id=None):
+        req = self.get_object()
+        services.remove_photo(request.user, req, get_object_or_404(req.media, pk=media_id))
+        return Response(self._read(req))
+
+    @extend_schema(responses={(200, "image/webp"): OpenApiTypes.BINARY})
+    @action(detail=True, methods=["get"], url_path=r"photos/(?P<media_id>[0-9]+)/file")
+    def photo_file(self, request, pk=None, media_id=None):
+        """Fichier d'une photo : mêmes personnes que la demande (sauf l'équipe hors Opérations),
+        jamais mis en cache ni intégrable par un autre site."""
+        req = self.get_object()
+        if not services.can_see_media(request.user, req):
+            raise NotFound()
+        media = get_object_or_404(req.media, pk=media_id)
+        try:
+            handle = private_storage().open(media.file, "rb")
+        except OSError as exc:
+            raise NotFound("Fichier introuvable.") from exc
+        response = FileResponse(handle, content_type=media.content_type)
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Security-Policy"] = "default-src 'none'; sandbox; frame-ancestors 'none'"
+        response["Cross-Origin-Resource-Policy"] = "same-origin"
+        response["Referrer-Policy"] = "no-referrer"
+        return response
 
     def _read(self, req):
         req = ServiceRequest.objects.get(pk=req.pk)

@@ -10,7 +10,9 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from .models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
+from jeflink.media import delete_document, save_private_photo
+
+from .models import Coupon, Dispute, Quote, RequestEvent, RequestMedia, Review, ServiceRequest
 
 S = ServiceRequest.Status
 R = ServiceRequest.CancelReason
@@ -440,3 +442,40 @@ def code_preview(req: ServiceRequest, client, amount: int) -> dict | None:
         return {"code": req.promo_code, "error": problem}
     discount = coupon_discount(coupon, amount)
     return {"code": coupon.code, "discount": discount, "client_pays": amount - discount}
+
+
+# --- Photos d'une demande ------------------------------------------------------------------------
+
+PHOTO_STATUSES = (S.OPEN, S.BOOKED)  # utiles pour chiffrer, puis pour préparer l'intervention
+
+
+def can_see_media(user, req: ServiceRequest) -> bool:
+    """Le client, un pro qui voit la demande (ses métiers, ses devis, sa mission), l'équipe
+    Opérations. Ni le marketing ni la finance : ce sont des photos de l'intérieur des gens."""
+    from jeflink.console.permissions import can
+
+    if user.is_staff:
+        return can(user, "operations")
+    return visible_requests(user).filter(pk=req.pk).exists()
+
+
+def _client_photos(client, req: ServiceRequest):
+    if req.client_id != client.pk:
+        raise PermissionDenied("Seul le client de la demande gère ses photos.")
+    if req.status not in PHOTO_STATUSES:
+        raise ValidationError("Les photos ne changent plus sur une demande terminée ou annulée.")
+
+
+def add_photo(client, req: ServiceRequest, upload) -> RequestMedia:
+    _client_photos(client, req)
+    photos = req.media.filter(kind=RequestMedia.Kind.PHOTO)
+    if photos.count() >= RequestMedia.MAX_PHOTOS:
+        raise ValidationError(f"{RequestMedia.MAX_PHOTOS} photos au plus par demande.")
+    path = save_private_photo(upload, "demandes")
+    return RequestMedia.objects.create(request=req, file=path, content_type="image/webp")
+
+
+def remove_photo(client, req: ServiceRequest, media: RequestMedia) -> None:
+    _client_photos(client, req)
+    delete_document(media.file)
+    media.delete()
