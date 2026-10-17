@@ -191,7 +191,10 @@ class RequestSerializer(serializers.ModelSerializer):
         }
 
     def get_photos(self, req) -> list[dict]:
-        """Photos jointes par le client ; le fichier se lit par /photos/<id>/file/."""
+        """Photos jointes par le client, pour qui peut les voir (services.can_see_media) ; le
+        fichier se lit par /photos/<id>/file/."""
+        if not services.can_see_media(self._viewer, req):
+            return []
         return [
             {"id": m.pk, "created_at": m.created_at}
             for m in req.media.all()

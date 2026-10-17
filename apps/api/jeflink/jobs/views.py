@@ -56,7 +56,7 @@ class RequestViewSet(
             qs = qs.filter(status=status_filter)
         return (
             qs.select_related("trade", "zone", "client", "pro", "review", "jef_session")
-            .prefetch_related("events")
+            .prefetch_related("events", "media")
             .distinct()
         )
 

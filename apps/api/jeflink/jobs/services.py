@@ -446,36 +446,59 @@ def code_preview(req: ServiceRequest, client, amount: int) -> dict | None:
 
 # --- Photos d'une demande ------------------------------------------------------------------------
 
-PHOTO_STATUSES = (S.OPEN, S.BOOKED)  # utiles pour chiffrer, puis pour préparer l'intervention
+PHOTO_STATUSES = (S.OPEN, S.BOOKED)  # ajout : utiles pour chiffrer, puis pour l'intervention
 
 
 def can_see_media(user, req: ServiceRequest) -> bool:
-    """Le client, un pro qui voit la demande (ses métiers, ses devis, sa mission), l'équipe
-    Opérations. Ni le marketing ni la finance : ce sont des photos de l'intérieur des gens."""
+    """Photos de l'intérieur des gens : plus strict que la demande elle-même.
+
+    Le client ; le pro choisi ; tant que la demande est ouverte, un pro **vérifié** qui peut la
+    chiffrer (ses métiers et quartiers) ou qui l'a chiffrée ; l'équipe Opérations. Ni un pro non
+    vérifié, ni un pro non retenu après la réservation, ni le marketing ou la finance.
+    """
     from jeflink.console.permissions import can
 
     if user.is_staff:
         return can(user, "operations")
-    return visible_requests(user).filter(pk=req.pk).exists()
+    if user.pk in (req.client_id, req.pro_id):
+        return True
+    profile = getattr(user, "pro_profile", None)
+    if profile is None or not profile.is_verified or req.status != S.OPEN:
+        return False
+    return (
+        req.quotes.filter(pro=user).exists()
+        or open_requests_for_pro(user).filter(pk=req.pk).exists()
+    )
 
 
-def _client_photos(client, req: ServiceRequest):
+def _own_request(client, req: ServiceRequest):
     if req.client_id != client.pk:
         raise PermissionDenied("Seul le client de la demande gère ses photos.")
-    if req.status not in PHOTO_STATUSES:
-        raise ValidationError("Les photos ne changent plus sur une demande terminée ou annulée.")
 
 
+@transaction.atomic
 def add_photo(client, req: ServiceRequest, upload) -> RequestMedia:
-    _client_photos(client, req)
-    photos = req.media.filter(kind=RequestMedia.Kind.PHOTO)
-    if photos.count() >= RequestMedia.MAX_PHOTOS:
+    _own_request(client, req)
+    req = _locked(req)  # deux envois simultanés ne dépassent pas le maximum
+    if req.status not in PHOTO_STATUSES:
+        raise ValidationError("On n'ajoute plus de photo à une demande terminée ou annulée.")
+    if req.media.filter(kind=RequestMedia.Kind.PHOTO).count() >= RequestMedia.MAX_PHOTOS:
         raise ValidationError(f"{RequestMedia.MAX_PHOTOS} photos au plus par demande.")
     path = save_private_photo(upload, "demandes")
-    return RequestMedia.objects.create(request=req, file=path, content_type="image/webp")
+    try:
+        return RequestMedia.objects.create(request=req, file=path, content_type="image/webp")
+    except Exception:
+        delete_document(path)  # rien d'enregistré : le fichier ne doit pas rester
+        raise
 
 
+@transaction.atomic
 def remove_photo(client, req: ServiceRequest, media: RequestMedia) -> None:
-    _client_photos(client, req)
-    delete_document(media.file)
+    """Le client retire une photo à tout moment (c'est l'intérieur de chez lui), sauf pendant
+    un litige en cours : elle peut servir de preuve."""
+    _own_request(client, req)
+    if req.disputes.filter(status__in=[Dispute.Status.OPEN, Dispute.Status.INVESTIGATING]).exists():
+        raise ValidationError("Un litige est en cours : la photo reste jusqu'à sa clôture.")
+    path = media.file
     media.delete()
+    transaction.on_commit(lambda: delete_document(path))

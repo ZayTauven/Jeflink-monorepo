@@ -104,14 +104,47 @@ def test_qui_voit_la_photo(world):
     )
 
 
-def test_retirer_une_photo_puis_plus_rien_apres_annulation(world, _private):
+def test_retirer_une_photo_a_tout_moment_sauf_pendant_un_litige(
+    world, _private, django_capture_on_commit_callbacks
+):
+    from jeflink.jobs.models import Dispute
+
     client, req = world["client"], world["req"]
     data = add(client, req).data
     media = RequestMedia.objects.get()
-    res = as_user(client).delete(f"/api/requests/{req.pk}/photos/{data['photos'][0]['id']}/")
+    with django_capture_on_commit_callbacks(execute=True):
+        res = as_user(client).delete(f"/api/requests/{req.pk}/photos/{data['photos'][0]['id']}/")
     assert res.status_code == 200 and res.data["photos"] == []
     assert not (_private / media.file).exists()
 
-    add(client, req)
+    second = add(client, req).data["photos"][0]["id"]
     services.cancel(client, req, reason="other", note="Réparé moi-même")
-    assert add(client, req).status_code == 400  # demande annulée : photos figées
+    assert add(client, req).status_code == 400  # demande annulée : plus d'ajout
+    Dispute.objects.create(request=req, opened_by=client, reason="other", description="…")
+    url = f"/api/requests/{req.pk}/photos/{second}/"
+    assert as_user(client).delete(url).status_code == 400  # litige en cours : preuve gardée
+    Dispute.objects.update(status=Dispute.Status.RESOLVED)
+    assert as_user(client).delete(url).status_code == 200  # retrait possible après
+
+
+def test_photos_reservees_aux_pros_verifies_et_au_pro_choisi(world):
+    client, req, pro = world["client"], world["req"], world["pro"]
+    media_id = add(client, req).data["photos"][0]["id"]
+    url = f"/api/requests/{req.pk}/photos/{media_id}/file/"
+
+    # Un pro du métier pas encore vérifié : ni la photo, ni même sa présence.
+    newcomer = User.objects.create_user("nouveau@example.com", PASSWORD, role=User.Role.PRO)
+    ProProfile.objects.create(user=newcomer).trades.add(req.trade)
+    assert as_user(newcomer).get(url).status_code == 404
+    assert as_user(newcomer).get(f"/api/requests/{req.pk}/").data["photos"] == []
+
+    # Deux pros chiffrent ; une fois la mission réservée, seul le pro choisi les voit encore.
+    rival = User.objects.create_user("rival@example.com", PASSWORD, role=User.Role.PRO)
+    ProProfile.objects.create(user=rival, is_verified=True).trades.add(req.trade)
+    chosen = as_user(pro).post(f"/api/requests/{req.pk}/quotes/", {"amount": 10000}).data
+    as_user(rival).post(f"/api/requests/{req.pk}/quotes/", {"amount": 12000})
+    assert as_user(rival).get(url).status_code == 200  # demande ouverte : il chiffre
+    as_user(client).post(f"/api/requests/{req.pk}/accept/", {"quote_id": chosen["id"]})
+    assert as_user(rival).get(url).status_code == 404
+    assert as_user(rival).get(f"/api/requests/{req.pk}/").data["photos"] == []
+    assert as_user(pro).get(url).status_code == 200

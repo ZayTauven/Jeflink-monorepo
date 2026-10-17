@@ -21,8 +21,16 @@ from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.console.models import AuditLog, ProSettlement
 from jeflink.jef.models import JefSession
 from jeflink.jobs import services
-from jeflink.jobs.models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
-from jeflink.media import private_storage
+from jeflink.jobs.models import (
+    Coupon,
+    Dispute,
+    Quote,
+    RequestEvent,
+    RequestMedia,
+    Review,
+    ServiceRequest,
+)
+from jeflink.media import delete_document, private_storage
 
 DEMO_PASSWORD = "jeflink-demo"
 IMG = "/images/{}.webp"
@@ -417,6 +425,9 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, reset=False, **options):
         if reset:
+            # Les photos des demandes partent avec elles (fichiers privés compris).
+            for path in RequestMedia.objects.values_list("file", flat=True):
+                delete_document(path)
             ServiceRequest.objects.all().delete()
             AuditLog.objects.all().delete()  # il pointerait vers des demandes disparues
             ProSettlement.objects.all().delete()
