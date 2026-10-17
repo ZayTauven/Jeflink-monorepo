@@ -119,14 +119,31 @@ export default async function RequestPage({ params, searchParams }: Props) {
             <span className="d-block fs-14 text-uppercase fw-500 opacity-7 mb-5px">
               {isClient ? "Votre pro" : "Mission"}
             </span>
-            <span className="d-block alt-font fs-22 fw-500">
-              {isClient ? req.pro.name : req.client.name}
+            <span className="d-flex align-items-center gap-3 mb-10px">
+              {req.contact?.photo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="jf-avatar jf-avatar--sm"
+                  src={req.contact.photo}
+                  alt=""
+                  width={56}
+                  height={56}
+                />
+              )}
+              <span className="alt-font fs-22 fw-500">
+                {isClient ? req.pro.name : req.client.name}
+              </span>
             </span>
             {req.contact_phone && (
               <a href={`tel:${req.contact_phone}`} className="fw-500 text-decoration-line-bottom">
-                <i className="feather icon-feather-phone me-5px" />
+                <i className="feather icon-feather-phone me-5px" aria-hidden="true" />
                 {req.contact_phone}
               </a>
+            )}
+            {req.contact && (
+              <span className="d-block fs-15 mt-5px">
+                Joignable&nbsp;: {req.contact.prefers} · {req.contact.hours}
+              </span>
             )}
           </div>
         )}

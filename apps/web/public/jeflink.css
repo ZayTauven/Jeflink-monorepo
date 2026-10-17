@@ -623,6 +623,10 @@
   border-radius: 50%;
   object-fit: cover;
 }
+.jf-avatar--sm {
+  width: 56px;
+  height: 56px;
+}
 .jf-avatar--initials {
   display: inline-flex;
   align-items: center;
@@ -655,4 +659,28 @@
 .jf-link-button:focus-visible {
   outline: 2px solid var(--base-color);
   outline-offset: 3px;
+}
+
+/* Mes adresses (formulaire de demande) : pastilles comme .jf-checks, choisie = orange clair. */
+.jf-address-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 50px;
+  background: #fff;
+  color: var(--dark-gray);
+  font-size: 15px;
+}
+.jf-address-chip:hover,
+.jf-address-chip[aria-current="true"] {
+  border-color: var(--base-color);
+  background: #fff1e8;
+  color: var(--dark-gray);
+}
+.jf-address-chip:focus-visible {
+  outline: 2px solid var(--base-color);
+  outline-offset: 2px;
 }

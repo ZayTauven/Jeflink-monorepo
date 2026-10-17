@@ -177,6 +177,9 @@ export type Account = {
   email: string;
   phone: string;
   photo: string;
+  /** Libellés : « Appel ou WhatsApp », « Le soir (17 h – 21 h) »… */
+  contact_pref: string;
+  contact_hours: string;
   is_active: boolean;
   suspension_reason: string;
   date_joined: string;

@@ -134,6 +134,7 @@ export default async function ProPage({ params, searchParams }: Props) {
               items={[
                 ["Email", <a href={`mailto:${a.email}`}>{a.email}</a>],
                 ["Téléphone", a.phone && <a href={`tel:${a.phone}`}>{a.phone}</a>],
+                ["Joignable", `${a.contact_pref} · ${a.contact_hours}`],
                 ["Expérience", plural(p.years_experience, "an", "ans")],
                 ["Quartiers", p.zones.join(", ") || "Tout Dakar"],
                 ["Inscrit", formatDate(a.date_joined)],

@@ -35,6 +35,17 @@ export type Stats = {
   average_rating: number | null;
 };
 
+export type ContactPref = "" | "call" | "whatsapp";
+export type ContactHours = "" | "morning" | "afternoon" | "evening";
+
+export type SavedAddress = {
+  id: number;
+  label: string;
+  zone: string;
+  zone_name: string;
+  landmark: string;
+};
+
 export type Me = {
   id: number;
   email: string;
@@ -42,10 +53,13 @@ export type Me = {
   last_name: string;
   phone: string;
   photo: string;
+  contact_pref: ContactPref;
+  contact_hours: ContactHours;
   role: "client" | "pro";
   is_staff: boolean;
   console_role: "" | "super" | "ops" | "marketing" | "finance";
   console_sections: ConsoleSection[];
+  addresses: SavedAddress[];
   pro_profile: {
     headline: string;
     bio: string;
@@ -146,6 +160,8 @@ export type ServiceRequest = {
   client: { id: number; name: string };
   pro: { id: number; name: string } | null;
   contact_phone: string | null;
+  /** L'autre partie, une fois la mission réservée (photo du client : au pro seulement). */
+  contact: { name: string; photo: string; prefers: string; hours: string } | null;
   quotes: Quote[];
   quotes_count: number;
   quotes_max: number;

@@ -12,7 +12,7 @@ Next.js (App Router), **template Crafto « Marketing strategy » pris tel quel**
 - Pour porter une section Crafto : partir du HTML du template, garder les classes et `data-*` à l'identique, utiliser les petits composants de `components/crafto.tsx` (`SwitchLink`, `Pill`, `ArrowSwipe`, animations `data-anime`…).
 - Données : Server Components + `lib/api.ts` (serveur uniquement). Le jeton DRF vit dans le cookie httpOnly `jeflink_token` ; il n'atteint jamais le navigateur.
 - Formulaires : `<ActionForm action="/act/…">` (client) → route handler dans `src/app/act/` → API Django → JSON (avec JS) ou redirection 303 (sans JS).
-- Pages : `/`, `/a-propos`, `/services` (comment ça marche), `/metiers`, `/metiers/[slug]`, `/contact`, `/connexion`, `/inscription`, `/espace`, `/espace/demandes/nouvelle`, `/espace/demandes/[id]`.
+- Pages : `/`, `/a-propos`, `/services` (comment ça marche), `/metiers`, `/metiers/[slug]`, `/contact`, `/connexion`, `/inscription`, `/espace`, `/espace/profil` (identité, comment me joindre, mes adresses ou profil pro), `/espace/demandes/nouvelle` (`<AddressPicker>` : mes adresses en un geste, `?adresse=` sans JavaScript), `/espace/demandes/[id]`.
 - Montants via `formatXOF`, dates via `formatDate` (heure de Dakar).
 - Quartiers : `zonesByCity()` (`lib/zones.ts`) ; regroupés par ville (optgroup, intitulés) seulement quand plusieurs villes sont ouvertes.
 - Code promo : champ « J'ai un code promo » à la publication (pré-rempli par `?code=`, que posent les bandeaux de campagne), carte « Code promo » sur la demande ouverte, prix après remise sur chaque devis (`with_code`).

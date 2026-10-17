@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AccountHero, ErrorAlert } from "@/components/account";
 import { ActionForm } from "@/components/action-form";
+import { AddressPicker } from "@/components/address-picker";
 import { CampaignBanner } from "@/components/campaign-banner";
 import { JefAssistant } from "@/components/jef-assistant";
 import { SwitchSubmit } from "@/components/crafto";
@@ -17,6 +18,7 @@ const LABELS = {
   title: "Titre",
   description: "Description",
   landmark: "Repère",
+  save_address: "Nom de l'adresse",
   preferred_date: "Date souhaitée",
   promo_code: "Code promo",
 };
@@ -24,9 +26,9 @@ const LABELS = {
 export default async function NewRequestPage({
   searchParams,
 }: {
-  searchParams: Promise<{ metier?: string; erreur?: string; code?: string }>;
+  searchParams: Promise<{ metier?: string; erreur?: string; code?: string; adresse?: string }>;
 }) {
-  const { metier, erreur, code: rawCode } = await searchParams;
+  const { metier, erreur, code: rawCode, adresse } = await searchParams;
   // Code venu d'un bandeau de campagne (?code=CLIM20) : déjà saisi, le client n'a rien à retenir.
   const code = (rawCode ?? "")
     .toUpperCase()
@@ -38,6 +40,8 @@ export default async function NewRequestPage({
   const [trades, zones, site] = await Promise.all([getTrades(), getZones(), getSite()]);
   const today = new Date().toISOString().slice(0, 10);
   const byCity = zonesByCity(zones);
+  // Adresse enregistrée choisie sans JavaScript (?adresse=) : quartier et repère pré-remplis.
+  const chosen = me.addresses.find((a) => String(a.id) === adresse);
 
   return (
     <PageShell actions={false}>
@@ -72,6 +76,9 @@ export default async function NewRequestPage({
                 <ActionForm action="/act/requests" className="jf-form" labels={LABELS}>
                   <ErrorAlert message={erreur} />
                   <input type="hidden" id="jef_session" name="jef_session" />
+                  {me.addresses.length > 0 && (
+                    <AddressPicker addresses={me.addresses} base={here} selected={chosen?.id} />
+                  )}
                   <div className="row">
                     <div className="col-md-6 mb-20px">
                       <label htmlFor="trade">Métier</label>
@@ -98,7 +105,7 @@ export default async function NewRequestPage({
                         id="zone"
                         name="zone"
                         className="form-control"
-                        defaultValue=""
+                        defaultValue={chosen?.zone ?? ""}
                         required
                       >
                         <option value="" disabled>
@@ -150,6 +157,7 @@ export default async function NewRequestPage({
                         name="landmark"
                         className="form-control"
                         maxLength={160}
+                        defaultValue={chosen?.landmark}
                         placeholder="Ex. : derrière la mosquée, portail vert"
                       />
                       <div className="hint">Visible des pros. Pas besoin du numéro de rue.</div>
@@ -164,6 +172,24 @@ export default async function NewRequestPage({
                         className="form-control"
                       />
                     </div>
+                    {me.addresses.length < 5 && (
+                      <div id="save-address" className="col-md-7 mb-20px" hidden={Boolean(chosen)}>
+                        <label htmlFor="save_address">
+                          Enregistrer ce lieu dans mes adresses{" "}
+                          <span className="fw-400">(facultatif)</span>
+                        </label>
+                        <input
+                          id="save_address"
+                          name="save_address"
+                          className="form-control"
+                          maxLength={40}
+                          placeholder="Nom de l'adresse : Maison, Bureau…"
+                        />
+                        <div className="hint">
+                          La prochaine fois, quartier et repère en un geste.
+                        </div>
+                      </div>
+                    )}
                     <div className="col-12 mb-20px">
                       <div className="jf-checks">
                         <label>

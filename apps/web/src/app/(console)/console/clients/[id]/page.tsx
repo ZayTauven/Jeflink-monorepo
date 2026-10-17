@@ -114,6 +114,7 @@ export default async function ClientPage({ params, searchParams }: Props) {
               items={[
                 ["Email", <a href={`mailto:${c.email}`}>{c.email}</a>],
                 ["Téléphone", c.phone && <a href={`tel:${c.phone}`}>{c.phone}</a>],
+                ["Joignable", `${c.contact_pref} · ${c.contact_hours}`],
                 ["Dernière connexion", c.last_login ? ago(c.last_login) : "Jamais"],
               ]}
             />

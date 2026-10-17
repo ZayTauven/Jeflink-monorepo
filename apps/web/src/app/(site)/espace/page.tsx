@@ -186,6 +186,13 @@ export default async function DashboardPage({ searchParams }: Props) {
             className="btn-large btn-base-color btn-rounded btn-box-shadow mb-30px"
           />
         )}
+        <a
+          href="/espace/profil"
+          className="d-inline-block fw-500 text-decoration-line-bottom mb-20px"
+        >
+          <i className="feather icon-feather-user me-5px" aria-hidden="true" />
+          {me.role === "pro" ? "Mon profil et mes quartiers" : "Mon profil et mes adresses"}
+        </a>
         <ul className="list-unstyled fs-15 mb-30px">
           <li>
             <i className="feather icon-feather-mail me-10px" />
