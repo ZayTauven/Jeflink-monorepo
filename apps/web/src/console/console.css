@@ -823,6 +823,27 @@
   padding-block-end: 0;
   border-block-end: 0;
 }
+/* Photos jointes par le client (fiche demande) : vignettes carrées, ouvertes en grand dans
+   un nouvel onglet. */
+.jf-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+.jf-thumbs img {
+  display: block;
+  inline-size: 96px;
+  block-size: 96px;
+  border-radius: var(--ax-radius-lg);
+  object-fit: cover;
+  background: var(--ax-border);
+}
+.jf-thumbs a:focus-visible {
+  outline: 2px solid var(--ax-accent, #f55608);
+  outline-offset: 2px;
+  border-radius: var(--ax-radius-lg);
+}
 
 /* ── Formulaires (catalogue, réglages, équipe) ─────────────────────────────────── */
 .jf-form {

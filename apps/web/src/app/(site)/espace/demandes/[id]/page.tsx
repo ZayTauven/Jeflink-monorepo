@@ -5,6 +5,7 @@ import { Fragment } from "react";
 import { AccountHero, ErrorAlert, StatusPill } from "@/components/account";
 import { ActionForm } from "@/components/action-form";
 import { SwitchSubmit } from "@/components/crafto";
+import { ImageInput } from "@/components/image-input";
 import { JefFacts } from "@/components/jef-facts";
 import { BadgesExplained, ProBadges } from "@/components/pro-badges";
 import { PageShell } from "@/components/page-shell";
@@ -14,13 +15,86 @@ import type { Dispute, Money, ServiceRequest } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Demande" };
 
+const PHOTO_DONE: Record<string, string> = { ok: "Photo ajoutée.", retiree: "Photo retirée." };
+const MAX_PHOTOS = 3;
+
+/**
+ * Photos jointes par le client : privées (le client, les pros qui voient la demande, l'équipe
+ * Opérations), servies par /photos/<demande>/<photo>. Le client en ajoute ou en retire tant
+ * que la demande est ouverte ou réservée.
+ */
+function RequestPhotos({ req, isClient }: { req: ServiceRequest; isClient: boolean }) {
+  const editable = isClient && (req.status === "open" || req.status === "booked");
+  if (req.photos.length === 0 && !editable) return null;
+  return (
+    <section
+      id="photos"
+      className="bg-white border-radius-20px p-30px sm-p-25px mb-30px"
+      aria-labelledby="photos-titre"
+    >
+      <h2 id="photos-titre" className="h5 alt-font fw-500 mb-15px">
+        Photos
+      </h2>
+      {req.photos.length > 0 ? (
+        <ul className="jf-photos list-unstyled mb-0">
+          {req.photos.map((p, i) => (
+            <li key={p.id} className="jf-photo-item">
+              <a
+                href={`/photos/${req.id}/${p.id}`}
+                target="_blank"
+                rel="noopener"
+                aria-label={`Photo ${i + 1} en grand (nouvel onglet)`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="jf-photo" src={`/photos/${req.id}/${p.id}`} alt="" />
+              </a>
+              {editable && (
+                <form action={`/act/requests/${req.id}/photos/${p.id}`} method="post">
+                  <button
+                    type="submit"
+                    className="jf-link-button"
+                    aria-label={`Retirer la photo ${i + 1}`}
+                  >
+                    Retirer
+                  </button>
+                </form>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mb-0">
+          Une photo de la panne aide les pros à chiffrer juste, sans se déplacer.
+        </p>
+      )}
+      {editable && req.photos.length < MAX_PHOTOS && (
+        <ActionForm
+          action={`/act/requests/${req.id}/photos`}
+          className="jf-profile-photo__form mt-15px"
+        >
+          <ImageInput id="ajout-photo" name="photo" className="visually-hidden" autoSubmit />
+          <label htmlFor="ajout-photo" className="jf-link-button">
+            <i className="feather icon-feather-camera me-5px" aria-hidden="true" />
+            Ajouter une photo
+          </label>
+          <noscript>
+            <button type="submit" className="btn btn-link p-0 fs-14">
+              Envoyer la photo
+            </button>
+          </noscript>
+        </ActionForm>
+      )}
+    </section>
+  );
+}
+
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ erreur?: string }>;
+  searchParams: Promise<{ erreur?: string; photo?: string }>;
 };
 
 export default async function RequestPage({ params, searchParams }: Props) {
-  const [{ id }, { erreur }] = await Promise.all([params, searchParams]);
+  const [{ id }, { erreur, photo }] = await Promise.all([params, searchParams]);
   const { me, token } = await requireMe(`/espace/demandes/${id}`);
   const req = await getRequest(id, token);
   if (!req) notFound();
@@ -37,6 +111,12 @@ export default async function RequestPage({ params, searchParams }: Props) {
         aside={
           <div>
             <ErrorAlert message={erreur} />
+            {photo && PHOTO_DONE[photo] && (
+              <div className="alert alert-success mb-25px" role="status">
+                {PHOTO_DONE[photo]}
+              </div>
+            )}
+            <RequestPhotos req={req} isClient={isClient} />
             {isClient && req.status === "open" && <PromoCard code={req.promo_code} act={act} />}
             <Quotes req={req} isClient={isClient} act={act} canAccept={can("accept")} />
             {can("quote") && <QuoteForm act={act} />}

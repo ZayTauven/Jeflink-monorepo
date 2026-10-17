@@ -728,3 +728,28 @@
   background: #fdecec;
   color: #a12626;
 }
+
+/* Photos d'une demande (formulaire et page de la demande) : vignettes carrées. */
+.jf-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.jf-photo-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.jf-photo {
+  display: block;
+  width: 110px;
+  height: 110px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #f6f5f0;
+}
+.jf-photos a:focus-visible {
+  outline: 2px solid var(--base-color);
+  outline-offset: 2px;
+  border-radius: 12px;
+}

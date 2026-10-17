@@ -7,6 +7,7 @@ import { CampaignBanner } from "@/components/campaign-banner";
 import { JefAssistant } from "@/components/jef-assistant";
 import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
+import { PhotosInput } from "@/components/photos-input";
 import { getSite, getTrades, getZones, requireMe } from "@/lib/api";
 import { zonesByCity } from "@/lib/zones";
 
@@ -21,6 +22,7 @@ const LABELS = {
   save_address: "Nom de l'adresse",
   preferred_date: "Date souhaitée",
   promo_code: "Code promo",
+  photos: "Photos",
 };
 
 export default async function NewRequestPage({
@@ -149,6 +151,16 @@ export default async function NewRequestPage({
                         placeholder="Depuis quand, ce que vous avez remarqué, le matériel concerné…"
                         required
                       />
+                    </div>
+                    <div className="col-12 mb-20px">
+                      <label htmlFor="photos">
+                        Photos <span className="fw-400">(facultatif, 3 au plus)</span>
+                      </label>
+                      <PhotosInput id="photos" name="photos" describedBy="photos-aide" />
+                      <div className="hint" id="photos-aide">
+                        La fuite, l&apos;appareil, sa plaque&nbsp;: le pro chiffre plus juste. Vues
+                        par les pros de ce métier et l&apos;équipe Jeflink seulement.
+                      </div>
                     </div>
                     <div className="col-md-7 mb-20px">
                       <label htmlFor="landmark">Repère pour trouver la maison</label>

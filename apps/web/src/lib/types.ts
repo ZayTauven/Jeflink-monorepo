@@ -182,6 +182,8 @@ export type ServiceRequest = {
   contact_phone: string | null;
   /** L'autre partie, une fois la mission réservée (photo du client : au pro seulement). */
   contact: { name: string; photo: string; prefers: string; hours: string } | null;
+  /** Photos jointes par le client ; fichier : /photos/<demande>/<id>. */
+  photos: { id: number; created_at: string }[];
   quotes: Quote[];
   quotes_count: number;
   quotes_max: number;

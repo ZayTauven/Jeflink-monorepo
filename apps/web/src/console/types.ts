@@ -142,6 +142,8 @@ export type RequestDetail = Omit<RequestRow, "client" | "pro"> & {
   description: string;
   landmark: string;
   preferred_date: string | null;
+  /** Photos du client (ids) ; fichier : /photos/<demande>/<id>. */
+  photos: number[];
   quotes: {
     id: number;
     pro: Ref;

@@ -71,6 +71,23 @@ export default async function RequestDetailPage({ params, searchParams }: Props)
         <div className="ax-col--8 jf-stack">
           <Card title="La demande" eyebrow="Description">
             <p className="jf-prose">{r.description}</p>
+            {r.photos.length > 0 && (
+              <ul className="jf-thumbs" aria-label="Photos du client">
+                {r.photos.map((photo, i) => (
+                  <li key={photo}>
+                    <a
+                      href={`/photos/${r.id}/${photo}`}
+                      target="_blank"
+                      rel="noopener"
+                      aria-label={`Photo ${i + 1} du client (nouvel onglet)`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/photos/${r.id}/${photo}`} alt="" width={96} height={96} />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
             <Facts
               items={[
                 ["Repère", r.landmark],
