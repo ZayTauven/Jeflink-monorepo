@@ -224,5 +224,9 @@ def document_file(request, pk: int):
     )
     response["Cache-Control"] = "private, no-store"
     response["X-Content-Type-Options"] = "nosniff"
-    response["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; sandbox"
+    response["Content-Security-Policy"] = (
+        "default-src 'none'; img-src 'self'; sandbox; frame-ancestors 'none'"
+    )
+    response["Cross-Origin-Resource-Policy"] = "same-origin"
+    response["Referrer-Policy"] = "no-referrer"
     return response

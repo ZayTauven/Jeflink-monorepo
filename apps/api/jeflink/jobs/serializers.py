@@ -44,7 +44,9 @@ class QuoteSerializer(serializers.ModelSerializer):
     def get_pro_badges(self, quote) -> dict:
         """« Vérifié » (pièce d'identité acceptée par l'équipe) et « Pro confirmé » (gagné)."""
         profile = quote.pro.pro_profile
-        return {"verified": profile.is_verified, "confirmed": profile.is_confirmed()}
+        # Vérifié = pièce d'identité acceptée (un pro vérifié avant cette règle n'a pas le badge).
+        verified = profile.is_verified and profile.has_accepted_id()
+        return {"verified": verified, "confirmed": profile.is_confirmed()}
 
     def get_with_code(self, quote) -> dict | None:
         """Pour le client, sur un devis à choisir : ce que donne le code promo de sa demande."""

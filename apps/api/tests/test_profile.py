@@ -152,7 +152,7 @@ def test_metier_ajoute_par_le_pro_valide_par_l_equipe(catalog):
 
     res = api.put(
         "/api/auth/me/",
-        {"first_name": "Moussa", "trades": ["plomberie", "electricite", "clim"]},
+        {"first_name": "Test", "trades": ["plomberie", "electricite", "clim"]},
         format="json",
     )
     assert res.status_code == 200, res.data
@@ -190,9 +190,9 @@ def test_metier_ajoute_par_le_pro_valide_par_l_equipe(catalog):
     ]
 
     # Retirer un métier : tout de suite ; tout retirer : refusé.
-    api.put("/api/auth/me/", {"first_name": "Moussa", "trades": ["electricite"]}, format="json")
+    api.put("/api/auth/me/", {"first_name": "Test", "trades": ["electricite"]}, format="json")
     assert list(profile.trades.values_list("slug", flat=True)) == ["electricite"]
-    bad = api.put("/api/auth/me/", {"first_name": "Moussa", "trades": []}, format="json")
+    bad = api.put("/api/auth/me/", {"first_name": "Test", "trades": []}, format="json")
     assert bad.status_code == 400
 
 
@@ -235,3 +235,42 @@ def test_badge_pro_confirme(catalog):
 
     res = APIClient().get(f"/api/pros/?trade={trade.slug}")
     assert res.status_code == 200
+
+
+def test_pro_verifie_ne_change_ni_nom_ni_telephone(catalog):
+    api, pro = register(
+        email="moussa@example.com", role="pro", trades=["plomberie"], phone="771234567"
+    )
+    pro.first_name, pro.last_name = "Moussa", "Diop"
+    pro.save()
+    ProProfile.objects.filter(user=pro).update(is_verified=True)
+    same = {"first_name": "Moussa", "last_name": "Diop", "phone": "+221771234567"}
+    res = api.put("/api/auth/me/", {**same, "headline": "Plombier"}, format="json")
+    assert res.status_code == 200, res.data
+    for change in ({"first_name": "Ibrahima"}, {"phone": "781112233"}):
+        res = api.put("/api/auth/me/", {**same, **change}, format="json")
+        assert res.status_code == 400
+    pro.refresh_from_db()
+    assert (pro.first_name, pro.phone) == ("Moussa", "+221771234567")
+
+
+def test_le_pro_garde_un_metier_valide_et_ses_devis_suivent(catalog):
+    from jeflink.jobs import services
+    from jeflink.jobs.models import Quote
+
+    plomberie, ouakam = catalog
+    Trade.objects.create(slug="electricite", name="Électricité")
+    api, pro = register(email="moussa@example.com", role="pro", trades=["plomberie"])
+    ProProfile.objects.filter(user=pro).update(is_verified=True)
+    bad = api.put("/api/auth/me/", {"first_name": "Test", "trades": ["electricite"]}, format="json")
+    assert bad.status_code == 400  # plus aucun métier validé : refusé
+
+    client, awa = register(email="awa@example.com")
+    req = services.create_request(
+        awa, trade=plomberie, zone=ouakam, title="Fuite", description="Évier"
+    )
+    api.post(f"/api/requests/{req.pk}/quotes/", {"amount": 9000}, format="json")
+    Trade.objects.create(slug="menage", name="Ménage")
+    ProProfile.objects.get(user=pro).trades.add(Trade.objects.get(slug="menage"))
+    api.put("/api/auth/me/", {"first_name": "Test", "trades": ["menage"]}, format="json")
+    assert Quote.objects.get(request=req).status == Quote.Status.DECLINED

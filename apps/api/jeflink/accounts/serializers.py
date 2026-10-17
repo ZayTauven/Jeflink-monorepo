@@ -4,6 +4,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from jeflink.catalog.models import Trade, served_zones
+from jeflink.jobs.models import Quote
 
 from .models import ContactMessage, ProDocument, ProProfile, SavedAddress, User, normalize_phone
 
@@ -131,7 +132,26 @@ class ProfileSerializer(serializers.Serializer):
     def validate_trades(self, value):
         if not value:
             raise serializers.ValidationError("Gardez au moins un métier.")
+        profile = getattr(self.instance, "pro_profile", None)
+        current = set(profile.trades.all()) if profile else set()
+        if current and not set(value) & current:
+            # Sinon un pro vérifié se retrouverait sans aucun métier validé.
+            raise serializers.ValidationError("Gardez au moins un de vos métiers déjà validés.")
         return value
+
+    def validate(self, attrs):
+        """Pro vérifié : nom et téléphone ont été contrôlés avec sa pièce d'identité ; ils ne
+        changent qu'avec le support (sinon le badge « Vérifié » couvrirait quelqu'un d'autre)."""
+        user = self.instance
+        profile = getattr(user, "pro_profile", None)
+        checked = (user.first_name, user.last_name, user.phone)
+        wanted = (attrs["first_name"], attrs["last_name"], attrs["phone"])
+        if profile and profile.is_verified and wanted != checked:
+            raise serializers.ValidationError(
+                "Nom et téléphone vérifiés avec votre pièce d'identité : écrivez au "
+                "support pour les changer."
+            )
+        return attrs
 
     @transaction.atomic
     def update(self, user, data):
@@ -149,8 +169,13 @@ class ProfileSerializer(serializers.Serializer):
             if "trades" in data:
                 wanted = set(data["trades"])
                 current = set(profile.trades.all())
-                profile.trades.remove(*(current - wanted))
+                removed = current - wanted
+                profile.trades.remove(*removed)
                 profile.pending_trades.set(wanted - current)
+                # Ses devis en attente sur un métier retiré ne peuvent plus être choisis.
+                Quote.objects.filter(
+                    pro=user, status=Quote.Status.PENDING, request__trade__in=removed
+                ).update(status=Quote.Status.DECLINED)
         return user
 
 

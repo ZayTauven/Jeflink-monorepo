@@ -139,3 +139,22 @@ def test_examen_reserve_aux_operations(pro):
     doc_id = upload(pro).data["id"]
     res = as_user(staff("marketing")).post(f"/api/console/documents/{doc_id}/accept/")
     assert res.status_code == 403
+
+
+def test_acces_refuse_aux_autres_et_journal_sans_motif(pro):
+    doc_id = upload(pro).data["id"]
+    url = f"/api/auth/documents/{doc_id}/file/"
+    client = User.objects.create_user("awa@example.com", PASSWORD)
+    assert as_user(client).get(url).status_code == 404
+    assert as_user(staff("finance")).get(url).status_code == 404
+    ok = as_user(pro).get(url)
+    assert ok["Cross-Origin-Resource-Policy"] == "same-origin"
+    assert "frame-ancestors 'none'" in ok["Content-Security-Policy"]
+
+    api = as_user(staff("ops"))
+    api.post(f"/api/console/documents/{doc_id}/reject/", {"reason": "CNI 1 234 567 expirée"})
+    assert AuditLog.objects.get(action="document.reject").details == ""
+
+    pro.is_active = False  # suspendu : plus d'accès, même à ses documents
+    pro.save()
+    assert as_user(pro).get(url).status_code == 401

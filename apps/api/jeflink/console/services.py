@@ -96,6 +96,8 @@ def decide_trade(staff, profile: ProProfile, trade: Trade, approve: bool, reason
     _staff(staff)
     if not profile.pending_trades.filter(pk=trade.pk).exists():
         raise ValidationError("Ce métier n'est pas demandé par ce pro.")
+    if approve and (not trade.is_active or not profile.user.is_active):
+        raise ValidationError("Métier fermé ou compte suspendu : impossible de le valider.")
     if not approve:
         reason = _required(reason, "Indiquez au pro pourquoi ce métier est refusé.")
     profile.pending_trades.remove(trade)
@@ -124,7 +126,8 @@ def review_document(staff, document: ProDocument, accept: bool, reason: str = ""
     document.save(update_fields=["status", "note", "reviewed_by", "reviewed_at"])
     user = document.profile.user
     label = f"{user} — {document.get_kind_display()}"
-    log(staff, A.DOC_ACCEPT if accept else A.DOC_REJECT, "pro", user.pk, label, document.note)
+    # Le motif reste sur le document : il pourrait contenir un numéro de pièce, pas au journal.
+    log(staff, A.DOC_ACCEPT if accept else A.DOC_REJECT, "pro", user.pk, label)
     return document
 
 
