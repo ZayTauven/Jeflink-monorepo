@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { CardGrid } from "@/console/cards";
 import { consoleGet, type Query } from "@/console/data";
 import { Field } from "@/console/forms";
+import { ImageInput } from "@/components/image-input";
 import { ActionButton, ActionForm, Avatar, Flash, ReasonAction } from "@/console/kit";
 import { Modal } from "@/console/modal";
 import { Submit } from "@/console/submit";
@@ -111,7 +112,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
             return (
               <article key={m.id} className="ax-card jf-item" aria-label={m.name}>
                 <div className="jf-item__head">
-                  <Avatar name={m.name} size={48} />
+                  <Avatar name={m.name} photo={m.photo} size={48} />
                   <div className="jf-item__titles">
                     <span className="ax-card__eyebrow">{m.email}</span>
                     <h2 className="jf-item__title">
@@ -137,34 +138,80 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                       <dd>{ago(m.date_joined)}</dd>
                     </div>
                   </dl>
-                  {!self && !m.is_superuser && (
-                    <div className="jf-item__actions">
-                      {m.is_active && (
-                        <ActionForm
-                          endpoint={`/api/console/team/${m.id}/role/`}
-                          back={BASE}
-                          ok="Rôle modifié."
-                          className="jf-role-form"
+                  <div className="jf-item__actions">
+                    <Modal
+                      trigger={m.photo ? "Changer la photo" : "Ajouter une photo"}
+                      title={`Photo de ${m.name}`}
+                      subtitle="Visible dans la console : menu du compte, équipe, journal."
+                      size="sm"
+                    >
+                      <ActionForm
+                        endpoint={`/api/console/team/${m.id}/photo/`}
+                        back={BASE}
+                        ok="Photo enregistrée."
+                        className="jf-form"
+                      >
+                        <Field
+                          id={`photo-${m.id}`}
+                          label="Photo"
+                          hint="JPEG, PNG ou WebP, 8 Mo au plus ; réduite avant l'envoi."
+                          wide
                         >
-                          <label className="ax-visually-hidden" htmlFor={`role-${m.id}`}>
-                            Rôle de {m.name}
-                          </label>
-                          <select
-                            id={`role-${m.id}`}
-                            name="role"
-                            className="ax-select ax-select--sm"
-                            defaultValue={m.role}
-                          >
-                            {ROLES.map((r) => (
-                              <option key={r.value} value={r.value}>
-                                {r.label}
-                              </option>
-                            ))}
-                          </select>
-                          <Submit className="ax-btn ax-btn--secondary ax-btn--sm">Changer</Submit>
+                          <ImageInput
+                            id={`photo-${m.id}`}
+                            name="photo"
+                            current={m.photo}
+                            maxSide={1000}
+                            previewClassName="jf-image-preview jf-image-preview--round"
+                            className="ax-input"
+                            required
+                          />
+                        </Field>
+                        <div className="jf-form__wide">
+                          <Submit>Enregistrer la photo</Submit>
+                        </div>
+                      </ActionForm>
+                      {m.photo && (
+                        <ActionForm
+                          endpoint={`/api/console/team/${m.id}/photo/`}
+                          back={BASE}
+                          ok="Photo retirée."
+                        >
+                          <input type="hidden" name="remove" value="1" />
+                          <Submit className="ax-btn ax-btn--ghost ax-btn--sm">
+                            Retirer la photo
+                          </Submit>
                         </ActionForm>
                       )}
-                      {m.is_active ? (
+                    </Modal>
+                    {!self && !m.is_superuser && m.is_active && (
+                      <ActionForm
+                        endpoint={`/api/console/team/${m.id}/role/`}
+                        back={BASE}
+                        ok="Rôle modifié."
+                        className="jf-role-form"
+                      >
+                        <label className="ax-visually-hidden" htmlFor={`role-${m.id}`}>
+                          Rôle de {m.name}
+                        </label>
+                        <select
+                          id={`role-${m.id}`}
+                          name="role"
+                          className="ax-select ax-select--sm"
+                          defaultValue={m.role}
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r.value} value={r.value}>
+                              {r.label}
+                            </option>
+                          ))}
+                        </select>
+                        <Submit className="ax-btn ax-btn--secondary ax-btn--sm">Changer</Submit>
+                      </ActionForm>
+                    )}
+                    {!self &&
+                      !m.is_superuser &&
+                      (m.is_active ? (
                         <ReasonAction
                           endpoint={`/api/console/team/${m.id}/deactivate/`}
                           back={BASE}
@@ -183,9 +230,8 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                           label="Rétablir l'accès"
                           variant="ax-btn ax-btn--secondary ax-btn--sm"
                         />
-                      )}
-                    </div>
-                  )}
+                      ))}
+                  </div>
                 </div>
               </article>
             );

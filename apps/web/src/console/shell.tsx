@@ -40,7 +40,7 @@ export function ConsoleShell({
   children,
 }: {
   // Le strict nécessaire côté navigateur : identité affichée et rubriques ouvertes au rôle.
-  me: Pick<Me, "first_name" | "last_name" | "email" | "console_sections">;
+  me: Pick<Me, "first_name" | "last_name" | "email" | "photo" | "console_sections">;
   badges: Badges;
   children: ReactNode;
 }) {
@@ -272,10 +272,10 @@ export function ConsoleShell({
               panelClassName="ax-dropdown ax-profile__menu"
               label="Mon compte"
               buttonClassName="ax-profile__trigger"
-              button={<Initials name={fullName} />}
+              button={<Initials name={fullName} photo={me.photo} />}
             >
               <div className="ax-profile__card">
-                <Initials name={fullName} />
+                <Initials name={fullName} photo={me.photo} />
                 <span className="ax-profile__card-meta">
                   <b>{fullName}</b>
                   <small>{me.email}</small>
@@ -361,7 +361,11 @@ function Todo({ href, icon, children }: { href: string; icon: string; children: 
   );
 }
 
-function Initials({ name }: { name: string }) {
+function Initials({ name, photo }: { name: string; photo?: string }) {
+  if (photo) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img className="ax-avatar jf-initials" src={photo} alt="" width={34} height={34} />;
+  }
   const letters = name
     .split(" ")
     .filter(Boolean)

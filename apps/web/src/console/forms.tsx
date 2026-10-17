@@ -1,6 +1,8 @@
 /** Formulaires de la console (catalogue, marketing) : champs vireo (.ax-field), envoi par `consoleAction`. */
 import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 
+import { ImageInput } from "@/components/image-input";
+
 import { ActionForm } from "./kit";
 import { Submit } from "./submit";
 import { TagsField } from "./tags-field";
@@ -169,12 +171,20 @@ export function TradeForm({
       >
         <input id={id("icon")} name="icon" className="ax-input" defaultValue={trade?.icon} />
       </Field>
+      <input type="hidden" name="image" value={trade?.image ?? ""} />
       <Field
         id={id("image")}
         label="Image"
-        hint={`Chemin d'une image du site, ex.${NBSP}: /images/metiers/plomberie.webp`}
+        hint={`Photo JPEG, PNG ou WebP, 8${NBSP}Mo au plus ; réduite avant l'envoi. Sans nouvelle photo, l'image actuelle reste.`}
+        wide
       >
-        <input id={id("image")} name="image" className="ax-input" defaultValue={trade?.image} />
+        <ImageInput
+          id={id("image")}
+          name="image_file"
+          current={trade?.image}
+          previewClassName="jf-image-preview"
+          className="ax-input"
+        />
       </Field>
       <Field id={id("position")} label="Ordre d'affichage" hint="Les plus petits d'abord.">
         <input

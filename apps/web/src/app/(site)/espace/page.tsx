@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { AccountHero, RequestCard } from "@/components/account";
+import { AccountHero, ErrorAlert, RequestCard } from "@/components/account";
+import { ActionForm } from "@/components/action-form";
 import { SwitchLink } from "@/components/crafto";
+import { ImageInput } from "@/components/image-input";
 import { PageShell } from "@/components/page-shell";
 import { api, requireMe } from "@/lib/api";
 import type { ServiceRequest } from "@/lib/types";
@@ -14,8 +16,10 @@ async function list(path: string, token: string) {
   return res.ok ? res.data : [];
 }
 
-export default async function DashboardPage() {
-  const { me, token } = await requireMe("/espace");
+type Props = { searchParams: Promise<{ erreur?: string }> };
+
+export default async function DashboardPage({ searchParams }: Props) {
+  const [{ me, token }, { erreur }] = await Promise.all([requireMe("/espace"), searchParams]);
   if (me.is_staff) redirect("/console"); // L'équipe Jeflink travaille dans la console.
   const isPro = me.role === "pro";
   const [open, mine] = isPro
@@ -114,6 +118,50 @@ export default async function DashboardPage() {
           </div>
         }
       >
+        <ErrorAlert message={erreur} />
+        <div className="jf-profile-photo mb-25px">
+          <ActionForm action="/act/photo" className="jf-profile-photo__form">
+            <ImageInput
+              id="ma-photo"
+              name="photo"
+              current={me.photo}
+              maxSide={1000}
+              previewClassName="jf-avatar"
+              previewSize={80}
+              className="visually-hidden"
+              autoSubmit
+            />
+            {!me.photo && (
+              <span className="jf-avatar jf-avatar--initials" aria-hidden="true">
+                {initials(me.first_name, me.last_name)}
+              </span>
+            )}
+            <span className="d-flex flex-column align-items-start">
+              <label htmlFor="ma-photo" className="jf-link-button">
+                <i className="feather icon-feather-camera me-5px" />
+                {me.photo ? "Changer ma photo" : "Ajouter ma photo"}
+              </label>
+              <span className="fs-13 opacity-7">
+                {isPro
+                  ? "Visible des clients sur votre profil."
+                  : "Elle aide le pro à vous reconnaître."}
+              </span>
+              <noscript>
+                <button type="submit" className="btn btn-link p-0 fs-14">
+                  Enregistrer la photo
+                </button>
+              </noscript>
+            </span>
+          </ActionForm>
+          {me.photo && (
+            <form action="/act/photo" method="post">
+              <input type="hidden" name="remove" value="1" />
+              <button type="submit" className="jf-link-button opacity-7">
+                Retirer
+              </button>
+            </form>
+          )}
+        </div>
         <p className="mb-25px">
           {isPro
             ? me.pro_profile?.headline ||
@@ -144,4 +192,8 @@ export default async function DashboardPage() {
       </AccountHero>
     </PageShell>
   );
+}
+
+function initials(first: string, last: string): string {
+  return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "J";
 }

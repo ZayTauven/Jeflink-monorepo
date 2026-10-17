@@ -41,6 +41,7 @@ export type Me = {
   first_name: string;
   last_name: string;
   phone: string;
+  photo: string;
   role: "client" | "pro";
   is_staff: boolean;
   console_role: "" | "super" | "ops" | "marketing" | "finance";

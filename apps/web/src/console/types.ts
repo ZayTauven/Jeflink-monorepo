@@ -329,6 +329,7 @@ export type Member = {
   id: number;
   name: string;
   email: string;
+  photo: string;
   role: StaffRole;
   role_label: string;
   is_active: boolean;

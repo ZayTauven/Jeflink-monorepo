@@ -3,7 +3,18 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Site et console ont chacun leur layout racine : 404 globale dans app/global-not-found.tsx.
-  experimental: { globalNotFound: true },
+  experimental: {
+    globalNotFound: true,
+    // Formulaires de la console avec une image (8 Mo au plus côté API, plus l'enveloppe).
+    serverActions: { bodySizeLimit: "9mb" },
+  },
+  // Images envoyées (photos de profil, métiers) : servies par l'API, sous la même adresse que le site.
+  rewrites: async () => [
+    {
+      source: "/media/:path*",
+      destination: `${process.env.API_URL ?? "http://127.0.0.1:8000"}/media/:path*`,
+    },
+  ],
   headers: async () => [
     {
       source: "/:path*",

@@ -267,6 +267,24 @@
 }
 
 /* ── Composants Jeflink de la console ───────────────────────────────────────────── */
+/* Aperçu d'une image envoyée (métier) ou d'une photo (membre), au-dessus du champ fichier. */
+.jf-image-preview {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: 280px;
+  aspect-ratio: 3 / 2;
+  margin-block-end: 0.5rem;
+  border-radius: var(--ax-radius-lg);
+  object-fit: cover;
+}
+.jf-image-preview--round {
+  inline-size: 96px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+.ax-avatar {
+  object-fit: cover;
+}
 .jf-kpi-icon {
   display: inline-grid;
   place-items: center;

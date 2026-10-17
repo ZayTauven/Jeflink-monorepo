@@ -21,6 +21,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
         first_name: me.first_name,
         last_name: me.last_name,
         email: me.email,
+        photo: me.photo,
         console_sections: me.console_sections,
       }}
       badges={badges.ok ? badges.data : NO_BADGES}

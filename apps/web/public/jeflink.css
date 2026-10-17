@@ -596,3 +596,57 @@
     gap: 0;
   }
 }
+
+/* Photo de profil (Mon espace) : rond de 80 px, initiales sur fond orange sans photo. */
+.jf-profile-photo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+}
+.jf-profile-photo__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 15px;
+}
+.jf-profile-photo__form fieldset {
+  display: contents;
+}
+.jf-profile-photo__form .alert {
+  flex-basis: 100%;
+}
+.jf-avatar {
+  flex: none;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.jf-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--base-color);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 500;
+}
+.jf-link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dark-gray);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.jf-link-button:hover {
+  color: var(--base-color);
+}
+.jf-profile-photo__form:focus-within .jf-link-button {
+  outline: 2px solid var(--base-color);
+  outline-offset: 3px;
+}

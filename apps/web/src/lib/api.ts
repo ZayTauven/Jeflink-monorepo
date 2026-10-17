@@ -21,20 +21,28 @@ export const TOKEN_COOKIE = "jeflink_token";
 export type ApiError = { ok: false; status: number; error: string; fields: Record<string, string> };
 export type ApiResult<T> = { ok: true; status: number; data: T } | ApiError;
 
-/** Appel serveur → Django. Le jeton ne quitte jamais le serveur Next (cookie httpOnly). */
+/**
+ * Appel serveur → Django. Le jeton ne quitte jamais le serveur Next (cookie httpOnly).
+ * `body` : objet envoyé en JSON, ou FormData envoyé tel quel (fichiers).
+ */
 export async function api<T>(
   path: string,
   init: { method?: string; body?: unknown; token?: string | null } = {},
 ): Promise<ApiResult<T>> {
   const headers: Record<string, string> = { Accept: "application/json" };
-  if (init.body !== undefined) headers["Content-Type"] = "application/json";
+  const multipart = init.body instanceof FormData;
+  if (init.body !== undefined && !multipart) headers["Content-Type"] = "application/json";
   if (init.token) headers.Authorization = `Token ${init.token}`;
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, {
       method: init.method ?? "GET",
       headers,
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      body: multipart
+        ? (init.body as FormData)
+        : init.body === undefined
+          ? undefined
+          : JSON.stringify(init.body),
       cache: "no-store",
     });
   } catch {

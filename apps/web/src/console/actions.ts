@@ -7,7 +7,8 @@
  * renvoyée au formulaire au lieu de recharger la page (la saisie reste, la fenêtre aussi).
  *
  * Champs réservés : _endpoint (action API, liste blanche), _back (page de retour, /console…),
- * _ok (message de réussite). Les autres champs texte forment le corps JSON.
+ * _ok (message de réussite). Les autres champs texte forment le corps JSON ; avec un fichier
+ * choisi (image d'un métier, photo d'un membre), le tout part en multipart.
  */
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -51,8 +52,13 @@ async function perform(form: FormData): Promise<{ back: URL; error: string }> {
   // Champ « nom[] » → tableau (cases à cocher multiples) ; sinon la dernière valeur l'emporte
   // (une case simple envoie « 0 » caché puis « 1 » si cochée).
   const body: Record<string, string | string[]> = {};
+  const files: [string, File][] = [];
   for (const [key, value] of form.entries()) {
-    if (key.startsWith("_") || key.startsWith("$") || typeof value !== "string") continue;
+    if (key.startsWith("_") || key.startsWith("$")) continue;
+    if (typeof value !== "string") {
+      if (value.size > 0) files.push([key, value]); // champ fichier laissé vide : ignoré
+      continue;
+    }
     if (key.endsWith("[]")) {
       const name = key.slice(0, -2);
       const list = body[name];
@@ -61,7 +67,15 @@ async function perform(form: FormData): Promise<{ back: URL; error: string }> {
       body[key] = value;
     }
   }
-  const res = await api(endpoint, { method: "POST", token, body });
+  let payload: Record<string, string | string[]> | FormData = body;
+  if (files.length > 0) {
+    payload = new FormData();
+    for (const [key, value] of Object.entries(body)) {
+      for (const item of [value].flat()) payload.append(key, item);
+    }
+    for (const [key, file] of files) payload.append(key, file);
+  }
+  const res = await api(endpoint, { method: "POST", token, body: payload });
   if (res.ok) {
     // Sans cela, revenir sur une adresse déjà visitée (même message) peut réafficher
     // l'ancienne version de la page gardée par le routeur.
