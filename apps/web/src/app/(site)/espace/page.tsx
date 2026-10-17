@@ -16,10 +16,15 @@ async function list(path: string, token: string) {
   return res.ok ? res.data : [];
 }
 
-type Props = { searchParams: Promise<{ erreur?: string }> };
+type Props = { searchParams: Promise<{ erreur?: string; photo?: string }> };
+
+const PHOTO_DONE: Record<string, string> = { ok: "Photo enregistrée.", retiree: "Photo retirée." };
 
 export default async function DashboardPage({ searchParams }: Props) {
-  const [{ me, token }, { erreur }] = await Promise.all([requireMe("/espace"), searchParams]);
+  const [{ me, token }, { erreur, photo }] = await Promise.all([
+    requireMe("/espace"),
+    searchParams,
+  ]);
   if (me.is_staff) redirect("/console"); // L'équipe Jeflink travaille dans la console.
   const isPro = me.role === "pro";
   const [open, mine] = isPro
@@ -119,6 +124,11 @@ export default async function DashboardPage({ searchParams }: Props) {
         }
       >
         <ErrorAlert message={erreur} />
+        {photo && PHOTO_DONE[photo] && (
+          <div className="alert alert-success mb-25px" role="status">
+            {PHOTO_DONE[photo]}
+          </div>
+        )}
         <div className="jf-profile-photo mb-25px">
           <ActionForm action="/act/photo" className="jf-profile-photo__form">
             <ImageInput
@@ -138,13 +148,13 @@ export default async function DashboardPage({ searchParams }: Props) {
             )}
             <span className="d-flex flex-column align-items-start">
               <label htmlFor="ma-photo" className="jf-link-button">
-                <i className="feather icon-feather-camera me-5px" />
+                <i className="feather icon-feather-camera me-5px" aria-hidden="true" />
                 {me.photo ? "Changer ma photo" : "Ajouter ma photo"}
               </label>
-              <span className="fs-13 opacity-7">
+              <span className="fs-13">
                 {isPro
                   ? "Visible des clients sur votre profil."
-                  : "Elle aide le pro à vous reconnaître."}
+                  : "Visible de l'équipe Jeflink seulement."}
               </span>
               <noscript>
                 <button type="submit" className="btn btn-link p-0 fs-14">
@@ -156,8 +166,8 @@ export default async function DashboardPage({ searchParams }: Props) {
           {me.photo && (
             <form action="/act/photo" method="post">
               <input type="hidden" name="remove" value="1" />
-              <button type="submit" className="jf-link-button opacity-7">
-                Retirer
+              <button type="submit" className="jf-link-button">
+                Retirer ma photo
               </button>
             </form>
           )}

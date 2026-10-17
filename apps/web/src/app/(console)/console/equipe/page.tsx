@@ -140,9 +140,14 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                   </dl>
                   <div className="jf-item__actions">
                     <Modal
-                      trigger={m.photo ? "Changer la photo" : "Ajouter une photo"}
+                      trigger={
+                        <>
+                          {m.photo ? "Changer la photo" : "Ajouter une photo"}
+                          <span className="ax-visually-hidden"> de {m.name}</span>
+                        </>
+                      }
                       title={`Photo de ${m.name}`}
-                      subtitle="Visible dans la console : menu du compte, équipe, journal."
+                      subtitle="Visible dans la console : menu du compte, équipe, journal."
                       size="sm"
                     >
                       <ActionForm
@@ -154,13 +159,14 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                         <Field
                           id={`photo-${m.id}`}
                           label="Photo"
-                          hint="JPEG, PNG ou WebP, 8 Mo au plus ; réduite avant l'envoi."
+                          hint="JPEG, PNG ou WebP, 8 Mo au plus ; réduite avant l'envoi."
                           wide
                         >
                           <ImageInput
                             id={`photo-${m.id}`}
                             name="photo"
                             current={m.photo}
+                            previewAlt={`Photo actuelle de ${m.name}`}
                             maxSide={1000}
                             previewClassName="jf-image-preview jf-image-preview--round"
                             className="ax-input"

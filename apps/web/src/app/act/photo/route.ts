@@ -4,12 +4,19 @@ import { failure, forbidden, sameOrigin, success, text } from "@/lib/actions";
 import { api, getToken } from "@/lib/api";
 
 const BACK = "/espace";
+const MAX_BODY = 9 * 1024 * 1024; // 8 Mo d'image côté API, plus l'enveloppe du formulaire
 
 /** Ma photo de profil : « photo » (fichier) la remplace, « remove=1 » la retire. */
 export async function POST(req: NextRequest) {
   if (!sameOrigin(req)) return forbidden();
-  const form = await req.formData();
+  // Jeton et taille vérifiés avant de lire le corps (un anonyme ne fait rien charger).
   const token = await getToken();
+  if (!token) return success(req, `/connexion?suite=${BACK}`, null);
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) {
+    const error = "Image trop lourde : 8 Mo au plus.";
+    return failure(req, { ok: false, status: 413, error, fields: {} }, BACK);
+  }
+  const form = await req.formData();
   if (text(form, "remove") === "1") {
     const res = await api("/api/auth/me/photo/", { method: "DELETE", token });
     if (!res.ok) return failure(req, res, BACK);

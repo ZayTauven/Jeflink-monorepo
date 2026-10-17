@@ -632,7 +632,11 @@
   font-size: 26px;
   font-weight: 500;
 }
+/* Cible tactile de 44 px de haut (« Changer ma photo », « Retirer ma photo »). */
 .jf-link-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: none;
@@ -646,7 +650,9 @@
 .jf-link-button:hover {
   color: var(--base-color);
 }
-.jf-profile-photo__form:focus-within .jf-link-button {
+/* L'input fichier est caché : son focus se voit sur le libellé. */
+.jf-profile-photo__form:has(input:focus-visible) .jf-link-button,
+.jf-link-button:focus-visible {
   outline: 2px solid var(--base-color);
   outline-offset: 3px;
 }

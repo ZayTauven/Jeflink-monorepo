@@ -175,7 +175,7 @@ export function TradeForm({
       <Field
         id={id("image")}
         label="Image"
-        hint={`Photo JPEG, PNG ou WebP, 8${NBSP}Mo au plus ; réduite avant l'envoi. Sans nouvelle photo, l'image actuelle reste.`}
+        hint={`Photo JPEG, PNG ou WebP, 8${NBSP}Mo au plus${NBSP}; réduite avant l'envoi. Sans nouvelle photo, l'image actuelle reste.`}
         wide
       >
         <ImageInput

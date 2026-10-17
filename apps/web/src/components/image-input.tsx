@@ -41,6 +41,7 @@ export function ImageInput({
   className,
   previewClassName,
   previewSize,
+  previewAlt = "",
   autoSubmit = false,
   required = false,
   "aria-describedby": describedBy,
@@ -52,6 +53,8 @@ export function ImageInput({
   className?: string;
   previewClassName?: string;
   previewSize?: number;
+  /** Texte de l'aperçu ; vide quand le libellé du champ suffit. */
+  previewAlt?: string;
   autoSubmit?: boolean;
   required?: boolean;
   "aria-describedby"?: string;
@@ -87,7 +90,7 @@ export function ImageInput({
         <img
           className={previewClassName}
           src={preview}
-          alt=""
+          alt={preview === current ? previewAlt : ""}
           width={previewSize}
           height={previewSize}
           // Fichier illisible (pas une vraie image) : on revient à l'image actuelle.
