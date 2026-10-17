@@ -684,3 +684,41 @@
   outline: 2px solid var(--base-color);
   outline-offset: 2px;
 }
+
+/* Badges d'un pro (components/pro-badges.tsx) : Vérifié en vert, Pro confirmé en orange. */
+.jf-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  vertical-align: middle;
+}
+.jf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px;
+  border-radius: 50px;
+  background: #e7f4ec;
+  color: #1b6537;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.jf-badge--confirmed {
+  background: #fff1e8;
+  color: #9a3604;
+}
+.jf-badges--dark .jf-badge {
+  background: rgba(255, 255, 255, 0.92);
+}
+.jf-badges-help dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 15px;
+  text-align: left;
+}
+.jf-badges-help dd {
+  margin: 0;
+  font-size: 15px;
+}

@@ -6,6 +6,7 @@ import { AccountHero, ErrorAlert, StatusPill } from "@/components/account";
 import { ActionForm } from "@/components/action-form";
 import { SwitchSubmit } from "@/components/crafto";
 import { JefFacts } from "@/components/jef-facts";
+import { BadgesExplained, ProBadges } from "@/components/pro-badges";
 import { PageShell } from "@/components/page-shell";
 import { getRequest, requireMe } from "@/lib/api";
 import { formatDate, formatRating, formatXOF } from "@/lib/format";
@@ -251,6 +252,7 @@ function Quotes({
       <h2 className="h5 alt-font fw-500 mb-20px">
         {isClient ? `Devis reçus (${req.quotes.length}/${req.quotes_max})` : "Votre devis"}
       </h2>
+      {isClient && <BadgesExplained className="mb-20px" />}
       {req.quotes.map((q) => (
         <div
           key={q.id}
@@ -274,6 +276,9 @@ function Quotes({
               )}
               <span className="fw-500 text-dark-gray">{q.pro.name}</span>
               {q.pro_headline && <span className="opacity-7"> · {q.pro_headline}</span>}
+              <span className="d-block mt-5px">
+                <ProBadges verified={q.pro_badges.verified} confirmed={q.pro_badges.confirmed} />
+              </span>
               <span className="d-block fs-14 opacity-7">
                 {q.pro_rating.count > 0
                   ? `★ ${formatRating(q.pro_rating.average)} · ${q.pro_rating.count} avis`

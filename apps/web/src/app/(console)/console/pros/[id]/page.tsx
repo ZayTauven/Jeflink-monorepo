@@ -53,6 +53,7 @@ export default async function ProPage({ params, searchParams }: Props) {
           subtitle={
             <span className="jf-inline">
               <span className={`jf-status ${state.cls}`}>{state.label}</span>
+              {p.is_confirmed && <span className="jf-status jf-status--booked">Pro confirmé</span>}
               <span>
                 {p.trades.join(", ") || "Aucun métier"}
                 {p.headline && ` · ${p.headline}`}

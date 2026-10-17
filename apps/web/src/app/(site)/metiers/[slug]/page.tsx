@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { SECTION_X, SwitchLink, opt } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
+import { BadgesExplained, ProBadges } from "@/components/pro-badges";
 import { getPros, getTrade, getTrades } from "@/lib/api";
 import { formatRating, formatXOF } from "@/lib/format";
 
@@ -169,33 +170,39 @@ export default async function TradePage({ params }: Props) {
               : nous la transmettons dès qu&apos;un pro est disponible.
             </p>
           ) : (
-            <div className="row row-cols-1 row-cols-md-3 justify-content-center">
-              {pros.slice(0, 3).map((pro, i) => (
-                <div key={pro.id} className={`col team-style-13${i < 2 ? " sm-mb-30px" : ""}`}>
-                  <figure className="mb-0 position-relative overflow-hidden border-radius-20px">
-                    <img
-                      src={pro.photo || FALLBACK_PHOTOS[i % FALLBACK_PHOTOS.length]}
-                      className="w-100 object-fit-cover"
-                      style={{ aspectRatio: "567 / 700" }}
-                      alt={`${pro.name}, ${pro.headline}`}
-                    />
-                    <div className="team-overlay" />
-                    <figcaption className="w-100 h-100 d-flex flex-wrap align-items-start">
-                      <div className="w-100 mt-auto p-11 xl-p-9 sm-p-7">
-                        <h3 className="h4 team-member-name alt-font ls-minus-1px text-white d-block mb-5px">
-                          {pro.name}
-                        </h3>
-                        <span className="member-designation fw-300 fs-18 lh-22 text-white d-block opacity-6">
-                          {pro.headline} · {pro.years_experience} ans d&apos;expérience
-                          {pro.rating.count > 0 &&
-                            ` · ★ ${formatRating(pro.rating.average)} (${pro.rating.count} avis)`}
-                        </span>
-                      </div>
-                    </figcaption>
-                  </figure>
-                </div>
-              ))}
-            </div>
+            <>
+              <div className="row row-cols-1 row-cols-md-3 justify-content-center">
+                {pros.slice(0, 3).map((pro, i) => (
+                  <div key={pro.id} className={`col team-style-13${i < 2 ? " sm-mb-30px" : ""}`}>
+                    <figure className="mb-0 position-relative overflow-hidden border-radius-20px">
+                      <img
+                        src={pro.photo || FALLBACK_PHOTOS[i % FALLBACK_PHOTOS.length]}
+                        className="w-100 object-fit-cover"
+                        style={{ aspectRatio: "567 / 700" }}
+                        alt={`${pro.name}, ${pro.headline}`}
+                      />
+                      <div className="team-overlay" />
+                      <figcaption className="w-100 h-100 d-flex flex-wrap align-items-start">
+                        <div className="w-100 mt-auto p-11 xl-p-9 sm-p-7">
+                          <h3 className="h4 team-member-name alt-font ls-minus-1px text-white d-block mb-5px">
+                            {pro.name}
+                          </h3>
+                          <span className="member-designation fw-300 fs-18 lh-22 text-white d-block opacity-6">
+                            {pro.headline} · {pro.years_experience} ans d&apos;expérience
+                            {pro.rating.count > 0 &&
+                              ` · ★ ${formatRating(pro.rating.average)} (${pro.rating.count} avis)`}
+                          </span>
+                          <span className="d-block mt-10px">
+                            <ProBadges verified confirmed={pro.is_confirmed} onDark />
+                          </span>
+                        </div>
+                      </figcaption>
+                    </figure>
+                  </div>
+                ))}
+              </div>
+              <BadgesExplained className="mt-30px text-center" />
+            </>
           )}
         </div>
       </section>

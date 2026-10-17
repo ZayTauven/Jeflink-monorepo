@@ -165,7 +165,12 @@ export function ProCard({ p, back, pending }: { p: ProRow; back: string; pending
           {a.name}
         </Link>
       }
-      aside={<span className={`jf-status ${state.cls}`}>{state.label}</span>}
+      aside={
+        <span className="jf-inline jf-inline--end">
+          {p.is_confirmed && <span className="jf-status jf-status--booked">Pro confirmé</span>}
+          <span className={`jf-status ${state.cls}`}>{state.label}</span>
+        </span>
+      }
       stats={
         pending
           ? [

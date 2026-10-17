@@ -198,6 +198,8 @@ export type ProRow = {
   pending_trades: { id: number; name: string }[];
   /** Pièce d'identité acceptée : condition pour vérifier le pro. */
   has_accepted_id: boolean;
+  /** Badge « Pro confirmé », gagné seul (10 missions, note ≥ 4,5, aucun litige perdu). */
+  is_confirmed: boolean;
   zones: string[];
   is_verified: boolean;
   verified_at: string | null;

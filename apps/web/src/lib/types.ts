@@ -25,6 +25,8 @@ export type Pro = {
   zones: Zone[];
   rating: Rating;
   missions_done: number;
+  /** Badge « Pro confirmé » (gagné : missions, note, aucun litige perdu). */
+  is_confirmed: boolean;
 };
 
 export type Stats = {
@@ -151,6 +153,7 @@ export type Quote = {
   pro: { id: number; name: string };
   pro_headline: string;
   pro_rating: Rating;
+  pro_badges: { verified: boolean; confirmed: boolean };
   amount: number;
   message: string;
   status: "pending" | "accepted" | "declined";

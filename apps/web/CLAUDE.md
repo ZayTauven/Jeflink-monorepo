@@ -18,6 +18,7 @@ Next.js (App Router), **template Crafto « Marketing strategy » pris tel quel**
 - Code promo : champ « J'ai un code promo » à la publication (pré-rempli par `?code=`, que posent les bandeaux de campagne), carte « Code promo » sur la demande ouverte, prix après remise sur chaque devis (`with_code`).
 - Images envoyées : `<ImageInput>` (`components/image-input.tsx`, site et console) réduit la photo dans le navigateur (`shrinkImage`, WebP) avant l'envoi et montre l'aperçu. Site : `/act/photo` (Mon espace, envoi dès la photo choisie) ; console : un champ fichier dans `ActionForm` fait partir l'action en multipart. `/media/…` est relayé vers l'API (`next.config.ts`).
 - Documents des pros : section « Mes documents » de `/espace/profil` (`/act/documents`), fichier ouvert par `/documents/[id]` (route qui relaie l'API avec le jeton ; l'API décide de l'accès) ; examen dans la console, carte « Documents » de la fiche pro.
+- Badges d'un pro : `<ProBadges>` et `<BadgesExplained>` (« Que veulent dire ces badges ? ») dans `components/pro-badges.tsx`, sur les devis et la page d'un métier.
 - Jef : `components/jef-assistant.tsx` (client, au-dessus du formulaire de nouvelle demande) appelle `/act/jef` puis `/act/jef/[id]` en JSON, puis remplit les champs du formulaire et `jef_session` ; sans JavaScript, le formulaire classique reste disponible.
 
 ## Console (`/console`)
