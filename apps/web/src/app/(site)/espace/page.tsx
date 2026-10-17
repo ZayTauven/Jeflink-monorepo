@@ -74,8 +74,8 @@ export default async function DashboardPage({ searchParams }: Props) {
                       </p>
                     ) : (
                       <p className="mb-0">
-                        Vous voyez déjà les demandes de vos métiers. Vous pourrez envoyer des devis
-                        dès que l&apos;équipe Jeflink aura vérifié votre profil.{" "}
+                        Vous verrez les demandes de vos métiers et pourrez envoyer des devis dès que
+                        l&apos;équipe Jeflink aura vérifié votre profil.{" "}
                         {hasId ? (
                           "Votre pièce d'identité est entre ses mains."
                         ) : (
@@ -90,8 +90,11 @@ export default async function DashboardPage({ searchParams }: Props) {
                     )}
                   </div>
                 )}
-                <h2 className="h5 alt-font fw-500 mb-20px">Demandes ouvertes dans vos métiers</h2>
-                {open.length === 0 ? (
+                {/* Non vérifié : aucune demande ouverte (l'API n'en renvoie pas), pas de liste. */}
+                {verified && (
+                  <h2 className="h5 alt-font fw-500 mb-20px">Demandes ouvertes dans vos métiers</h2>
+                )}
+                {!verified ? null : open.length === 0 ? (
                   <p className="bg-white border-radius-20px p-30px mb-40px">
                     Aucune demande ouverte pour l&apos;instant. Revenez bientôt.
                   </p>
