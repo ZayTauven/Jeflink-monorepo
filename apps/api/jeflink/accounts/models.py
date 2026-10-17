@@ -4,7 +4,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, F
 
 PHONE_E164_SN = RegexValidator(
     r"^\+221\d{9}$", "Numéro sénégalais attendu : +221 suivi de 9 chiffres."
@@ -187,6 +187,30 @@ class ProProfile(models.Model):
             avg=Avg("rating"), n=Count("id")
         )
         return {"average": round(agg["avg"], 1) if agg["avg"] else None, "count": agg["n"]}
+
+    # Badge « Pro confirmé » : gagné seul, par le travail fait sur Jeflink.
+    CONFIRMED_MISSIONS = 10
+    CONFIRMED_RATING = 4.5
+
+    def is_confirmed(self) -> bool:
+        """Vérifié, 10 missions terminées, note moyenne d'au moins 4,5 et aucun litige perdu
+        (résolu en faveur du client qui l'avait ouvert)."""
+        from jeflink.jobs.models import Dispute, ServiceRequest
+
+        if not self.is_verified or not self.user.is_active:
+            return False
+        done = self.user.missions.filter(status=ServiceRequest.Status.DONE).count()
+        if done < self.CONFIRMED_MISSIONS:
+            return False
+        average = self.rating()["average"]
+        if average is None or average < self.CONFIRMED_RATING:
+            return False
+        lost = Dispute.objects.filter(
+            request__pro=self.user,
+            status=Dispute.Status.RESOLVED,
+            opened_by=F("request__client"),
+        )
+        return not lost.exists()
 
     def has_accepted_id(self) -> bool:
         return self.documents.filter(

@@ -279,6 +279,7 @@ class ProRowSerializer(serializers.ModelSerializer):
     trades = serializers.SerializerMethodField()
     pending_trades = serializers.SerializerMethodField()
     has_accepted_id = serializers.BooleanField(source="id_accepted", read_only=True)
+    is_confirmed = serializers.SerializerMethodField()
     zones = serializers.SerializerMethodField()
     missions_done = serializers.IntegerField(source="n_done", default=0)
     rating = serializers.SerializerMethodField()
@@ -293,6 +294,7 @@ class ProRowSerializer(serializers.ModelSerializer):
             "trades",
             "pending_trades",
             "has_accepted_id",
+            "is_confirmed",
             "zones",
             "is_verified",
             "verified_at",
@@ -306,6 +308,9 @@ class ProRowSerializer(serializers.ModelSerializer):
 
     def get_trades(self, profile) -> list[str]:
         return [t.name for t in profile.trades.all()]
+
+    def get_is_confirmed(self, profile) -> bool:
+        return profile.is_confirmed()
 
     def get_pending_trades(self, profile) -> list[dict]:
         """Métiers ajoutés par le pro, à valider : id (pour l'action) et nom."""

@@ -194,3 +194,44 @@ def test_metier_ajoute_par_le_pro_valide_par_l_equipe(catalog):
     assert list(profile.trades.values_list("slug", flat=True)) == ["electricite"]
     bad = api.put("/api/auth/me/", {"first_name": "Moussa", "trades": []}, format="json")
     assert bad.status_code == 400
+
+
+def test_badge_pro_confirme(catalog):
+    from jeflink.jobs.models import Dispute, Review, ServiceRequest
+
+    trade, zone = catalog
+    pro = User.objects.create_user("moussa@example.com", PASSWORD, role=User.Role.PRO)
+    profile = ProProfile.objects.create(user=pro, is_verified=True)
+    client = User.objects.create_user("awa@example.com", PASSWORD)
+    missions = [
+        ServiceRequest.objects.create(
+            client=client,
+            pro=pro,
+            trade=trade,
+            zone=zone,
+            title=f"Mission {i}",
+            description="…",
+            status=ServiceRequest.Status.DONE,
+        )
+        for i in range(ProProfile.CONFIRMED_MISSIONS - 1)
+    ]
+    for req in missions:
+        Review.objects.create(request=req, rating=5)
+    assert not profile.is_confirmed()  # 9 missions
+
+    last = ServiceRequest.objects.create(
+        client=client, pro=pro, trade=trade, zone=zone, title="10", description="…", status="done"
+    )
+    Review.objects.create(request=last, rating=4)
+    assert profile.is_confirmed()  # 10 missions, 4,9 de moyenne
+
+    dispute = Dispute.objects.create(
+        request=last, opened_by=client, reason="quality", description="Fuite revenue"
+    )
+    assert profile.is_confirmed()  # un litige en cours ne compte pas
+    dispute.status = Dispute.Status.RESOLVED
+    dispute.save()
+    assert not profile.is_confirmed()  # perdu : résolu en faveur du client
+
+    res = APIClient().get(f"/api/pros/?trade={trade.slug}")
+    assert res.status_code == 200

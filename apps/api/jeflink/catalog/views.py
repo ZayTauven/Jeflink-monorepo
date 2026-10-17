@@ -59,6 +59,7 @@ class PublicProSerializer(serializers.ModelSerializer):
     zones = ZoneSerializer(many=True, read_only=True)
     rating = serializers.SerializerMethodField()
     missions_done = serializers.SerializerMethodField()
+    is_confirmed = serializers.SerializerMethodField()
 
     class Meta:
         model = ProProfile
@@ -73,10 +74,14 @@ class PublicProSerializer(serializers.ModelSerializer):
             "zones",
             "rating",
             "missions_done",
+            "is_confirmed",
         ]
 
     def get_rating(self, profile) -> dict:
         return profile.rating()
+
+    def get_is_confirmed(self, profile) -> bool:
+        return profile.is_confirmed()
 
     def get_missions_done(self, profile) -> int:
         return profile.user.missions.filter(status=ServiceRequest.Status.DONE).count()

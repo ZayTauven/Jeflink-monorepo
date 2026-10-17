@@ -18,6 +18,7 @@ class QuoteSerializer(serializers.ModelSerializer):
     pro = PersonSerializer(read_only=True)
     pro_headline = serializers.CharField(source="pro.pro_profile.headline", read_only=True)
     pro_rating = serializers.SerializerMethodField()
+    pro_badges = serializers.SerializerMethodField()
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     with_code = serializers.SerializerMethodField()
 
@@ -28,6 +29,7 @@ class QuoteSerializer(serializers.ModelSerializer):
             "pro",
             "pro_headline",
             "pro_rating",
+            "pro_badges",
             "amount",
             "message",
             "status",
@@ -38,6 +40,11 @@ class QuoteSerializer(serializers.ModelSerializer):
 
     def get_pro_rating(self, quote) -> dict:
         return quote.pro.pro_profile.rating()
+
+    def get_pro_badges(self, quote) -> dict:
+        """« Vérifié » (pièce d'identité acceptée par l'équipe) et « Pro confirmé » (gagné)."""
+        profile = quote.pro.pro_profile
+        return {"verified": profile.is_verified, "confirmed": profile.is_confirmed()}
 
     def get_with_code(self, quote) -> dict | None:
         """Pour le client, sur un devis à choisir : ce que donne le code promo de sa demande."""
