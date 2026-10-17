@@ -722,3 +722,9 @@
   margin: 0;
   font-size: 15px;
 }
+
+/* Document refusé (Mon profil) : à corriger, donc teinte d'alerte sobre, pas le gris neutre. */
+.status-rejected {
+  background: #fdecec;
+  color: #a12626;
+}

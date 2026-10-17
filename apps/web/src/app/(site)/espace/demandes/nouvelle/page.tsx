@@ -175,19 +175,16 @@ export default async function NewRequestPage({
                     {me.addresses.length < 5 && (
                       <div id="save-address" className="col-md-7 mb-20px" hidden={Boolean(chosen)}>
                         <label htmlFor="save_address">
-                          Enregistrer ce lieu dans mes adresses{" "}
-                          <span className="fw-400">(facultatif)</span>
+                          Nom de l&apos;adresse <span className="fw-400">(facultatif)</span>
                         </label>
                         <input
                           id="save_address"
                           name="save_address"
                           className="form-control"
                           maxLength={40}
-                          placeholder="Nom de l'adresse : Maison, Bureau…"
+                          placeholder="Maison, Bureau…"
                         />
-                        <div className="hint">
-                          La prochaine fois, quartier et repère en un geste.
-                        </div>
+                        <div className="hint">Pour la retrouver en un geste la prochaine fois.</div>
                       </div>
                     )}
                     <div className="col-12 mb-20px">

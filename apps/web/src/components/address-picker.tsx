@@ -29,7 +29,11 @@ export function AddressPicker({
     zone.value = address.zone;
     landmark.value = address.landmark;
     const save = document.getElementById("save-address");
-    if (save) save.hidden = true; // déjà enregistrée
+    if (save) {
+      save.hidden = true; // déjà enregistrée
+      const name = save.querySelector("input");
+      if (name) name.value = ""; // un champ masqué partirait quand même : pas de doublon
+    }
     event.currentTarget
       .closest("[data-addresses]")
       ?.querySelectorAll("a")
@@ -38,8 +42,10 @@ export function AddressPicker({
   }
 
   return (
-    <div className="mb-25px" data-addresses>
-      <span className="d-block fs-14 fw-500 text-dark-gray mb-10px">Mes adresses</span>
+    <div className="mb-25px" data-addresses role="group" aria-labelledby="mes-adresses">
+      <span id="mes-adresses" className="d-block fs-14 fw-500 text-dark-gray mb-10px">
+        Mes adresses
+      </span>
       <div className="jf-checks">
         {addresses.map((a) => (
           <a

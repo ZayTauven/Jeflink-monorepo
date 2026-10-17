@@ -201,7 +201,9 @@ export default async function TradePage({ params }: Props) {
                   </div>
                 ))}
               </div>
-              <BadgesExplained className="mt-30px text-center" />
+              <div className="d-flex justify-content-center mt-30px">
+                <BadgesExplained />
+              </div>
             </>
           )}
         </div>

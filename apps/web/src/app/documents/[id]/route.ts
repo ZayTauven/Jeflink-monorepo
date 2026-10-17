@@ -14,6 +14,8 @@ const KEEP = [
   "cache-control",
   "content-security-policy",
   "x-content-type-options",
+  "cross-origin-resource-policy",
+  "referrer-policy",
 ];
 
 export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {

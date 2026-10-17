@@ -211,6 +211,7 @@ export default async function ProPage({ params, searchParams }: Props) {
                         {d.content_type === "application/pdf"
                           ? "Télécharger le PDF"
                           : "Ouvrir la photo"}
+                        <span className="ax-visually-hidden"> (nouvel onglet)</span>
                       </a>
                     </p>
                     {d.note && <p className="jf-flag">Refusé : {d.note}</p>}

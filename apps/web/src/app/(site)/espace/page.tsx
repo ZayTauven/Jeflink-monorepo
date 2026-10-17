@@ -42,7 +42,7 @@ export default async function DashboardPage({ searchParams }: Props) {
   const logout = (
     <form action="/act/logout" method="post" className="mt-auto">
       <button type="submit" className="btn btn-link p-0 fs-15 fw-500 text-dark-gray">
-        <i className="feather icon-feather-log-out me-5px" />
+        <i className="feather icon-feather-log-out me-5px" aria-hidden="true" />
         Se déconnecter
       </button>
     </form>
@@ -207,12 +207,12 @@ export default async function DashboardPage({ searchParams }: Props) {
         </a>
         <ul className="list-unstyled fs-15 mb-30px">
           <li>
-            <i className="feather icon-feather-mail me-10px" />
+            <i className="feather icon-feather-mail me-10px" aria-hidden="true" />
             {me.email}
           </li>
           {me.phone && (
             <li>
-              <i className="feather icon-feather-phone me-10px" />
+              <i className="feather icon-feather-phone me-10px" aria-hidden="true" />
               {me.phone}
             </li>
           )}

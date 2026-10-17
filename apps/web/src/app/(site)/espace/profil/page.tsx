@@ -59,11 +59,18 @@ export default async function ProfilePage({ searchParams }: Props) {
   ]);
   if (me.is_staff) redirect("/console");
   const pro = me.pro_profile;
+  // Pro vérifié : identité contrôlée avec sa pièce, elle ne change qu'avec le support.
+  const locked = pro?.is_verified ?? false;
+  // Pro pas encore vérifié, sans pièce envoyée : c'est ce qui le bloque, on le montre d'abord.
+  const documentsFirst =
+    pro !== null &&
+    !pro.is_verified &&
+    !pro.documents.some((d) => d.kind === "id" && d.status !== "rejected");
 
   return (
     <PageShell actions={false}>
       <AccountHero
-        pill="Mon profil"
+        pill="Mon espace"
         title="Mon profil."
         aside={
           <div className="jf-dashboard">
@@ -73,6 +80,8 @@ export default async function ProfilePage({ searchParams }: Props) {
                 {DONE[ok]}
               </div>
             )}
+            {pro && documentsFirst && <Documents documents={pro.documents} />}
+
             <section className="bg-white border-radius-20px p-40px sm-p-25px mb-30px">
               <h2 className="h5 alt-font fw-500 mb-25px">Mes informations</h2>
               <ActionForm action="/act/profil" className="jf-form" labels={LABELS}>
@@ -86,6 +95,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                       defaultValue={me.first_name}
                       maxLength={150}
                       autoComplete="given-name"
+                      readOnly={locked}
                       required
                     />
                   </div>
@@ -98,6 +108,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                       defaultValue={me.last_name}
                       maxLength={150}
                       autoComplete="family-name"
+                      readOnly={locked}
                     />
                   </div>
                   <div className="col-md-6 mb-20px">
@@ -110,10 +121,12 @@ export default async function ProfilePage({ searchParams }: Props) {
                       defaultValue={me.phone}
                       placeholder="77 123 45 67"
                       autoComplete="tel"
+                      readOnly={locked}
                     />
                     <div className="hint">
-                      Partagé seulement avec {pro ? "le client" : "le pro"} d&apos;une mission
-                      réservée, et avec le support Jeflink.
+                      {locked
+                        ? "Nom et téléphone vérifiés avec votre pièce d'identité : pour les changer, écrivez au support."
+                        : `Partagé seulement avec ${pro ? "le client" : "le pro"} d'une mission réservée, et avec le support Jeflink.`}
                     </div>
                   </div>
                   <div className="col-md-6 mb-20px">
@@ -159,7 +172,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               </ActionForm>
             </section>
 
-            {pro && <Documents documents={pro.documents} />}
+            {pro && !documentsFirst && <Documents documents={pro.documents} />}
 
             {!pro && (
               <section
@@ -282,7 +295,7 @@ export default async function ProfilePage({ searchParams }: Props) {
 const DOC_STATUS = {
   pending: "status-open",
   accepted: "status-done",
-  rejected: "status-cancelled",
+  rejected: "status-rejected",
 };
 
 const DOC_KINDS = [
@@ -305,7 +318,8 @@ function Documents({ documents }: { documents: ProDocument[] }) {
       </h2>
       <p className="mb-25px">
         Votre pièce d&apos;identité est obligatoire pour être vérifié et envoyer des devis. Vos
-        diplômes et attestations rassurent les clients. Seule l&apos;équipe Jeflink les voit.
+        diplômes et attestations servent à valider vos métiers. Seule l&apos;équipe Jeflink les
+        voit.
       </p>
       {documents.length > 0 && (
         <ul className="list-unstyled mb-30px">
@@ -335,6 +349,7 @@ function Documents({ documents }: { documents: ProDocument[] }) {
                   className="jf-link-button"
                   target="_blank"
                   rel="noopener"
+                  aria-label={`Ouvrir le document : ${d.kind_label} (nouvel onglet)`}
                 >
                   Ouvrir
                 </a>
@@ -343,7 +358,7 @@ function Documents({ documents }: { documents: ProDocument[] }) {
                     <button
                       type="submit"
                       className="jf-link-button"
-                      aria-label={`Retirer ${d.kind_label.toLowerCase()}`}
+                      aria-label={`Retirer le document : ${d.kind_label}`}
                     >
                       Retirer
                     </button>
@@ -483,19 +498,26 @@ function ProFields({
         <legend className="fs-14 fw-500 text-dark-gray mb-10px">
           Quartiers où vous intervenez
         </legend>
-        <div className="jf-checks">
-          {zones.map((z) => (
-            <label key={z.slug}>
-              <input
-                type="checkbox"
-                name="zones"
-                value={z.slug}
-                defaultChecked={pro.zones.includes(z.slug)}
-              />
-              <span>{z.name}</span>
-            </label>
-          ))}
-        </div>
+        <details>
+          <summary className="fw-500 text-dark-gray jf-summary">
+            {pro.zones.length === 0
+              ? "Tous les quartiers (choisir)"
+              : `${pro.zones.length} quartier${pro.zones.length > 1 ? "s" : ""} choisi${pro.zones.length > 1 ? "s" : ""} (modifier)`}
+          </summary>
+          <div className="jf-checks mt-15px">
+            {zones.map((z) => (
+              <label key={z.slug}>
+                <input
+                  type="checkbox"
+                  name="zones"
+                  value={z.slug}
+                  defaultChecked={pro.zones.includes(z.slug)}
+                />
+                <span>{z.name}</span>
+              </label>
+            ))}
+          </div>
+        </details>
         <div className="hint">
           Vous ne voyez que les demandes de ces quartiers&nbsp;; aucun coché, tous les quartiers.
         </div>
