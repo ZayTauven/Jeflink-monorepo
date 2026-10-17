@@ -7,7 +7,7 @@ import pytest
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from jeflink.accounts.models import ContactMessage, ProProfile, User
+from jeflink.accounts.models import ContactMessage, ProDocument, ProProfile, User
 from jeflink.catalog.models import Trade, Zone
 from jeflink.console.models import AuditLog
 from jeflink.jobs import services
@@ -38,7 +38,16 @@ def world():
     pro = User.objects.create_user("pro@example.com", PASSWORD, role=User.Role.PRO)
     ProProfile.objects.create(user=pro, is_verified=True).trades.add(trade)
     waiting = User.objects.create_user("nouveau@example.com", PASSWORD, role=User.Role.PRO)
-    ProProfile.objects.create(user=waiting).trades.add(trade)
+    waiting_profile = ProProfile.objects.create(user=waiting)
+    waiting_profile.trades.add(trade)
+    # Pièce d'identité déjà acceptée : la vérification n'attend plus que le bouton.
+    ProDocument.objects.create(
+        profile=waiting_profile,
+        kind=ProDocument.Kind.ID,
+        file="documents/test.webp",
+        content_type="image/webp",
+        status=ProDocument.Status.ACCEPTED,
+    )
     req = services.create_request(client, trade=trade, zone=zone, title="Fuite", description="…")
     quote = services.submit_quote(pro, req, 15000)
     services.accept_quote(client, req, quote.pk)

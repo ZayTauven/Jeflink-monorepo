@@ -99,6 +99,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # développement et relayé par le site sous /media/ (voir jeflink/media.py).
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
+# Documents des pros (pièce d'identité, attestations) : hors de MEDIA_ROOT, jamais servis tels
+# quels ; lus seulement par la vue qui vérifie l'accès (le pro, l'équipe Opérations).
+PRIVATE_ROOT = Path(os.environ.get("PRIVATE_ROOT", BASE_DIR / "private"))
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {

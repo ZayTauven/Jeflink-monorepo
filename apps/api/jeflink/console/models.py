@@ -35,6 +35,8 @@ class AuditLog(models.Model):
         TEAM_DEACTIVATE = "team.deactivate", "Accès à la console retiré"
         TEAM_REACTIVATE = "team.reactivate", "Accès à la console rétabli"
         TEAM_PHOTO = "team.photo", "Photo d'un membre modifiée"
+        DOC_ACCEPT = "document.accept", "Document d'un pro accepté"
+        DOC_REJECT = "document.reject", "Document d'un pro refusé"
         COUPON_CREATE = "coupon.create", "Code promo créé"
         COUPON_UPDATE = "coupon.update", "Code promo modifié"
         CAMPAIGN_CREATE = "campaign.create", "Campagne créée"

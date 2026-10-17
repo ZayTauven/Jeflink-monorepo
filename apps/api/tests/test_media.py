@@ -72,7 +72,7 @@ def test_fichier_refuse(upload, _media):
 
 def test_image_trop_lourde_refusee(_media):
     big = SimpleUploadedFile("lourde.jpg", b"0" * (8 * 1024 * 1024 + 1), content_type="image/jpeg")
-    with pytest.raises(ValidationError, match="trop lourde"):
+    with pytest.raises(ValidationError, match="trop lourd"):
         save_image(big, "profils")
 
 

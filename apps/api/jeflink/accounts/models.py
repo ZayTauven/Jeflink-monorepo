@@ -177,6 +177,51 @@ class ProProfile(models.Model):
         )
         return {"average": round(agg["avg"], 1) if agg["avg"] else None, "count": agg["n"]}
 
+    def has_accepted_id(self) -> bool:
+        return self.documents.filter(
+            kind=ProDocument.Kind.ID, status=ProDocument.Status.ACCEPTED
+        ).exists()
+
+
+class ProDocument(models.Model):
+    """Justificatif envoyé par un pro, examiné par l'équipe. Privé : fichier hors de /media/,
+    lu seulement par le pro et l'équipe Opérations. Une pièce d'identité acceptée est exigée
+    pour vérifier le pro."""
+
+    MAX = 10
+
+    class Kind(models.TextChoices):
+        ID = "id", "Pièce d'identité"
+        CERTIFICATE = "certificate", "Diplôme ou attestation"
+        OTHER = "other", "Autre justificatif"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "À examiner"
+        ACCEPTED = "accepted", "Accepté"
+        REJECTED = "rejected", "Refusé"
+
+    profile = models.ForeignKey(ProProfile, on_delete=models.CASCADE, related_name="documents")
+    kind = models.CharField("type", max_length=12, choices=Kind.choices)
+    file = models.CharField("fichier", max_length=120, help_text="Chemin dans PRIVATE_ROOT.")
+    content_type = models.CharField(max_length=40)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    note = models.CharField(
+        "motif du refus", max_length=300, blank=True, help_text="Affiché au pro dans son profil."
+    )
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "document d'un pro"
+        verbose_name_plural = "documents des pros"
+
+    def __str__(self):
+        return f"{self.get_kind_display()} — {self.profile}"
+
 
 class SavedAddress(models.Model):
     """Adresse enregistrée par un client (quartier + repère), reprise dans ses demandes.

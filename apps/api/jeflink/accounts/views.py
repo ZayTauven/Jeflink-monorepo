@@ -1,18 +1,23 @@
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from jeflink.media import delete_image, save_image
+from jeflink.console.permissions import can
+from jeflink.media import delete_document, delete_image, private_storage, save_document, save_image
 
-from .models import SavedAddress
+from .models import ProDocument, ProProfile, SavedAddress
 from .serializers import (
     AddressSerializer,
     ContactSerializer,
+    DocumentSerializer,
     LoginSerializer,
     MeSerializer,
     ProfileSerializer,
@@ -138,3 +143,86 @@ def contact(request):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(status=status.HTTP_201_CREATED)
+
+
+# --- Documents du pro (privés) -----------------------------------------------------------------
+
+
+def _my_profile(request) -> ProProfile:
+    profile = getattr(request.user, "pro_profile", None)
+    if profile is None:
+        raise PermissionDenied("Réservé aux comptes pro.")
+    return profile
+
+
+@extend_schema(methods=["GET"], responses=DocumentSerializer(many=True))
+@extend_schema(
+    methods=["POST"],
+    request={
+        "multipart/form-data": inline_serializer(
+            "DocumentUpload",
+            {
+                "kind": serializers.ChoiceField(ProDocument.Kind.choices),
+                "file": serializers.FileField(),
+            },
+        )
+    },
+    responses={201: DocumentSerializer},
+)
+@api_view(["GET", "POST"])
+@parser_classes([MultiPartParser])
+def my_documents(request):
+    """Mes justificatifs (pro) : pièce d'identité, attestations. Examinés par l'équipe."""
+    profile = _my_profile(request)
+    if request.method == "GET":
+        return Response(DocumentSerializer(profile.documents.all(), many=True).data)
+    kind = request.data.get("kind")
+    if kind not in ProDocument.Kind.values:
+        raise serializers.ValidationError({"kind": "Choisissez le type de document."})
+    if profile.documents.count() >= ProDocument.MAX:
+        raise serializers.ValidationError(
+            f"{ProDocument.MAX} documents au plus : supprimez-en un refusé d'abord."
+        )
+    path, content_type = save_document(request.FILES.get("file"))
+    document = ProDocument.objects.create(
+        profile=profile, kind=kind, file=path, content_type=content_type
+    )
+    return Response(DocumentSerializer(document).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(request=None, responses={204: None})
+@api_view(["DELETE"])
+def my_document(request, pk: int):
+    """Retirer un de mes documents, tant qu'il n'est pas accepté (il fonde la vérification)."""
+    document = get_object_or_404(_my_profile(request).documents, pk=pk)
+    if document.status == ProDocument.Status.ACCEPTED:
+        raise serializers.ValidationError("Un document accepté reste : écrivez au support.")
+    delete_document(document.file)
+    document.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(responses={(200, "application/octet-stream"): OpenApiTypes.BINARY})
+@api_view(["GET"])
+def document_file(request, pk: int):
+    """Fichier d'un document : son pro, ou l'équipe Opérations. Jamais mis en cache ; un PDF
+    est toujours téléchargé (jamais affiché dans une page du site)."""
+    document = get_object_or_404(ProDocument.objects.select_related("profile"), pk=pk)
+    user = request.user
+    if document.profile.user_id != user.pk and not can(user, "operations"):
+        raise NotFound()  # rien ne dit qu'il existe
+    try:
+        handle = private_storage().open(document.file, "rb")
+    except OSError as exc:
+        raise NotFound("Fichier introuvable.") from exc
+    pdf = document.content_type == "application/pdf"
+    response = FileResponse(
+        handle,
+        content_type=document.content_type,
+        as_attachment=pdf,
+        filename=f"jeflink-document-{document.pk}.{'pdf' if pdf else 'webp'}",
+    )
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Content-Security-Policy"] = "default-src 'none'; img-src 'self'; sandbox"
+    return response

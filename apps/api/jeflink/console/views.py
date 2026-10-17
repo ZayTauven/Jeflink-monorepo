@@ -22,7 +22,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
-from jeflink.accounts.models import ContactMessage, ProProfile, User
+from jeflink.accounts.models import ContactMessage, ProDocument, ProProfile, User
+from jeflink.accounts.serializers import DocumentSerializer
 from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.jef import ai as jef_ai
 from jeflink.jef.models import JefSession
@@ -376,6 +377,8 @@ class ProConsoleViewSet(ConsoleViewSet):
                 "missions": s.RequestRowSerializer(missions, many=True).data,
                 "reviews": s.ReviewRowSerializer(reviews, many=True).data,
                 "disputes": s.DisputeSerializer(disputes, many=True).data,
+                "documents": DocumentSerializer(profile.documents.all(), many=True).data,
+                "has_accepted_id": profile.has_accepted_id(),
             }
         )
 
@@ -406,6 +409,32 @@ class ProConsoleViewSet(ConsoleViewSet):
     def reactivate(self, request, pk=None):
         services.reactivate_user(request.user, self._profile(pk).user)
         return self.retrieve(request, pk)
+
+
+class DocumentConsoleViewSet(ConsoleViewSet):
+    """Justificatifs des pros : accepter ou refuser (motif). Le fichier se lit par
+    /api/auth/documents/<id>/file/ (même contrôle d'accès : rubrique Opérations)."""
+
+    serializer_class = DocumentSerializer
+
+    def _document(self, pk) -> ProDocument:
+        return get_object_or_404(ProDocument.objects.select_related("profile__user"), pk=pk)
+
+    @extend_schema(request=None, responses=DocumentSerializer)
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        document = services.review_document(request.user, self._document(pk), accept=True)
+        return self.done(document, DocumentSerializer)
+
+    @extend_schema(request=s.ReasonSerializer, responses=DocumentSerializer)
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        data = s.ReasonSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        document = services.review_document(
+            request.user, self._document(pk), accept=False, reason=data.validated_data["reason"]
+        )
+        return self.done(document, DocumentSerializer)
 
 
 # --- Clients -----------------------------------------------------------------------------------

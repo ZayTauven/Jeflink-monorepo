@@ -6,18 +6,23 @@ Les comptes de démo partagent le mot de passe DEMO_PASSWORD (valeur de test, lo
 
 import random
 from datetime import date, timedelta
+from io import BytesIO
+from uuid import uuid4
 
+from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
+from PIL import Image, ImageDraw, ImageFont
 from rest_framework.exceptions import ValidationError
 
-from jeflink.accounts.models import ContactMessage, ProProfile, SavedAddress, User
+from jeflink.accounts.models import ContactMessage, ProDocument, ProProfile, SavedAddress, User
 from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.console.models import AuditLog, ProSettlement
 from jeflink.jef.models import JefSession
 from jeflink.jobs import services
 from jeflink.jobs.models import Coupon, Dispute, Quote, RequestEvent, Review, ServiceRequest
+from jeflink.media import private_storage
 
 DEMO_PASSWORD = "jeflink-demo"
 IMG = "/images/{}.webp"
@@ -506,7 +511,33 @@ class Command(BaseCommand):
         )
         profile.trades.set(Trade.objects.filter(slug__in=data["trades"]))
         profile.zones.set(Zone.objects.filter(slug__in=data["zones"]))
+        self._demo_id(profile, accepted=True)
         return user
+
+    def _demo_id(self, profile, accepted: bool):
+        """Fausse pièce d'identité, visiblement de démo : acceptée pour les pros vérifiés, à
+        examiner pour ceux en attente (la console montre ainsi tout le parcours)."""
+        if profile.documents.filter(kind=ProDocument.Kind.ID).exists():
+            return
+        card = Image.new("RGB", (1000, 630), (246, 241, 232))
+        draw = ImageDraw.Draw(card)
+        draw.rectangle((0, 0, 1000, 90), fill=(245, 86, 8))
+        font = ImageFont.load_default(size=44)
+        draw.text((40, 22), "PIÈCE DE DÉMO — SANS VALEUR", fill="white", font=font)
+        draw.text((40, 200), profile.user.get_full_name(), fill=(35, 35, 35), font=font)
+        draw.text((40, 280), "Jeflink · données inventées", fill=(110, 110, 110), font=font)
+        out = BytesIO()
+        card.save(out, "WEBP", quality=80)
+        path = private_storage().save(f"documents/{uuid4().hex}.webp", ContentFile(out.getvalue()))
+        status = ProDocument.Status.ACCEPTED if accepted else ProDocument.Status.PENDING
+        ProDocument.objects.create(
+            profile=profile,
+            kind=ProDocument.Kind.ID,
+            file=path,
+            content_type="image/webp",
+            status=status,
+            reviewed_at=timezone.now() if accepted else None,
+        )
 
     def _requests(self, clients, pros):
         awa, moussa = clients["Awa"], clients["Moussa"]
@@ -696,6 +727,7 @@ class Command(BaseCommand):
                 user=user, defaults={"headline": headline, "years_experience": 2 + i}
             )
             profile.trades.set(Trade.objects.filter(slug=trade))
+            self._demo_id(profile, accepted=False)
 
     def _history(self, pros):
         """~70 demandes sur 90 jours, à toutes les étapes, pour les graphiques de la console.

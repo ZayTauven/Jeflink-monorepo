@@ -5,7 +5,7 @@ from rest_framework import serializers
 
 from jeflink.catalog.models import Trade, served_zones
 
-from .models import ContactMessage, ProProfile, SavedAddress, User, normalize_phone
+from .models import ContactMessage, ProDocument, ProProfile, SavedAddress, User, normalize_phone
 
 
 def clean_phone(value: str) -> str:
@@ -24,9 +24,31 @@ class AddressSerializer(serializers.ModelSerializer):
         fields = ["id", "label", "zone", "zone_name", "landmark"]
 
 
+class DocumentSerializer(serializers.ModelSerializer):
+    """Un justificatif, sans son chemin : le fichier se lit par /api/auth/documents/<id>/file/."""
+
+    kind_label = serializers.CharField(source="get_kind_display", read_only=True)
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = ProDocument
+        fields = [
+            "id",
+            "kind",
+            "kind_label",
+            "status",
+            "status_label",
+            "note",
+            "content_type",
+            "created_at",
+            "reviewed_at",
+        ]
+
+
 class ProProfileSerializer(serializers.ModelSerializer):
     trades = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
     zones = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
+    documents = DocumentSerializer(many=True, read_only=True)
 
     class Meta:
         model = ProProfile
@@ -39,6 +61,7 @@ class ProProfileSerializer(serializers.ModelSerializer):
             "is_verified",
             "verification_note",
             "photo",
+            "documents",
         ]
 
 

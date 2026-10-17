@@ -11,7 +11,7 @@ from django.utils.text import slugify
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from jeflink.accounts.models import ContactMessage, ProProfile, User
+from jeflink.accounts.models import ContactMessage, ProDocument, ProProfile, User
 from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.jobs import services as jobs
 from jeflink.jobs.models import Coupon, Dispute, Quote, Review, ServiceRequest
@@ -61,7 +61,12 @@ def verify_pro(staff, profile: ProProfile) -> ProProfile:
     if profile.is_verified:
         raise ValidationError("Ce pro est déjà vérifié.")
     if not profile.trades.exists():
-        raise ValidationError("Ce pro n'a déclaré aucun métier : impossible de le vérifier.")
+        raise ValidationError("Ce pro n'a déclaré aucun métier : impossible de le vérifier.")
+    if not profile.has_accepted_id():
+        raise ValidationError(
+            "Acceptez d'abord une pièce d'identité du pro (Documents), après l'avoir comparée "
+            "à la personne au téléphone."
+        )
     profile.is_verified = True
     profile.verified_at = timezone.now()
     profile.verification_note = ""
@@ -82,6 +87,25 @@ def reject_pro(staff, profile: ProProfile, reason: str) -> ProProfile:
     _withdraw_pending_quotes(profile.user)
     log(staff, A.PRO_REJECT, "pro", profile.user_id, profile.user, reason)
     return profile
+
+
+@transaction.atomic
+def review_document(staff, document: ProDocument, accept: bool, reason: str = "") -> ProDocument:
+    """Accepter ou refuser un justificatif à examiner ; le motif d'un refus est montré au pro."""
+    _staff(staff)
+    if document.status != ProDocument.Status.PENDING:
+        raise ValidationError("Ce document a déjà été examiné.")
+    if not accept:
+        reason = _required(reason, "Indiquez au pro ce qui ne va pas (illisible, expiré…).")
+    document.status = ProDocument.Status.ACCEPTED if accept else ProDocument.Status.REJECTED
+    document.note = "" if accept else reason[:300]
+    document.reviewed_by = staff
+    document.reviewed_at = timezone.now()
+    document.save(update_fields=["status", "note", "reviewed_by", "reviewed_at"])
+    user = document.profile.user
+    label = f"{user} — {document.get_kind_display()}"
+    log(staff, A.DOC_ACCEPT if accept else A.DOC_REJECT, "pro", user.pk, label, document.note)
+    return document
 
 
 def _target_type(user: User) -> str:
