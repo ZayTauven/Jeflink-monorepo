@@ -5,7 +5,23 @@ from rest_framework import serializers
 
 from jeflink.catalog.models import Trade, served_zones
 
-from .models import ContactMessage, ProProfile, User, normalize_phone
+from .models import ContactMessage, ProProfile, SavedAddress, User, normalize_phone
+
+
+def clean_phone(value: str) -> str:
+    try:
+        return normalize_phone(value)
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError(exc.messages) from exc
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    zone = serializers.SlugRelatedField(slug_field="slug", queryset=served_zones())
+    zone_name = serializers.CharField(source="zone.name", read_only=True)
+
+    class Meta:
+        model = SavedAddress
+        fields = ["id", "label", "zone", "zone_name", "landmark"]
 
 
 class ProProfileSerializer(serializers.ModelSerializer):
@@ -30,6 +46,7 @@ class MeSerializer(serializers.ModelSerializer):
     pro_profile = ProProfileSerializer(read_only=True)
     console_role = serializers.CharField(read_only=True)
     console_sections = serializers.SerializerMethodField()
+    addresses = AddressSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -40,10 +57,13 @@ class MeSerializer(serializers.ModelSerializer):
             "last_name",
             "phone",
             "photo",
+            "contact_pref",
+            "contact_hours",
             "role",
             "is_staff",
             "console_role",
             "console_sections",
+            "addresses",
             "pro_profile",
         ]
 
@@ -51,6 +71,44 @@ class MeSerializer(serializers.ModelSerializer):
         from jeflink.console.permissions import sections_for
 
         return sections_for(user)
+
+
+class ProfileSerializer(serializers.Serializer):
+    """Mon profil (formulaire complet) : identité, téléphone, comment me joindre ; pour un pro,
+    aussi accroche, présentation, expérience et quartiers. Les métiers ont leur propre parcours."""
+
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, default="")
+    phone = serializers.CharField(required=False, allow_blank=True, default="")
+    contact_pref = serializers.ChoiceField(User.ContactPref.choices, required=False, default="")
+    contact_hours = serializers.ChoiceField(User.ContactHours.choices, required=False, default="")
+    # Pro uniquement (ignorés pour un client)
+    headline = serializers.CharField(max_length=120, required=False, allow_blank=True, default="")
+    bio = serializers.CharField(max_length=1500, required=False, allow_blank=True, default="")
+    years_experience = serializers.IntegerField(
+        min_value=0, max_value=60, required=False, default=0
+    )
+    zones = serializers.SlugRelatedField(
+        slug_field="slug", queryset=served_zones(), many=True, required=False
+    )
+
+    def validate_phone(self, value):
+        return clean_phone(value)
+
+    @transaction.atomic
+    def update(self, user, data):
+        for key in ("first_name", "last_name", "phone", "contact_pref", "contact_hours"):
+            setattr(user, key, data[key])
+        user.save()
+        profile = getattr(user, "pro_profile", None)
+        if profile is not None:
+            profile.headline = data["headline"]
+            profile.bio = data["bio"]
+            profile.years_experience = data["years_experience"]
+            profile.save(update_fields=["headline", "bio", "years_experience"])
+            if "zones" in data:
+                profile.zones.set(data["zones"])
+        return user
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -76,10 +134,7 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def validate_phone(self, value):
-        try:
-            return normalize_phone(value)
-        except DjangoValidationError as exc:
-            raise serializers.ValidationError(exc.messages) from exc
+        return clean_phone(value)
 
     def validate(self, attrs):
         if attrs.get("role") == User.Role.PRO and not attrs.get("trades"):

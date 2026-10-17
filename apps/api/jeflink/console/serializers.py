@@ -250,6 +250,9 @@ class RequestDetailSerializer(RequestRowSerializer):
 class AccountSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source="pk")
     name = serializers.SerializerMethodField()
+    # Pour le rappel du support : comment et quand joindre la personne.
+    contact_pref = serializers.CharField(source="get_contact_pref_display", read_only=True)
+    contact_hours = serializers.CharField(source="get_contact_hours_display", read_only=True)
 
     class Meta:
         model = User
@@ -259,6 +262,8 @@ class AccountSerializer(serializers.ModelSerializer):
             "email",
             "phone",
             "photo",
+            "contact_pref",
+            "contact_hours",
             "is_active",
             "suspension_reason",
             "date_joined",

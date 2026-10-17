@@ -91,6 +91,7 @@ class RequestSerializer(serializers.ModelSerializer):
     client = PersonSerializer(read_only=True)
     pro = PersonSerializer(read_only=True, allow_null=True)
     contact_phone = serializers.SerializerMethodField()
+    contact = serializers.SerializerMethodField()
     quotes = serializers.SerializerMethodField()
     quotes_count = serializers.IntegerField(source="quotes.count", read_only=True)
     quotes_max = serializers.SerializerMethodField()
@@ -119,6 +120,7 @@ class RequestSerializer(serializers.ModelSerializer):
             "client",
             "pro",
             "contact_phone",
+            "contact",
             "quotes",
             "quotes_count",
             "quotes_max",
@@ -156,6 +158,26 @@ class RequestSerializer(serializers.ModelSerializer):
         if user.pk == req.pro_id:
             return req.client.phone or None
         return None
+
+    def get_contact(self, req) -> dict | None:
+        """L'autre partie, une fois la mission réservée : comment et quand la joindre, et sa
+        photo (celle du client n'est montrée qu'au pro choisi, jamais publiée)."""
+        if req.status not in (S.BOOKED, S.CANCELLING, S.DONE) or req.pro is None:
+            return None
+        user = self._viewer
+        if user.pk == req.client_id:
+            other = req.pro
+            photo = getattr(other, "pro_profile", None) and other.pro_profile.photo or other.photo
+        elif user.pk == req.pro_id:
+            other, photo = req.client, req.client.photo
+        else:
+            return None
+        return {
+            "name": other.public_name,
+            "photo": photo,
+            "prefers": other.get_contact_pref_display(),
+            "hours": other.get_contact_hours_display(),
+        }
 
     def get_quotes(self, req) -> list:
         user = self._viewer
@@ -277,8 +299,14 @@ class RequestCreateSerializer(serializers.ModelSerializer):
             "is_urgent",
             "jef_session",
             "promo_code",
+            "save_address",
         ]
         extra_kwargs = {"promo_code": {"required": False, "allow_blank": True}}
+
+    # Nom sous lequel enregistrer ce quartier + repère dans « Mes adresses » (facultatif).
+    save_address = serializers.CharField(
+        max_length=40, required=False, allow_blank=True, write_only=True, default=""
+    )
 
 
 class QuoteCreateSerializer(serializers.Serializer):

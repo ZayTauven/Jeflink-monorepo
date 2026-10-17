@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.authtoken.models import Token
@@ -8,7 +9,15 @@ from rest_framework.response import Response
 
 from jeflink.media import delete_image, save_image
 
-from .serializers import ContactSerializer, LoginSerializer, MeSerializer, RegisterSerializer
+from .models import SavedAddress
+from .serializers import (
+    AddressSerializer,
+    ContactSerializer,
+    LoginSerializer,
+    MeSerializer,
+    ProfileSerializer,
+    RegisterSerializer,
+)
 
 AuthResponse = inline_serializer(
     "AuthResponse", {"token": serializers.CharField(), "user": MeSerializer()}
@@ -46,10 +55,46 @@ def logout(request):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-@extend_schema(responses=MeSerializer)
-@api_view(["GET"])
+@extend_schema(methods=["GET"], responses=MeSerializer)
+@extend_schema(methods=["PUT"], request=ProfileSerializer, responses=MeSerializer)
+@api_view(["GET", "PUT"])
 def me(request):
+    """Mon compte. PUT : mon profil (formulaire complet, voir ProfileSerializer)."""
+    if request.method == "PUT":
+        data = ProfileSerializer(request.user, data=request.data)
+        data.is_valid(raise_exception=True)
+        data.save()
     return Response(MeSerializer(request.user).data)
+
+
+@extend_schema(methods=["GET"], responses=AddressSerializer(many=True))
+@extend_schema(methods=["POST"], request=AddressSerializer, responses={201: AddressSerializer})
+@api_view(["GET", "POST"])
+def my_addresses(request):
+    """Mes adresses enregistrées (5 au plus), reprises dans le formulaire de demande."""
+    if request.method == "GET":
+        return Response(AddressSerializer(request.user.addresses.all(), many=True).data)
+    if request.user.addresses.count() >= SavedAddress.MAX:
+        raise serializers.ValidationError(
+            f"{SavedAddress.MAX} adresses au plus : supprimez-en une d'abord."
+        )
+    data = AddressSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    address = data.save(user=request.user)
+    return Response(AddressSerializer(address).data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema(methods=["PUT"], request=AddressSerializer, responses=AddressSerializer)
+@extend_schema(methods=["DELETE"], request=None, responses={204: None})
+@api_view(["PUT", "DELETE"])
+def my_address(request, pk: int):
+    address = get_object_or_404(request.user.addresses, pk=pk)  # les miennes seulement
+    if request.method == "DELETE":
+        address.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    data = AddressSerializer(address, data=request.data)
+    data.is_valid(raise_exception=True)
+    return Response(AddressSerializer(data.save()).data)
 
 
 @extend_schema(

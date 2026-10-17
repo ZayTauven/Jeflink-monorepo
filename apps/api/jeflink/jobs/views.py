@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
+from jeflink.accounts.models import save_address
 from jeflink.jef import services as jef_services
 
 from . import services
@@ -69,6 +70,7 @@ class RequestViewSet(
         data = dict(serializer.validated_data)
         jef_session = data.pop("jef_session", None)
         code = data.pop("promo_code", "")
+        address_label = data.pop("save_address", "").strip()
         # Une seule transaction : un code refusé annule la création (le client corrige le code
         # et republie, sans doublon).
         with transaction.atomic():
@@ -77,6 +79,8 @@ class RequestViewSet(
                 services.set_promo_code(request.user, req, code, field="promo_code")
             if jef_session:
                 jef_services.attach(request.user, req, jef_session)
+            if address_label:
+                save_address(request.user, address_label, req.zone, req.landmark)
         return Response(self._read(req), status=status.HTTP_201_CREATED)
 
     @extend_schema(request=QuoteCreateSerializer, responses={201: QuoteSerializer})

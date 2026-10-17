@@ -12,7 +12,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from jeflink.accounts.models import ContactMessage, ProProfile, User
+from jeflink.accounts.models import ContactMessage, ProProfile, SavedAddress, User
 from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.console.models import AuditLog, ProSettlement
 from jeflink.jef.models import JefSession
@@ -444,6 +444,17 @@ class Command(BaseCommand):
         for member in STAFF:
             self._user(member, is_staff=True, staff_role=member["role"])
         clients = {c["first_name"]: self._user(c) for c in CLIENTS}
+        # Awa a déjà enregistré son adresse et préfère WhatsApp (voir Mon profil).
+        awa = clients["Awa"]
+        if not awa.addresses.exists():
+            awa.contact_pref = User.ContactPref.WHATSAPP
+            awa.save(update_fields=["contact_pref"])
+            SavedAddress.objects.create(
+                user=awa,
+                label="Maison",
+                zone=Zone.objects.get(slug="ouakam"),
+                landmark="Derrière la mosquée de la Divinité, portail vert",
+            )
         pros = {p["first_name"]: self._pro(p) for p in PROS}
 
         self._marketing(admin)

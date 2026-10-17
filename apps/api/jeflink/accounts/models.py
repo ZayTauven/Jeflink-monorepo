@@ -61,12 +61,31 @@ class User(AbstractUser):
         MARKETING = "marketing", "Marketing"
         FINANCE = "finance", "Finance"
 
+    class ContactPref(models.TextChoices):
+        """Comment l'autre partie le joint une fois la mission réservée."""
+
+        ANY = "", "Appel ou WhatsApp"
+        CALL = "call", "Appel"
+        WHATSAPP = "whatsapp", "WhatsApp"
+
+    class ContactHours(models.TextChoices):
+        ANY = "", "Toute la journée"
+        MORNING = "morning", "Le matin (8 h – 12 h)"
+        AFTERNOON = "afternoon", "L'après-midi (12 h – 17 h)"
+        EVENING = "evening", "Le soir (17 h – 21 h)"
+
     username = None
     email = models.EmailField("email", unique=True)
     phone = models.CharField("téléphone", max_length=13, blank=True, validators=[PHONE_E164_SN])
     role = models.CharField("rôle", max_length=10, choices=Role.choices, default=Role.CLIENT)
     photo = models.CharField(
         "photo", max_length=200, blank=True, help_text="Chemin d'image servi par le site web."
+    )
+    contact_pref = models.CharField(
+        "joignable par", max_length=10, choices=ContactPref.choices, blank=True, default=""
+    )
+    contact_hours = models.CharField(
+        "joignable", max_length=10, choices=ContactHours.choices, blank=True, default=""
     )
     staff_role = models.CharField(
         "rôle dans l'équipe",
@@ -157,6 +176,38 @@ class ProProfile(models.Model):
             avg=Avg("rating"), n=Count("id")
         )
         return {"average": round(agg["avg"], 1) if agg["avg"] else None, "count": agg["n"]}
+
+
+class SavedAddress(models.Model):
+    """Adresse enregistrée par un client (quartier + repère), reprise dans ses demandes.
+
+    Pas de rue ni de numéro : à Dakar on se repère (« derrière la pharmacie, portail bleu »).
+    """
+
+    MAX = 5
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="addresses")
+    label = models.CharField("nom", max_length=40, help_text="Maison, Bureau, Chez maman…")
+    zone = models.ForeignKey("catalog.Zone", on_delete=models.PROTECT, verbose_name="quartier")
+    landmark = models.CharField("repère", max_length=160, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        verbose_name = "adresse enregistrée"
+        verbose_name_plural = "adresses enregistrées"
+
+    def __str__(self):
+        return f"{self.label} — {self.zone}"
+
+
+def save_address(user, label: str, zone, landmark: str) -> SavedAddress | None:
+    """Enregistre l'adresse d'une demande dans « Mes adresses », sauf doublon ou liste pleine
+    (la demande est publiée de toute façon : rien ne bloque le client)."""
+    mine = user.addresses
+    if mine.count() >= SavedAddress.MAX or mine.filter(zone=zone, landmark=landmark).exists():
+        return None
+    return SavedAddress.objects.create(user=user, label=label[:40], zone=zone, landmark=landmark)
 
 
 class ContactMessage(models.Model):
