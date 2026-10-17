@@ -17,6 +17,7 @@ references/
 .ruff_cache/
 apps/api/staticfiles/
 apps/api/db.sqlite3
+apps/api/media/
 
 # Copie locale du template Crafto (licence Envato) : générée par `pnpm --filter web crafto`
 apps/web/public/crafto/

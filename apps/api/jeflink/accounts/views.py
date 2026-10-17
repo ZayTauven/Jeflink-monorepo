@@ -1,9 +1,12 @@
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.authtoken.models import Token
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+
+from jeflink.media import delete_image, save_image
 
 from .serializers import ContactSerializer, LoginSerializer, MeSerializer, RegisterSerializer
 
@@ -47,6 +50,39 @@ def logout(request):
 @api_view(["GET"])
 def me(request):
     return Response(MeSerializer(request.user).data)
+
+
+@extend_schema(
+    methods=["POST"],
+    request={
+        "multipart/form-data": inline_serializer("PhotoUpload", {"photo": serializers.ImageField()})
+    },
+    responses=MeSerializer,
+)
+@extend_schema(methods=["DELETE"], request=None, responses=MeSerializer)
+@api_view(["POST", "DELETE"])
+@parser_classes([MultiPartParser])
+def my_photo(request):
+    """Ma photo de profil : POST (champ « photo ») la remplace, DELETE la retire.
+
+    Pour un pro, c'est aussi la photo de son profil public.
+    """
+    user = request.user
+    profile = getattr(user, "pro_profile", None)
+    old = {user.photo, profile.photo if profile else ""}
+    url = (
+        ""
+        if request.method == "DELETE"
+        else save_image(request.FILES.get("photo"), "profils", max_side=1000)
+    )
+    user.photo = url
+    user.save(update_fields=["photo"])
+    if profile:
+        profile.photo = url
+        profile.save(update_fields=["photo"])
+    for previous in old - {url}:
+        delete_image(previous)
+    return Response(MeSerializer(user).data)
 
 
 @extend_schema(request=ContactSerializer, responses={201: None})

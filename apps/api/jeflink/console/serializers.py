@@ -427,13 +427,15 @@ class TradeInputSerializer(serializers.Serializer):
     icon = serializers.RegexField(
         r"^(bi-[a-z0-9-]+)?$", required=False, allow_blank=True, default="", max_length=40
     )
+    # Image du site (/images/…) ou image déjà envoyée (/media/…) ; `image_file` la remplace.
     image = serializers.RegexField(
-        r"^(/images/(?!.*\.\.)[\w/.-]+)?$",
+        r"^(/(?:images|media)/(?!.*\.\.)[\w/.-]+)?$",
         required=False,
         allow_blank=True,
         default="",
         max_length=200,
     )
+    image_file = serializers.FileField(required=False, write_only=True)
     position = serializers.IntegerField(min_value=0, max_value=999, default=0)
     is_active = serializers.BooleanField(default=True)
 
@@ -563,6 +565,7 @@ class MemberSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "email",
+            "photo",
             "role",
             "role_label",
             "is_active",

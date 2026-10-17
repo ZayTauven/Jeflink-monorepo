@@ -39,6 +39,7 @@ class MeSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "phone",
+            "photo",
             "role",
             "is_staff",
             "console_role",

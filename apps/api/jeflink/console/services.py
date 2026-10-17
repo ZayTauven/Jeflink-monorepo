@@ -15,6 +15,7 @@ from jeflink.accounts.models import ContactMessage, ProProfile, User
 from jeflink.catalog.models import Campaign, City, Trade, Zone
 from jeflink.jobs import services as jobs
 from jeflink.jobs.models import Coupon, Dispute, Quote, Review, ServiceRequest
+from jeflink.media import delete_image, save_image
 
 from .models import AuditLog, PlatformSettings, ProSettlement
 from .permissions import can
@@ -260,7 +261,25 @@ def _changes(obj, data: dict) -> str:
 
 @transaction.atomic
 def save_trade(staff, data: dict, trade: Trade | None = None) -> Trade:
+    """Créer ou modifier un métier ; `image_file` (envoi) remplace l'image et efface l'ancienne."""
     _staff(staff, "catalog")
+    data = dict(data)
+    upload = data.pop("image_file", None)
+    old_image = trade.image if trade else ""
+    if upload:
+        data["image"] = save_image(upload, "metiers", field="image_file")
+    try:
+        trade = _save_trade(staff, data, trade)
+    except Exception:
+        if upload:
+            delete_image(data["image"])  # rien d'enregistré : l'image envoyée ne sert pas
+        raise
+    if old_image != trade.image:
+        transaction.on_commit(lambda: delete_image(old_image))
+    return trade
+
+
+def _save_trade(staff, data: dict, trade: Trade | None) -> Trade:
     if trade is None:
         trade = Trade(slug=_unique_slug(Trade, data["name"]))
         details, action = "", A.TRADE_CREATE
@@ -402,6 +421,27 @@ def set_member_active(staff, member: User, active: bool, note: str = "") -> User
         Token.objects.filter(user=member).delete()
     action = A.TEAM_REACTIVATE if active else A.TEAM_DEACTIVATE
     log(staff, action, "staff", member.pk, member, note.strip())
+    return member
+
+
+@transaction.atomic
+def set_member_photo(staff, member: User, upload=None) -> User:
+    """Photo d'un membre de l'équipe : `upload` la remplace, sans envoi elle est retirée."""
+    _staff(staff, "admin")
+    old = member.photo
+    if not upload and not old:
+        raise ValidationError("Ce membre n'a pas de photo.")
+    member.photo = save_image(upload, "equipe", max_side=1000) if upload else ""
+    member.save(update_fields=["photo"])
+    log(
+        staff,
+        A.TEAM_PHOTO,
+        "staff",
+        member.pk,
+        member,
+        "nouvelle photo" if upload else "photo retirée",
+    )
+    transaction.on_commit(lambda: delete_image(old))
     return member
 
 

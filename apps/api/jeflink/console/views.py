@@ -821,6 +821,19 @@ class TeamConsoleViewSet(ConsoleViewSet):
         member = services.set_member_active(request.user, self._member(pk), True)
         return self.done(member, s.MemberSerializer)
 
+    @extend_schema(
+        request={"multipart/form-data": OpenApiTypes.OBJECT},
+        responses=s.MemberSerializer,
+        description="Champ « photo » : la remplace ; « remove=1 » sans fichier : la retire.",
+    )
+    @action(detail=True, methods=["post"])
+    def photo(self, request, pk=None):
+        upload = request.FILES.get("photo")
+        if not upload and request.data.get("remove") != "1":
+            raise ValidationError({"photo": "Choisissez une image."})
+        member = services.set_member_photo(request.user, self._member(pk), upload)
+        return self.done(member, s.MemberSerializer)
+
 
 # --- Marketing : codes promo et campagnes ------------------------------------------------------
 
