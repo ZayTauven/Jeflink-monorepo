@@ -812,7 +812,7 @@
   display: flex;
   justify-content: space-between;
 }
-/* Document d'un pro (fiche pro) : une ligne par justificatif. */
+/* Fiche pro : un bloc par justificatif ou par métier demandé (nom, puis actions). */
 .jf-doc {
   display: grid;
   gap: 0.375rem;

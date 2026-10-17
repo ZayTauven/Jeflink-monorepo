@@ -6,9 +6,9 @@ import { ActionForm } from "@/components/action-form";
 import { ImageInput } from "@/components/image-input";
 import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
-import { getZones, requireMe } from "@/lib/api";
+import { getTrades, getZones, requireMe } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import type { ContactHours, ContactPref, Me, ProDocument, Zone } from "@/lib/types";
+import type { ContactHours, ContactPref, Me, ProDocument, Trade, Zone } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Mon profil" };
 
@@ -51,10 +51,11 @@ const MAX_ADDRESSES = 5;
 type Props = { searchParams: Promise<{ erreur?: string; ok?: string }> };
 
 export default async function ProfilePage({ searchParams }: Props) {
-  const [{ me }, { erreur, ok }, zones] = await Promise.all([
+  const [{ me }, { erreur, ok }, zones, trades] = await Promise.all([
     requireMe("/espace/profil"),
     searchParams,
     getZones(),
+    getTrades(),
   ]);
   if (me.is_staff) redirect("/console");
   const pro = me.pro_profile;
@@ -148,7 +149,7 @@ export default async function ProfilePage({ searchParams }: Props) {
                       ))}
                     </div>
                   </fieldset>
-                  {pro && <ProFields pro={pro} zones={zones} />}
+                  {pro && <ProFields pro={pro} zones={zones} trades={trades} />}
                 </div>
                 <SwitchSubmit
                   label="Enregistrer"
@@ -400,9 +401,48 @@ function Documents({ documents }: { documents: ProDocument[] }) {
   );
 }
 
-function ProFields({ pro, zones }: { pro: NonNullable<Me["pro_profile"]>; zones: Zone[] }) {
+function ProFields({
+  pro,
+  zones,
+  trades,
+}: {
+  pro: NonNullable<Me["pro_profile"]>;
+  zones: Zone[];
+  trades: Trade[];
+}) {
   return (
     <>
+      <fieldset className="col-12 mb-25px border-0 p-0 px-3">
+        <legend className="fs-14 fw-500 text-dark-gray mb-10px">Mes métiers</legend>
+        <div className="jf-checks">
+          {trades.map((t) => {
+            const waiting = pro.pending_trades.includes(t.slug);
+            return (
+              <label key={t.slug}>
+                <input
+                  type="checkbox"
+                  name="trades"
+                  value={t.slug}
+                  defaultChecked={pro.trades.includes(t.slug) || waiting}
+                />
+                <span>
+                  {t.name}
+                  {waiting && <span className="text-base-color"> · en attente</span>}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        <div className="hint">
+          Un métier ajouté attend la validation de l&apos;équipe Jeflink (attestation, appel) avant
+          que vous en voyiez les demandes&nbsp;; un métier retiré l&apos;est tout de suite.
+        </div>
+        {pro.trade_note && (
+          <p className="fs-15 text-dark-gray mt-10px mb-0">Dernier refus&nbsp;: {pro.trade_note}</p>
+        )}
+        {/* En fin de bloc : la légende (flottante) ne dégage que l'élément suivant. */}
+        <input type="hidden" name="trades_sent" value="1" />
+      </fieldset>
       <div className="col-12 mb-20px">
         <label htmlFor="headline">Accroche</label>
         <input
@@ -443,7 +483,6 @@ function ProFields({ pro, zones }: { pro: NonNullable<Me["pro_profile"]>; zones:
         <legend className="fs-14 fw-500 text-dark-gray mb-10px">
           Quartiers où vous intervenez
         </legend>
-        <input type="hidden" name="zones_sent" value="1" />
         <div className="jf-checks">
           {zones.map((z) => (
             <label key={z.slug}>
@@ -460,6 +499,8 @@ function ProFields({ pro, zones }: { pro: NonNullable<Me["pro_profile"]>; zones:
         <div className="hint">
           Vous ne voyez que les demandes de ces quartiers&nbsp;; aucun coché, tous les quartiers.
         </div>
+        {/* En fin de bloc : la légende (flottante) ne dégage que l'élément suivant. */}
+        <input type="hidden" name="zones_sent" value="1" />
       </fieldset>
     </>
   );

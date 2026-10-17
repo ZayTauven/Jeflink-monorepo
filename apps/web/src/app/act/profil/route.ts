@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       years_experience: Number.isInteger(years) ? years : 0,
       // Pro : la liste part même vide (tout décocher = aucun quartier).
       ...(form.has("zones_sent") ? { zones: form.getAll("zones").map(String) } : {}),
+      ...(form.has("trades_sent") ? { trades: form.getAll("trades").map(String) } : {}),
     },
   });
   if (!res.ok) return failure(req, res, BACK);

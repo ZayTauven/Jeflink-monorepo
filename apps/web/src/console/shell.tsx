@@ -113,6 +113,7 @@ export function ConsoleShell({
   const ops = me.console_sections.includes("operations");
   const pending =
     badges.pros_pending +
+    badges.trades_pending +
     badges.stale_requests +
     badges.cancel_requests +
     badges.contact_unhandled +
@@ -238,6 +239,13 @@ export function ConsoleShell({
                 <ul className="ax-notif__list">
                   <Todo href="/console/pros" icon="bi-person-badge">
                     {plural(badges.pros_pending, "pro à vérifier", "pros à vérifier")}
+                  </Todo>
+                  <Todo href="/console/pros?etat=trades" icon="bi-tools">
+                    {plural(
+                      badges.trades_pending,
+                      "pro avec un métier à valider",
+                      "pros avec un métier à valider",
+                    )}
                   </Todo>
                   <Todo href="/console/demandes?statut=cancelling" icon="bi-telephone">
                     {plural(

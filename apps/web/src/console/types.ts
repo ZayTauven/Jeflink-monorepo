@@ -4,6 +4,8 @@ import type { ProDocument, RequestStatus } from "@/lib/types";
 
 export type Badges = {
   pros_pending: number;
+  /** Pros qui ont ajouté un métier, à valider. */
+  trades_pending: number;
   stale_requests: number;
   /** Missions dont le client a demandé l'annulation : le support doit le rappeler. */
   cancel_requests: number;
@@ -192,6 +194,10 @@ export type ProRow = {
   photo: string;
   years_experience: number;
   trades: string[];
+  /** Métiers ajoutés par le pro depuis son profil, à valider. */
+  pending_trades: { id: number; name: string }[];
+  /** Pièce d'identité acceptée : condition pour vérifier le pro. */
+  has_accepted_id: boolean;
   zones: string[];
   is_verified: boolean;
   verified_at: string | null;
@@ -207,7 +213,6 @@ export type ProDetail = ProRow & {
   reviews: ReviewRow[];
   disputes: DisputeRow[];
   documents: ProDocument[];
-  has_accepted_id: boolean;
 };
 
 export type ClientRow = Account & {

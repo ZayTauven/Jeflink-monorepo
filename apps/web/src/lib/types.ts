@@ -77,6 +77,9 @@ export type Me = {
     headline: string;
     bio: string;
     trades: string[];
+    /** Ajoutés depuis le profil, en attente de validation par l'équipe. */
+    pending_trades: string[];
+    trade_note: string;
     zones: string[];
     years_experience: number;
     is_verified: boolean;

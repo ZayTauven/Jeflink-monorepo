@@ -25,17 +25,15 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
   const params = await searchParams;
   const etat = params.etat ?? "pending";
   const [data, trades] = await Promise.all([
-    consoleGet<Page<ProRow, { pending: number; verified: number; suspended: number }>>(
-      BASE,
-      "pros/",
-      {
-        status: etat === "tous" ? undefined : etat,
-        trade: params.metier,
-        q: params.q,
-        sort: params.tri,
-        page: params.page,
-      },
-    ),
+    consoleGet<
+      Page<ProRow, { pending: number; trades: number; verified: number; suspended: number }>
+    >(BASE, "pros/", {
+      status: etat === "tous" ? undefined : etat,
+      trade: params.metier,
+      q: params.q,
+      sort: params.tri,
+      page: params.page,
+    }),
     getTrades(),
   ]);
   const f = data.facets;
@@ -62,6 +60,7 @@ export default async function ProsPage({ searchParams }: { searchParams: Promise
         label="État des pros"
         tabs={[
           { value: "pending", label: "À vérifier", count: f.pending },
+          { value: "trades", label: "Métiers demandés", count: f.trades },
           { value: "verified", label: "Vérifiés", count: f.verified },
           { value: "suspended", label: "Suspendus", count: f.suspended },
           { value: "tous", label: "Tous" },

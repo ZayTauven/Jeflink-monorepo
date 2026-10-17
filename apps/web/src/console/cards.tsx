@@ -153,7 +153,13 @@ export function ProCard({ p, back, pending }: { p: ProRow; back: string; pending
     <ItemCard
       label={a.name}
       leading={<Avatar name={a.name} photo={p.photo || a.photo} size={48} />}
-      eyebrow={p.trades.join(", ") || "Aucun métier déclaré"}
+      eyebrow={[
+        p.trades.join(", ") || "Aucun métier validé",
+        p.pending_trades.length > 0 &&
+          `à valider${NBSP}: ${p.pending_trades.map((t) => t.name).join(", ")}`,
+      ]
+        .filter(Boolean)
+        .join(" · ")}
       title={
         <Link href={`/console/pros/${a.id}`} className="jf-link">
           {a.name}
@@ -182,12 +188,19 @@ export function ProCard({ p, back, pending }: { p: ProRow; back: string; pending
         pending &&
         a.is_active && (
           <>
-            <ActionButton
-              endpoint={`/api/console/pros/${a.id}/verify/`}
-              back={back}
-              ok={`Pro vérifié${NBSP}: il peut envoyer des devis.`}
-              label="Vérifier"
-            />
+            {p.has_accepted_id ? (
+              <ActionButton
+                endpoint={`/api/console/pros/${a.id}/verify/`}
+                back={back}
+                ok={`Pro vérifié${NBSP}: il peut envoyer des devis.`}
+                label="Vérifier"
+              />
+            ) : (
+              // Pas encore de pièce d'identité acceptée : on l'examine sur la fiche.
+              <Link href={`/console/pros/${a.id}`} className="ax-btn ax-btn--primary ax-btn--sm">
+                Examiner les documents
+              </Link>
+            )}
             <ReasonAction
               endpoint={`/api/console/pros/${a.id}/reject/`}
               back={back}

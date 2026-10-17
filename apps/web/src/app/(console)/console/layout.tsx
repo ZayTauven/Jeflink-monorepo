@@ -6,6 +6,7 @@ import { api, requireStaff } from "@/lib/api";
 
 const NO_BADGES: Badges = {
   pros_pending: 0,
+  trades_pending: 0,
   stale_requests: 0,
   cancel_requests: 0,
   contact_unhandled: 0,

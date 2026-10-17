@@ -151,6 +151,41 @@ export default async function ProPage({ params, searchParams }: Props) {
             {p.bio && <p className="jf-prose mt-3">{p.bio}</p>}
           </Card>
 
+          {p.pending_trades.length > 0 && (
+            <Card title="Métiers demandés" eyebrow="À valider">
+              <p className="jf-muted mb-3">
+                Ajoutés par le pro depuis son profil. Validés, il en voit et chiffre les demandes.
+              </p>
+              <ul className="jf-stack jf-stack--tight" aria-label="Métiers demandés">
+                {p.pending_trades.map((t) => (
+                  <li key={t.id} className="jf-doc">
+                    <b>{t.name}</b>
+                    <div className="jf-inline">
+                      <ActionButton
+                        endpoint={endpoint(`trades/${t.id}/approve`)}
+                        back={here}
+                        ok={`${t.name} validé : le pro en voit les demandes.`}
+                        label="Valider"
+                        variant="ax-btn ax-btn--primary ax-btn--sm"
+                      />
+                      <ReasonAction
+                        endpoint={endpoint(`trades/${t.id}/refuse`)}
+                        back={here}
+                        ok={`${t.name} refusé : le pro voit le motif dans son profil.`}
+                        label="Refuser…"
+                        title="Refuser le métier"
+                        subject={`${t.name} pour ${a.name}`}
+                        confirm="Refuser"
+                        placeholder="Ex. : attestation de frigoriste à envoyer."
+                        danger={false}
+                      />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
           <Card title="Documents" eyebrow="Vérification">
             {p.documents.length === 0 ? (
               <p className="jf-muted">
