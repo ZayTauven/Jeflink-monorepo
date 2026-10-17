@@ -72,7 +72,7 @@ def test_fichier_refuse(upload, _media):
 
 def test_image_trop_lourde_refusee(_media):
     big = SimpleUploadedFile("lourde.jpg", b"0" * (8 * 1024 * 1024 + 1), content_type="image/jpeg")
-    with pytest.raises(ValidationError, match="8 Mo"):
+    with pytest.raises(ValidationError, match="trop lourde"):
         save_image(big, "profils")
 
 
@@ -177,3 +177,43 @@ def test_photo_d_un_membre_de_l_equipe(_media, django_capture_on_commit_callback
         res = as_user(boss).post(url, {"remove": "1"}, format="multipart")
     assert res.data["photo"] == "" and not any(_media.rglob("*.webp"))
     assert as_user(boss).post(url, {}, format="multipart").status_code == 400
+
+
+# --- Revue sécurité ----------------------------------------------------------------------------
+
+
+def test_trop_de_pixels_ou_format_hors_liste_refuse(_media):
+    out = BytesIO()
+    Image.new("L", (6000, 5000)).save(out, "PNG")  # 30 Mpx, quelques Ko
+    with pytest.raises(ValidationError, match="millions de pixels"):
+        save_image(SimpleUploadedFile("bombe.png", out.getvalue()), "profils")
+    tiff = BytesIO()
+    Image.new("RGB", (100, 100)).save(tiff, "TIFF")
+    with pytest.raises(ValidationError):
+        save_image(SimpleUploadedFile("scan.tif", tiff.getvalue()), "profils")
+
+
+def test_un_metier_ne_peut_pas_reprendre_la_photo_d_un_compte(_media):
+    pro = User.objects.create_user("moussa@example.com", PASSWORD, role=User.Role.PRO)
+    ProProfile.objects.create(user=pro)
+    url = (
+        as_user(pro)
+        .post("/api/auth/me/photo/", {"photo": photo()}, format="multipart")
+        .data["photo"]
+    )
+    api = as_user(staff("marketing"))
+    res = api.post("/api/console/trades/", {"name": "Peinture", "image": url}, format="json")
+    assert res.status_code == 400 and "image" in res.data
+    assert stored(url, _media).exists()
+
+
+def test_la_photo_envoyee_par_un_client_n_est_pas_publiee_avec_ses_avis():
+    from jeflink.catalog.views import PublicReviewSerializer
+
+    class Client:
+        photo = "/media/profils/" + "a" * 32 + ".webp"
+
+    review = type("R", (), {"request": type("Q", (), {"client": Client})})()
+    assert PublicReviewSerializer().get_author_photo(review) == ""
+    Client.photo = "/images/clients/awa.webp"  # visage de démo
+    assert PublicReviewSerializer().get_author_photo(review) == "/images/clients/awa.webp"

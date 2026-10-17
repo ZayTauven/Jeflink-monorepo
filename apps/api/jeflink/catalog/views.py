@@ -84,13 +84,18 @@ class PublicProSerializer(serializers.ModelSerializer):
 
 class PublicReviewSerializer(serializers.ModelSerializer):
     author = serializers.CharField(source="request.client.public_name")
-    author_photo = serializers.CharField(source="request.client.photo")
+    author_photo = serializers.SerializerMethodField()
     pro = serializers.CharField(source="request.pro.public_name")
     trade = serializers.CharField(source="request.trade.name")
 
     class Meta:
         model = Review
         fields = ["rating", "comment", "author", "author_photo", "pro", "trade", "created_at"]
+
+    def get_author_photo(self, review) -> str:
+        """Visages de démo seulement : la photo envoyée par un client n'est jamais publiée."""
+        photo = review.request.client.photo
+        return photo if photo.startswith("/images/") else ""
 
 
 class ReviewList(generics.ListAPIView):

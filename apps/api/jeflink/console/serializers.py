@@ -427,9 +427,9 @@ class TradeInputSerializer(serializers.Serializer):
     icon = serializers.RegexField(
         r"^(bi-[a-z0-9-]+)?$", required=False, allow_blank=True, default="", max_length=40
     )
-    # Image du site (/images/…) ou image déjà envoyée (/media/…) ; `image_file` la remplace.
+    # Image du site (/images/…) ou image d'un métier déjà envoyée ; `image_file` la remplace.
     image = serializers.RegexField(
-        r"^(/(?:images|media)/(?!.*\.\.)[\w/.-]+)?$",
+        r"^(/images/(?!.*\.\.)[\w/.-]+|/media/metiers/[0-9a-f]{32}\.webp)?$",
         required=False,
         allow_blank=True,
         default="",

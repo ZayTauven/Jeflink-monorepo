@@ -81,7 +81,7 @@ def my_photo(request):
         profile.photo = url
         profile.save(update_fields=["photo"])
     for previous in old - {url}:
-        delete_image(previous)
+        delete_image(previous, "profils")
     return Response(MeSerializer(user).data)
 
 

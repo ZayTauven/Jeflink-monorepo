@@ -268,14 +268,19 @@ def save_trade(staff, data: dict, trade: Trade | None = None) -> Trade:
     old_image = trade.image if trade else ""
     if upload:
         data["image"] = save_image(upload, "metiers", field="image_file")
+    elif data.get("image", "").startswith("/media/") and data["image"] != old_image:
+        # Une image envoyée ne se reprend pas d'ailleurs (photo d'un compte, autre métier).
+        raise ValidationError({"image": "Envoyez l'image depuis ce formulaire."})
     try:
         trade = _save_trade(staff, data, trade)
     except Exception:
         if upload:
-            delete_image(data["image"])  # rien d'enregistré : l'image envoyée ne sert pas
+            delete_image(
+                data["image"], "metiers"
+            )  # rien d'enregistré : l'image envoyée ne sert pas
         raise
     if old_image != trade.image:
-        transaction.on_commit(lambda: delete_image(old_image))
+        transaction.on_commit(lambda: delete_image(old_image, "metiers"))
     return trade
 
 
@@ -441,7 +446,7 @@ def set_member_photo(staff, member: User, upload=None) -> User:
         member,
         "nouvelle photo" if upload else "photo retirée",
     )
-    transaction.on_commit(lambda: delete_image(old))
+    transaction.on_commit(lambda: delete_image(old, "equipe"))
     return member
 
 
