@@ -9,7 +9,7 @@ import csv
 from datetime import timedelta
 
 from django.conf import settings
-from django.db.models import Count, F, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
+from django.db.models import Count, Exists, F, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -303,7 +303,7 @@ PRO_SORTS = {
 
 @extend_schema(
     parameters=[
-        OpenApiParameter("status", str, enum=["pending", "verified", "suspended"]),
+        OpenApiParameter("status", str, enum=["pending", "trades", "verified", "suspended"]),
         OpenApiParameter("trade", str),
         OpenApiParameter("q", str),
         OpenApiParameter("sort", str, enum=["name", "missions", "recent"]),
@@ -318,8 +318,17 @@ class ProConsoleViewSet(ConsoleViewSet):
         return (
             ProProfile.objects.filter(user__is_staff=False)
             .select_related("user")
-            .prefetch_related("trades", "zones")
-            .annotate(n_done=Count("user__missions", filter=Q(user__missions__status=S.DONE)))
+            .prefetch_related("trades", "pending_trades", "zones")
+            .annotate(
+                n_done=Count("user__missions", filter=Q(user__missions__status=S.DONE)),
+                id_accepted=Exists(
+                    ProDocument.objects.filter(
+                        profile=OuterRef("pk"),
+                        kind=ProDocument.Kind.ID,
+                        status=ProDocument.Status.ACCEPTED,
+                    )
+                ),
+            )
         )
 
     def list(self, request):
@@ -327,6 +336,8 @@ class ProConsoleViewSet(ConsoleViewSet):
         status = self.param("status")
         if status == "pending":
             qs = qs.filter(is_verified=False, user__is_active=True)
+        elif status == "trades":
+            qs = qs.filter(pending_trades__isnull=False, user__is_active=True)
         elif status == "verified":
             qs = qs.filter(is_verified=True, user__is_active=True)
         elif status == "suspended":
@@ -341,6 +352,9 @@ class ProConsoleViewSet(ConsoleViewSet):
         base = ProProfile.objects
         facets = {
             "pending": base.filter(is_verified=False, user__is_active=True).count(),
+            "trades": base.filter(pending_trades__isnull=False, user__is_active=True)
+            .distinct()
+            .count(),
             "verified": base.filter(is_verified=True, user__is_active=True).count(),
             "suspended": base.filter(user__is_active=False).count(),
         }
@@ -386,6 +400,19 @@ class ProConsoleViewSet(ConsoleViewSet):
     @action(detail=True, methods=["post"])
     def verify(self, request, pk=None):
         services.verify_pro(request.user, self._profile(pk))
+        return self.retrieve(request, pk)
+
+    @extend_schema(request=s.ReasonSerializer, responses=OpenApiTypes.OBJECT)
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"trades/(?P<trade_id>[0-9]+)/(?P<decision>approve|refuse)",
+    )
+    def decide_trade(self, request, pk=None, trade_id=None, decision=None):
+        """Métier demandé par le pro : `approve`, ou `refuse` avec un motif (`reason`)."""
+        trade = get_object_or_404(Trade, pk=trade_id)
+        reason = str(request.data.get("reason", ""))[:300]
+        services.decide_trade(request.user, self._profile(pk), trade, decision == "approve", reason)
         return self.retrieve(request, pk)
 
     @extend_schema(request=s.ReasonSerializer, responses=OpenApiTypes.OBJECT)

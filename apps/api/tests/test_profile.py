@@ -48,7 +48,7 @@ def test_mon_profil_et_comment_me_joindre(catalog):
     assert bad.status_code == 400 and "phone" in bad.data
 
 
-def test_profil_pro_sans_toucher_aux_metiers(catalog):
+def test_profil_pro_sans_envoyer_les_metiers(catalog):
     trade, zone = catalog
     api, pro = register(email="moussa@example.com", role="pro", trades=["plomberie"])
     res = api.put(
@@ -59,7 +59,6 @@ def test_profil_pro_sans_toucher_aux_metiers(catalog):
             "bio": "15 ans de métier.",
             "years_experience": 15,
             "zones": ["ouakam", "yoff"],
-            "trades": [],  # ignoré : les métiers ont leur propre parcours
         },
         format="json",
     )
@@ -138,3 +137,60 @@ def test_contact_de_l_autre_partie_apres_reservation(catalog):
     assert seen_by_pro["photo"] == awa.photo and seen_by_pro["prefers"] == "WhatsApp"
     assert seen_by_pro["hours"] == "Toute la journée"
     assert client.get(f"/api/requests/{rid}/").data["contact"]["name"] == pro.public_name
+
+
+def test_metier_ajoute_par_le_pro_valide_par_l_equipe(catalog):
+    from jeflink.console.models import AuditLog
+    from jeflink.jobs import services
+
+    plomberie, ouakam = catalog
+    elec = Trade.objects.create(slug="electricite", name="Électricité")
+    clim = Trade.objects.create(slug="clim", name="Clim")
+    api, pro = register(email="moussa@example.com", role="pro", trades=["plomberie"])
+    ProProfile.objects.filter(user=pro).update(is_verified=True)
+    profile = ProProfile.objects.get(user=pro)
+
+    res = api.put(
+        "/api/auth/me/",
+        {"first_name": "Moussa", "trades": ["plomberie", "electricite", "clim"]},
+        format="json",
+    )
+    assert res.status_code == 200, res.data
+    assert res.data["pro_profile"]["trades"] == ["plomberie"]
+    assert sorted(res.data["pro_profile"]["pending_trades"]) == ["clim", "electricite"]
+
+    # Tant qu'il n'est pas validé, le pro ne voit ni ne chiffre les demandes de ce métier.
+    client, _ = register(email="awa@example.com")
+    req = services.create_request(
+        User.objects.get(email="awa@example.com"),
+        trade=elec,
+        zone=ouakam,
+        title="Prise",
+        description="Plus de courant",
+    )
+    assert api.post(f"/api/requests/{req.pk}/quotes/", {"amount": 5000}).status_code in (403, 404)
+
+    ops = User.objects.create_user("ops@jeflink.local", PASSWORD, is_staff=True, staff_role="ops")
+    staff = APIClient()
+    staff.force_authenticate(ops)
+    base = f"/api/console/pros/{pro.pk}/trades"
+    assert staff.get("/api/console/pros/?status=trades").data["count"] == 1
+    assert staff.post(f"{base}/{elec.pk}/approve/").status_code == 200
+    assert staff.post(f"{base}/{clim.pk}/refuse/", {"reason": ""}).status_code == 400
+    res = staff.post(f"{base}/{clim.pk}/refuse/", {"reason": "Pas d'attestation frigoriste"})
+    assert res.status_code == 200 and res.data["pending_trades"] == []
+    assert staff.post(f"{base}/{plomberie.pk}/approve/").status_code == 400  # pas demandé
+    profile.refresh_from_db()
+    assert set(profile.trades.values_list("slug", flat=True)) == {"plomberie", "electricite"}
+    assert profile.trade_note.startswith("Clim")
+    assert api.post(f"/api/requests/{req.pk}/quotes/", {"amount": 5000}).status_code == 201
+    assert list(AuditLog.objects.values_list("action", flat=True).order_by("id")) == [
+        "pro.trade_approve",
+        "pro.trade_refuse",
+    ]
+
+    # Retirer un métier : tout de suite ; tout retirer : refusé.
+    api.put("/api/auth/me/", {"first_name": "Moussa", "trades": ["electricite"]}, format="json")
+    assert list(profile.trades.values_list("slug", flat=True)) == ["electricite"]
+    bad = api.put("/api/auth/me/", {"first_name": "Moussa", "trades": []}, format="json")
+    assert bad.status_code == 400

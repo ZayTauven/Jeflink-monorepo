@@ -184,7 +184,7 @@ def test_refus_de_verification_motif_visible_du_pro(world):
 def test_file_de_verification_et_compteurs(world):
     res = as_user(world["staff"]).get("/api/console/pros/?status=pending")
     assert [p["account"]["email"] for p in res.data["results"]] == ["nouveau@example.com"]
-    assert res.data["facets"] == {"pending": 1, "verified": 1, "suspended": 0}
+    assert res.data["facets"] == {"pending": 1, "trades": 0, "verified": 1, "suspended": 0}
 
 
 def test_fiche_pro(world):

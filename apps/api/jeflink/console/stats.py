@@ -244,6 +244,11 @@ def badges() -> dict:
     """Compteurs des pastilles du menu de la console (à traiter)."""
     return {
         "pros_pending": _pending_pros().count(),
+        "trades_pending": ProProfile.objects.filter(
+            pending_trades__isnull=False, user__is_active=True
+        )
+        .distinct()
+        .count(),
         "stale_requests": _stale_requests(timezone.now()).count(),
         "cancel_requests": ServiceRequest.objects.filter(status=S.CANCELLING).count(),
         "contact_unhandled": ContactMessage.objects.filter(is_handled=False).count(),

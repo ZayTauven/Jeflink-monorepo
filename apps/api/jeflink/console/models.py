@@ -37,6 +37,8 @@ class AuditLog(models.Model):
         TEAM_PHOTO = "team.photo", "Photo d'un membre modifiée"
         DOC_ACCEPT = "document.accept", "Document d'un pro accepté"
         DOC_REJECT = "document.reject", "Document d'un pro refusé"
+        TRADE_APPROVE = "pro.trade_approve", "Métier demandé validé"
+        TRADE_REFUSE = "pro.trade_refuse", "Métier demandé refusé"
         COUPON_CREATE = "coupon.create", "Code promo créé"
         COUPON_UPDATE = "coupon.update", "Code promo modifié"
         CAMPAIGN_CREATE = "campaign.create", "Campagne créée"

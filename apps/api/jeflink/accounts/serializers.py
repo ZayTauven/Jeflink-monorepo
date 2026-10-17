@@ -47,6 +47,7 @@ class DocumentSerializer(serializers.ModelSerializer):
 
 class ProProfileSerializer(serializers.ModelSerializer):
     trades = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
+    pending_trades = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
     zones = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
     documents = DocumentSerializer(many=True, read_only=True)
 
@@ -56,6 +57,8 @@ class ProProfileSerializer(serializers.ModelSerializer):
             "headline",
             "bio",
             "trades",
+            "pending_trades",
+            "trade_note",
             "zones",
             "years_experience",
             "is_verified",
@@ -114,9 +117,21 @@ class ProfileSerializer(serializers.Serializer):
     zones = serializers.SlugRelatedField(
         slug_field="slug", queryset=served_zones(), many=True, required=False
     )
+    # Métiers voulus : retirés tout de suite, ajoutés « demandés » (validés par l'équipe).
+    trades = serializers.SlugRelatedField(
+        slug_field="slug",
+        queryset=Trade.objects.filter(is_active=True),
+        many=True,
+        required=False,
+    )
 
     def validate_phone(self, value):
         return clean_phone(value)
+
+    def validate_trades(self, value):
+        if not value:
+            raise serializers.ValidationError("Gardez au moins un métier.")
+        return value
 
     @transaction.atomic
     def update(self, user, data):
@@ -131,6 +146,11 @@ class ProfileSerializer(serializers.Serializer):
             profile.save(update_fields=["headline", "bio", "years_experience"])
             if "zones" in data:
                 profile.zones.set(data["zones"])
+            if "trades" in data:
+                wanted = set(data["trades"])
+                current = set(profile.trades.all())
+                profile.trades.remove(*(current - wanted))
+                profile.pending_trades.set(wanted - current)
         return user
 
 

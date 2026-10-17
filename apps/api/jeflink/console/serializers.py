@@ -277,6 +277,8 @@ class AccountSerializer(serializers.ModelSerializer):
 class ProRowSerializer(serializers.ModelSerializer):
     account = serializers.SerializerMethodField()
     trades = serializers.SerializerMethodField()
+    pending_trades = serializers.SerializerMethodField()
+    has_accepted_id = serializers.BooleanField(source="id_accepted", read_only=True)
     zones = serializers.SerializerMethodField()
     missions_done = serializers.IntegerField(source="n_done", default=0)
     rating = serializers.SerializerMethodField()
@@ -289,6 +291,8 @@ class ProRowSerializer(serializers.ModelSerializer):
             "photo",
             "years_experience",
             "trades",
+            "pending_trades",
+            "has_accepted_id",
             "zones",
             "is_verified",
             "verified_at",
@@ -302,6 +306,10 @@ class ProRowSerializer(serializers.ModelSerializer):
 
     def get_trades(self, profile) -> list[str]:
         return [t.name for t in profile.trades.all()]
+
+    def get_pending_trades(self, profile) -> list[dict]:
+        """Métiers ajoutés par le pro, à valider : id (pour l'action) et nom."""
+        return [{"id": t.pk, "name": t.name} for t in profile.pending_trades.all()]
 
     def get_zones(self, profile) -> list[str]:
         return [z.name for z in profile.zones.all()]

@@ -138,6 +138,17 @@ class ProProfile(models.Model):
     headline = models.CharField("accroche", max_length=120, blank=True)
     bio = models.TextField("présentation", blank=True)
     trades = models.ManyToManyField("catalog.Trade", related_name="pros", verbose_name="métiers")
+    # Ajoutés par le pro depuis son profil : il ne voit ni ne chiffre ces demandes tant que
+    # l'équipe ne les a pas validés (console, fiche pro).
+    pending_trades = models.ManyToManyField(
+        "catalog.Trade", related_name="+", blank=True, verbose_name="métiers demandés"
+    )
+    trade_note = models.CharField(
+        "message sur les métiers",
+        max_length=300,
+        blank=True,
+        help_text="Dernier refus d'un métier demandé ; affiché au pro dans son profil.",
+    )
     zones = models.ManyToManyField(
         "catalog.Zone", related_name="pros", blank=True, verbose_name="quartiers desservis"
     )

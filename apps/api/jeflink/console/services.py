@@ -90,6 +90,26 @@ def reject_pro(staff, profile: ProProfile, reason: str) -> ProProfile:
 
 
 @transaction.atomic
+def decide_trade(staff, profile: ProProfile, trade: Trade, approve: bool, reason: str = ""):
+    """Métier demandé par le pro : validé (il en voit et chiffre les demandes) ou refusé (le
+    motif s'affiche dans son profil)."""
+    _staff(staff)
+    if not profile.pending_trades.filter(pk=trade.pk).exists():
+        raise ValidationError("Ce métier n'est pas demandé par ce pro.")
+    if not approve:
+        reason = _required(reason, "Indiquez au pro pourquoi ce métier est refusé.")
+    profile.pending_trades.remove(trade)
+    if approve:
+        profile.trades.add(trade)
+    else:
+        profile.trade_note = f"{trade.name} : {reason}"[:300]
+        profile.save(update_fields=["trade_note"])
+    action = A.TRADE_APPROVE if approve else A.TRADE_REFUSE
+    log(staff, action, "pro", profile.user_id, f"{profile.user} — {trade.name}", reason)
+    return profile
+
+
+@transaction.atomic
 def review_document(staff, document: ProDocument, accept: bool, reason: str = "") -> ProDocument:
     """Accepter ou refuser un justificatif à examiner ; le motif d'un refus est montré au pro."""
     _staff(staff)

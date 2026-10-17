@@ -72,6 +72,7 @@ def test_pastilles_du_menu(staff, mission):
     res = as_user(staff).get("/api/console/badges/")
     assert res.data == {
         "pros_pending": 1,
+        "trades_pending": 0,
         "stale_requests": 0,
         "cancel_requests": 0,
         "contact_unhandled": 0,
