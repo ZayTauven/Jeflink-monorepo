@@ -95,12 +95,15 @@ def test_un_client_ne_voit_pas_les_demandes_des_autres(catalog):
     assert moussa.get("/api/requests/").data == []
 
 
-def test_pro_non_verifie_ne_peut_pas_chiffrer(catalog):
+def test_pro_non_verifie_ne_recoit_aucune_demande(catalog):
     awa, _ = register(email="awa@example.com")
     pro, _ = register(email="pro@example.com", role="pro", trades=["plomberie"])
     req_id = publish(awa)
+    # Ni dans sa liste, ni en direct : la demande n'existe pas pour lui avant la vérification.
+    assert pro.get("/api/requests/?scope=open").data == []
+    assert pro.get(f"/api/requests/{req_id}/").status_code == 404
     res = pro.post(f"/api/requests/{req_id}/quotes/", {"amount": 10000}, format="json")
-    assert res.status_code == 403
+    assert res.status_code == 404
 
 
 def test_trois_devis_maximum(catalog):

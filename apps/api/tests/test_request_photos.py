@@ -136,7 +136,7 @@ def test_photos_reservees_aux_pros_verifies_et_au_pro_choisi(world):
     newcomer = User.objects.create_user("nouveau@example.com", PASSWORD, role=User.Role.PRO)
     ProProfile.objects.create(user=newcomer).trades.add(req.trade)
     assert as_user(newcomer).get(url).status_code == 404
-    assert as_user(newcomer).get(f"/api/requests/{req.pk}/").data["photos"] == []
+    assert as_user(newcomer).get(f"/api/requests/{req.pk}/").status_code == 404
 
     # Deux pros chiffrent ; une fois la mission réservée, seul le pro choisi les voit encore.
     rival = User.objects.create_user("rival@example.com", PASSWORD, role=User.Role.PRO)

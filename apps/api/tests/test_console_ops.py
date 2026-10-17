@@ -159,7 +159,7 @@ def test_verifier_un_pro_lui_permet_de_chiffrer(world):
     )
     assert (
         as_user(waiting).post(f"/api/requests/{req.pk}/quotes/", {"amount": 5000}).status_code
-        == 403
+        == 404  # non vérifié : la demande lui est invisible
     )
 
     res = as_user(staff).post(f"/api/console/pros/{waiting.pk}/verify/")

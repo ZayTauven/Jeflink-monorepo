@@ -62,9 +62,13 @@ def transition(req: ServiceRequest, to: str, actor, note: str = "") -> ServiceRe
 
 
 def open_requests_for_pro(pro):
-    """Demandes ouvertes dans les métiers (et quartiers, s'il en a choisi) du pro."""
+    """Demandes ouvertes dans les métiers (et quartiers, s'il en a choisi) du pro.
+
+    Pro non vérifié (nouveau, refusé ou vérification retirée) : aucune. Il ne voit ni le
+    titre, ni le quartier, ni le repère, ni les photos des clients avant le contrôle de l'équipe.
+    """
     profile = getattr(pro, "pro_profile", None)
-    if profile is None:
+    if profile is None or not profile.is_verified:
         return ServiceRequest.objects.none()
     qs = ServiceRequest.objects.filter(
         status=S.OPEN, trade__in=profile.trades.all(), client__is_active=True
