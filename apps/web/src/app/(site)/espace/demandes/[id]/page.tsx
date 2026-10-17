@@ -24,8 +24,10 @@ const MAX_PHOTOS = 3;
  * que la demande est ouverte ou réservée.
  */
 function RequestPhotos({ req, isClient }: { req: ServiceRequest; isClient: boolean }) {
-  const editable = isClient && (req.status === "open" || req.status === "booked");
-  if (req.photos.length === 0 && !editable) return null;
+  // Ajout tant que la demande est ouverte ou réservée ; retrait à tout moment (c'est chez lui),
+  // sauf pendant un litige : l'API le refuse alors avec un message.
+  const canAdd = isClient && (req.status === "open" || req.status === "booked");
+  if (req.photos.length === 0 && !canAdd) return null;
   return (
     <section
       id="photos"
@@ -48,7 +50,7 @@ function RequestPhotos({ req, isClient }: { req: ServiceRequest; isClient: boole
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img className="jf-photo" src={`/photos/${req.id}/${p.id}`} alt="" />
               </a>
-              {editable && (
+              {isClient && (
                 <form action={`/act/requests/${req.id}/photos/${p.id}`} method="post">
                   <button
                     type="submit"
@@ -63,11 +65,9 @@ function RequestPhotos({ req, isClient }: { req: ServiceRequest; isClient: boole
           ))}
         </ul>
       ) : (
-        <p className="mb-0">
-          Une photo de la panne aide les pros à chiffrer juste, sans se déplacer.
-        </p>
+        <p className="mb-0">Une photo de la panne aide les pros à chiffrer plus juste.</p>
       )}
-      {editable && req.photos.length < MAX_PHOTOS && (
+      {canAdd && req.photos.length < MAX_PHOTOS && (
         <ActionForm
           action={`/act/requests/${req.id}/photos`}
           className="jf-profile-photo__form mt-15px"
@@ -102,6 +102,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
   const isClient = me.id === req.client.id;
   const act = (action: string) => `/act/requests/${req.id}/${action}`;
   const can = (a: ServiceRequest["actions"][number]) => req.actions.includes(a);
+  const photosFirst = isClient && req.quotes.length === 0;
 
   return (
     <PageShell actions={false}>
@@ -116,9 +117,11 @@ export default async function RequestPage({ params, searchParams }: Props) {
                 {PHOTO_DONE[photo]}
               </div>
             )}
-            <RequestPhotos req={req} isClient={isClient} />
+            {photosFirst && <RequestPhotos req={req} isClient={isClient} />}
             {isClient && req.status === "open" && <PromoCard code={req.promo_code} act={act} />}
             <Quotes req={req} isClient={isClient} act={act} canAccept={can("accept")} />
+            {/* Pro : juste avant son devis ; client : après les devis à choisir, s'il y en a. */}
+            {!photosFirst && <RequestPhotos req={req} isClient={isClient} />}
             {can("quote") && <QuoteForm act={act} />}
             {req.status === "open" && !isClient && !can("quote") && req.quotes.length === 0 && (
               <p className="bg-white border-radius-20px p-30px">

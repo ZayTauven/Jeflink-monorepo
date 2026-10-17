@@ -830,6 +830,8 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-block: 1rem;
+  padding: 0;
+  list-style: none;
 }
 .jf-thumbs img {
   display: block;

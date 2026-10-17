@@ -158,8 +158,9 @@ export default async function NewRequestPage({
                       </label>
                       <PhotosInput id="photos" name="photos" describedBy="photos-aide" />
                       <div className="hint" id="photos-aide">
-                        La fuite, l&apos;appareil, sa plaque&nbsp;: le pro chiffre plus juste. Vues
-                        par les pros de ce métier et l&apos;équipe Jeflink seulement.
+                        La fuite, l&apos;appareil, sa plaque&nbsp;: le pro chiffre plus juste.
+                        Choisissez-les ensemble. Vues par les pros qui reçoivent votre demande et
+                        l&apos;équipe Jeflink&nbsp;; évitez les visages et les papiers.
                       </div>
                     </div>
                     <div className="col-md-7 mb-20px">

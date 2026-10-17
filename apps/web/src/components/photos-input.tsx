@@ -21,6 +21,7 @@ export function PhotosInput({
 }) {
   const [previews, setPreviews] = useState<string[]>([]);
   const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews]);
 
@@ -28,6 +29,10 @@ export function PhotosInput({
     const input = event.currentTarget;
     const chosen = Array.from(input.files ?? []);
     const kept = chosen.slice(0, max);
+    // Réduction : 1 à 3 s sur un petit téléphone ; l'envoi attend (sinon les originaux partent).
+    const submit = input.form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+    setBusy(true);
+    if (submit) submit.disabled = true;
     setNote(
       chosen.length > max ? `${max} photos au plus : les ${max} premières sont gardées.` : "",
     );
@@ -36,6 +41,8 @@ export function PhotosInput({
     small.forEach((file) => list.items.add(file));
     input.files = list.files;
     setPreviews(small.map((file) => URL.createObjectURL(file)));
+    setBusy(false);
+    if (submit) submit.disabled = false;
   }
 
   return (
@@ -51,11 +58,10 @@ export function PhotosInput({
         aria-describedby={describedBy}
         onChange={onChange}
       />
-      {note && (
-        <div className="hint text-dark-gray" role="status">
-          {note}
-        </div>
-      )}
+      {/* Toujours rendu : un message qui change dans une zone déjà là est bien annoncé. */}
+      <div className="hint text-dark-gray" role="status" aria-live="polite">
+        {busy ? "Préparation des photos…" : note}
+      </div>
       {previews.length > 0 && (
         <div className="jf-photos mt-10px">
           {previews.map((url, i) => (

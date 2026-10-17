@@ -11,7 +11,8 @@ export async function POST(req: NextRequest) {
   if (!sameOrigin(req)) return forbidden();
   const token = await getToken();
   if (!token) return success(req, "/connexion?suite=/espace/profil", null);
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) {
+  const length = Number(req.headers.get("content-length")); // absente (chunked) : refus
+  if (!(length > 0) || length > MAX_BODY) {
     const error = "Fichier trop lourd : 8 Mo au plus.";
     return failure(req, { ok: false, status: 413, error, fields: {} }, BACK);
   }

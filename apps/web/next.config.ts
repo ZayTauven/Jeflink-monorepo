@@ -24,6 +24,12 @@ const nextConfig: NextConfig = {
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
       ],
     },
+    // Fichiers privés (photos des demandes, documents des pros) : aucune adresse transmise.
+    // Après la règle générale : à clé égale, la dernière l'emporte.
+    ...["/photos/:path*", "/documents/:path*"].map((source) => ({
+      source,
+      headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+    })),
   ],
 };
 

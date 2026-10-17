@@ -12,12 +12,16 @@ const MAX_BODY = 26 * 1024 * 1024;
 /** Publier une demande, puis y joindre ses photos (3 au plus). */
 export async function POST(req: NextRequest) {
   if (!sameOrigin(req)) return forbidden();
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) {
+  // Connexion et taille vérifiées avant de lire le corps. Un navigateur annonce toujours la
+  // taille d'un formulaire : sans elle (envoi « chunked »), refus.
+  const token = await getToken();
+  if (!token) return success(req, `/connexion?suite=${BACK}`, null);
+  const length = Number(req.headers.get("content-length"));
+  if (!(length > 0) || length > MAX_BODY) {
     const error = "Photos trop lourdes : 8 Mo au plus chacune.";
     return failure(req, { ok: false, status: 413, error, fields: {} }, BACK);
   }
   const form = await req.formData();
-  const token = await getToken();
   const res = await api<ServiceRequest>("/api/requests/", {
     method: "POST",
     token,
