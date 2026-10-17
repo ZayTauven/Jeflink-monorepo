@@ -808,6 +808,21 @@
 .jf-inline--end {
   justify-content: flex-end;
 }
+.jf-inline--between {
+  display: flex;
+  justify-content: space-between;
+}
+/* Document d'un pro (fiche pro) : une ligne par justificatif. */
+.jf-doc {
+  display: grid;
+  gap: 0.375rem;
+  padding-block-end: 0.75rem;
+  border-block-end: 1px solid var(--ax-border);
+}
+.jf-doc:last-child {
+  padding-block-end: 0;
+  border-block-end: 0;
+}
 
 /* ── Formulaires (catalogue, réglages, équipe) ─────────────────────────────────── */
 .jf-form {

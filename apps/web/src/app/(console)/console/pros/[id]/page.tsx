@@ -11,6 +11,12 @@ import type { ProDetail } from "@/console/types";
 import { Card, Kpi, PageHead } from "@/console/ui";
 import { formatDate, formatRating } from "@/lib/format";
 
+const DOC_STATUS = {
+  pending: "jf-status--open",
+  accepted: "jf-status--done",
+  rejected: "jf-status--cancelled",
+};
+
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Query> };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -145,12 +151,73 @@ export default async function ProPage({ params, searchParams }: Props) {
             {p.bio && <p className="jf-prose mt-3">{p.bio}</p>}
           </Card>
 
+          <Card title="Documents" eyebrow="Vérification">
+            {p.documents.length === 0 ? (
+              <p className="jf-muted">
+                Aucun document. Le pro envoie sa pièce d'identité depuis son profil.
+              </p>
+            ) : (
+              <ul className="jf-stack jf-stack--tight" aria-label="Documents du pro">
+                {p.documents.map((d) => (
+                  <li key={d.id} className="jf-doc">
+                    <div className="jf-inline jf-inline--between">
+                      <b>{d.kind_label}</b>
+                      <span className={`jf-status ${DOC_STATUS[d.status]}`}>{d.status_label}</span>
+                    </div>
+                    <p className="jf-muted">
+                      Envoyé {ago(d.created_at)} ·{" "}
+                      <a
+                        className="jf-link"
+                        href={`/documents/${d.id}`}
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        {d.content_type === "application/pdf"
+                          ? "Télécharger le PDF"
+                          : "Ouvrir la photo"}
+                      </a>
+                    </p>
+                    {d.note && <p className="jf-flag">Refusé : {d.note}</p>}
+                    {d.status === "pending" && (
+                      <div className="jf-inline">
+                        <ActionButton
+                          endpoint={`/api/console/documents/${d.id}/accept/`}
+                          back={here}
+                          ok="Document accepté."
+                          label="Accepter"
+                          variant="ax-btn ax-btn--primary ax-btn--sm"
+                        />
+                        <ReasonAction
+                          endpoint={`/api/console/documents/${d.id}/reject/`}
+                          back={here}
+                          ok="Document refusé : le pro voit le motif dans son profil."
+                          label="Refuser…"
+                          title="Refuser le document"
+                          subject={`${d.kind_label} de ${a.name}`}
+                          confirm="Refuser"
+                          placeholder="Ex. : photo floue, pièce expirée."
+                          danger={false}
+                        />
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
           <Card title="Actions" eyebrow="Équipe">
             <div className="jf-stack jf-stack--tight">
               {p.verification_note && (
                 <p className="jf-flag">Dernier refus : {p.verification_note}</p>
               )}
-              {a.is_active && !p.is_verified && (
+              {a.is_active && !p.is_verified && !p.has_accepted_id && (
+                <p className="jf-flag">
+                  Pour vérifier ce pro, acceptez d'abord sa pièce d'identité (Documents), après
+                  l'avoir comparée à la personne au téléphone.
+                </p>
+              )}
+              {a.is_active && !p.is_verified && p.has_accepted_id && (
                 <ActionButton
                   endpoint={endpoint("verify")}
                   back={here}

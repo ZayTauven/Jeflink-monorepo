@@ -35,6 +35,19 @@ export type Stats = {
   average_rating: number | null;
 };
 
+/** Justificatif d'un pro ; le fichier s'ouvre par /documents/<id> (accès vérifié par l'API). */
+export type ProDocument = {
+  id: number;
+  kind: "id" | "certificate" | "other";
+  kind_label: string;
+  status: "pending" | "accepted" | "rejected";
+  status_label: string;
+  note: string;
+  content_type: string;
+  created_at: string;
+  reviewed_at: string | null;
+};
+
 export type ContactPref = "" | "call" | "whatsapp";
 export type ContactHours = "" | "morning" | "afternoon" | "evening";
 
@@ -69,6 +82,7 @@ export type Me = {
     is_verified: boolean;
     verification_note: string;
     photo: string;
+    documents: ProDocument[];
   } | null;
 };
 

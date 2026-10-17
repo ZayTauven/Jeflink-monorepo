@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 
 import { AccountHero, ErrorAlert } from "@/components/account";
 import { ActionForm } from "@/components/action-form";
+import { ImageInput } from "@/components/image-input";
 import { SwitchSubmit } from "@/components/crafto";
 import { PageShell } from "@/components/page-shell";
 import { getZones, requireMe } from "@/lib/api";
-import type { ContactHours, ContactPref, Me, Zone } from "@/lib/types";
+import { formatDate } from "@/lib/format";
+import type { ContactHours, ContactPref, Me, ProDocument, Zone } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Mon profil" };
 
@@ -27,6 +29,8 @@ const DONE: Record<string, string> = {
   profil: "Profil enregistré.",
   adresse: "Adresse enregistrée.",
   "adresse-retiree": "Adresse supprimée.",
+  document: "Document envoyé : l'équipe Jeflink l'examine.",
+  "document-retire": "Document retiré.",
 };
 
 const LABELS = {
@@ -154,6 +158,8 @@ export default async function ProfilePage({ searchParams }: Props) {
               </ActionForm>
             </section>
 
+            {pro && <Documents documents={pro.documents} />}
+
             {!pro && (
               <section
                 id="adresses"
@@ -269,6 +275,128 @@ export default async function ProfilePage({ searchParams }: Props) {
         </a>
       </AccountHero>
     </PageShell>
+  );
+}
+
+const DOC_STATUS = {
+  pending: "status-open",
+  accepted: "status-done",
+  rejected: "status-cancelled",
+};
+
+const DOC_KINDS = [
+  { value: "id", label: "Pièce d'identité (CNI ou passeport)" },
+  { value: "certificate", label: "Diplôme ou attestation" },
+  { value: "other", label: "Autre justificatif" },
+];
+
+/** Justificatifs du pro : privés, vus par l'équipe Jeflink seulement. */
+function Documents({ documents }: { documents: ProDocument[] }) {
+  const hasId = documents.some((d) => d.kind === "id" && d.status !== "rejected");
+  return (
+    <section
+      id="documents"
+      className="bg-white border-radius-20px p-40px sm-p-25px mb-30px"
+      aria-labelledby="documents-titre"
+    >
+      <h2 id="documents-titre" className="h5 alt-font fw-500 mb-10px">
+        Mes documents
+      </h2>
+      <p className="mb-25px">
+        Votre pièce d&apos;identité est obligatoire pour être vérifié et envoyer des devis. Vos
+        diplômes et attestations rassurent les clients. Seule l&apos;équipe Jeflink les voit.
+      </p>
+      {documents.length > 0 && (
+        <ul className="list-unstyled mb-30px">
+          {documents.map((d) => (
+            <li
+              key={d.id}
+              className="d-flex flex-wrap align-items-center justify-content-between gap-2 border-bottom border-color-extra-medium-gray py-15px"
+            >
+              <span>
+                <span className="d-flex flex-wrap align-items-center gap-2 fw-500 text-dark-gray">
+                  {d.kind_label}
+                  <span className={`status-pill ${DOC_STATUS[d.status]}`}>{d.status_label}</span>
+                </span>
+                <span className="d-block fs-14">
+                  Envoyé le {formatDate(d.created_at)}
+                  {d.content_type === "application/pdf" ? " · PDF" : " · photo"}
+                </span>
+                {d.note && (
+                  <span className="d-block fs-15 text-dark-gray">
+                    Motif du refus&nbsp;: {d.note}
+                  </span>
+                )}
+              </span>
+              <span className="d-flex gap-3">
+                <a
+                  href={`/documents/${d.id}`}
+                  className="jf-link-button"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Ouvrir
+                </a>
+                {d.status !== "accepted" && (
+                  <form action={`/act/documents/${d.id}`} method="post">
+                    <button
+                      type="submit"
+                      className="jf-link-button"
+                      aria-label={`Retirer ${d.kind_label.toLowerCase()}`}
+                    >
+                      Retirer
+                    </button>
+                  </form>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <ActionForm
+        action="/act/documents"
+        className="jf-form"
+        labels={{ kind: "Type", file: "Fichier" }}
+      >
+        <div className="row">
+          <div className="col-md-6 mb-20px">
+            <label htmlFor="kind">Type de document</label>
+            <select
+              id="kind"
+              name="kind"
+              className="form-control"
+              defaultValue={hasId ? "certificate" : "id"}
+            >
+              {DOC_KINDS.map((k) => (
+                <option key={k.value} value={k.value}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="col-md-6 mb-20px">
+            <label htmlFor="file">Photo ou PDF</label>
+            <ImageInput
+              id="file"
+              name="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              maxSide={2000}
+              className="form-control"
+              aria-describedby="file-aide"
+              required
+            />
+            <div className="hint" id="file-aide">
+              Photo nette, à plat, bien éclairée&nbsp;; 8&nbsp;Mo au plus.
+            </div>
+          </div>
+        </div>
+        <SwitchSubmit
+          label="Envoyer le document"
+          icon="icon-feather-upload"
+          className="btn-medium btn-dark-gray btn-rounded"
+        />
+      </ActionForm>
+    </section>
   );
 }
 

@@ -35,6 +35,9 @@ export default async function DashboardPage({ searchParams }: Props) {
     : [[], await list("/api/requests/", token)];
   const verified = me.pro_profile?.is_verified ?? false;
   const note = me.pro_profile?.verification_note ?? ""; // motif d'un refus de vérification
+  const hasId = (me.pro_profile?.documents ?? []).some(
+    (d) => d.kind === "id" && d.status !== "rejected",
+  );
 
   const logout = (
     <form action="/act/logout" method="post" className="mt-auto">
@@ -72,8 +75,17 @@ export default async function DashboardPage({ searchParams }: Props) {
                     ) : (
                       <p className="mb-0">
                         Vous voyez déjà les demandes de vos métiers. Vous pourrez envoyer des devis
-                        dès que l&apos;équipe Jeflink aura vérifié votre profil
-                        <span className="opacity-7"> (démo : console, rubrique Pros)</span>.
+                        dès que l&apos;équipe Jeflink aura vérifié votre profil.{" "}
+                        {hasId ? (
+                          "Votre pièce d'identité est entre ses mains."
+                        ) : (
+                          <a
+                            href="/espace/profil#documents"
+                            className="fw-500 text-decoration-line-bottom"
+                          >
+                            Envoyez votre pièce d&apos;identité.
+                          </a>
+                        )}
                       </p>
                     )}
                   </div>

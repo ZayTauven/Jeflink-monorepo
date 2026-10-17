@@ -44,6 +44,7 @@ export function ImageInput({
   previewAlt = "",
   autoSubmit = false,
   required = false,
+  accept = "image/jpeg,image/png,image/webp",
   "aria-describedby": describedBy,
 }: {
   id: string;
@@ -57,6 +58,8 @@ export function ImageInput({
   previewAlt?: string;
   autoSubmit?: boolean;
   required?: boolean;
+  /** Types acceptés ; un PDF (justificatifs) part tel quel, sans réduction ni aperçu. */
+  accept?: string;
   "aria-describedby"?: string;
 }) {
   const [preview, setPreview] = useState(current);
@@ -102,7 +105,7 @@ export function ImageInput({
         name={name}
         type="file"
         // Sans « image/heic » : l'iPhone convertit sa photo en JPEG avant de la donner.
-        accept="image/jpeg,image/png,image/webp"
+        accept={accept}
         className={className}
         required={required}
         aria-describedby={describedBy}

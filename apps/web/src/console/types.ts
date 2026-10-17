@@ -1,4 +1,4 @@
-import type { RequestStatus } from "@/lib/types";
+import type { ProDocument, RequestStatus } from "@/lib/types";
 
 /** Réponses de l'API console (`/api/console/…`). Montants en F CFA entiers. */
 
@@ -206,6 +206,8 @@ export type ProDetail = ProRow & {
   missions: RequestRow[];
   reviews: ReviewRow[];
   disputes: DisputeRow[];
+  documents: ProDocument[];
+  has_accepted_id: boolean;
 };
 
 export type ClientRow = Account & {
